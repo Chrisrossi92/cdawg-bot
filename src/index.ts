@@ -31,6 +31,8 @@ import { startScheduler } from "./scheduler/scheduler.js";
 import { handleLevelShareInteraction } from "./systems/level-share.js";
 import { addXp } from "./systems/xp.js";
 import { buildWelcomeMessage } from "./lib/welcome.js";
+import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
+import { handlePassiveChatMessage } from "./systems/passive-chat.js";
 
 dotenv.config();
 
@@ -53,22 +55,6 @@ const lastChatXpGainAtByUserId = new Map<string, number>();
 const recentChatMessagesByUserId = new Map<string, string[]>();
 const RECENT_CHAT_MESSAGE_LIMIT = 5;
 const activeRoleFollowupKeys = new Set<string>();
-
-function normalizeChatMessage(content: string) {
-  return content.trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function isLikelyCommandMessage(content: string) {
-  const trimmed = content.trim();
-  return trimmed.startsWith("/") || trimmed.startsWith("!") || trimmed.startsWith(".");
-}
-
-function passesChatQualityThresholds(content: string) {
-  const nonSpaceChars = content.replace(/\s+/g, "").length;
-  const wordCount = content.trim().split(/\s+/).filter(Boolean).length;
-
-  return nonSpaceChars >= CHAT_XP_MIN_NON_SPACE_CHARS && wordCount >= CHAT_XP_MIN_WORD_COUNT;
-}
 
 function isRecentDuplicateMessage(userId: string, normalizedContent: string) {
   const recentMessages = recentChatMessagesByUserId.get(userId) ?? [];
@@ -118,12 +104,12 @@ client.on(Events.GuildMemberAdd, async (member) => {
   try {
     const channel = await member.guild.channels.fetch(welcomeConfig.welcomeChannelId);
     const channelFound = Boolean(channel);
-    const channelSendable = Boolean(channel && channel.isTextBased() && "send" in channel);
+    const channelSendable = Boolean(channel?.isTextBased() && "send" in channel);
 
     console.log(`[welcome] target channel found=${channelFound}`);
     console.log(`[welcome] target channel sendable=${channelSendable}`);
 
-    if (!channelSendable) {
+    if (!channel?.isTextBased() || !("send" in channel)) {
       return;
     }
 
@@ -177,12 +163,12 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
     try {
       const channel = await newMember.guild.channels.fetch(roleConfig.channelId);
       const channelFound = Boolean(channel);
-      const channelSendable = Boolean(channel && channel.isTextBased() && "send" in channel);
+      const channelSendable = Boolean(channel?.isTextBased() && "send" in channel);
 
       console.log(`[role-followup] target channel found=${channelFound}`);
       console.log(`[role-followup] target channel sendable=${channelSendable}`);
 
-      if (!channelSendable) {
+      if (!channel?.isTextBased() || !("send" in channel)) {
         continue;
       }
 
@@ -203,58 +189,49 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
   }
 });
 
-client.on(Events.MessageCreate, (message) => {
+client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) {
     return;
   }
 
-  if (!chatXpEligibleChannelIds.has(message.channelId)) {
-    return;
+  if (chatXpEligibleChannelIds.has(message.channelId) && !isLikelyCommandMessage(message.content)) {
+    const normalizedContent = normalizeChatMessage(message.content);
+
+    if (
+      normalizedContent &&
+      passesMessageQualityThresholds(message.content, CHAT_XP_MIN_NON_SPACE_CHARS, CHAT_XP_MIN_WORD_COUNT) &&
+      !isRecentDuplicateMessage(message.author.id, normalizedContent)
+    ) {
+      const now = Date.now();
+      const lastGainAt = lastChatXpGainAtByUserId.get(message.author.id) ?? 0;
+
+      if (now - lastGainAt < CHAT_XP_COOLDOWN_MS) {
+        rememberRecentChatMessage(message.author.id, normalizedContent);
+      } else {
+        const xpResult = addXp(message.author.id, CHAT_XP_AMOUNT);
+
+        rememberRecentChatMessage(message.author.id, normalizedContent);
+
+        if (xpResult.awarded) {
+          lastChatXpGainAtByUserId.set(message.author.id, now);
+
+          const milestoneMessage = getRankMilestoneMessage(
+            message.author.id,
+            xpResult.previousRank,
+            xpResult.newRank,
+            xpResult.newLevel,
+            xpResult.newXp,
+          );
+
+          if (milestoneMessage) {
+            await message.channel.send(milestoneMessage);
+          }
+        }
+      }
+    }
   }
 
-  if (isLikelyCommandMessage(message.content)) {
-    return;
-  }
-
-  if (!passesChatQualityThresholds(message.content)) {
-    return;
-  }
-
-  const normalizedContent = normalizeChatMessage(message.content);
-
-  if (!normalizedContent || isRecentDuplicateMessage(message.author.id, normalizedContent)) {
-    return;
-  }
-
-  const now = Date.now();
-  const lastGainAt = lastChatXpGainAtByUserId.get(message.author.id) ?? 0;
-
-  if (now - lastGainAt < CHAT_XP_COOLDOWN_MS) {
-    rememberRecentChatMessage(message.author.id, normalizedContent);
-    return;
-  }
-
-  const xpResult = addXp(message.author.id, CHAT_XP_AMOUNT);
-
-  rememberRecentChatMessage(message.author.id, normalizedContent);
-
-  if (!xpResult.awarded) {
-    return;
-  }
-
-  lastChatXpGainAtByUserId.set(message.author.id, now);
-
-  const milestoneMessage = getRankMilestoneMessage(
-    message.author.id,
-    xpResult.previousRank,
-    xpResult.newRank,
-    xpResult.newLevel,
-    xpResult.newXp,
-  );
-
-  if (milestoneMessage) {
-    void message.channel.send(milestoneMessage);
-  }
+  await handlePassiveChatMessage(message);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
