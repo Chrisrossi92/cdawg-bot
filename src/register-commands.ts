@@ -4,6 +4,7 @@ import { data as announce } from "./commands/announce.js";
 import { data as botHelp } from "./commands/bot-help.js";
 import { data as ping } from "./commands/ping.js";
 import { data as fact } from "./commands/fact.js";
+import { data as joke } from "./commands/joke.js";
 import { data as leaderboard } from "./commands/leaderboard.js";
 import { data as profile } from "./commands/profile.js";
 import { data as prompt } from "./commands/prompt.js";
@@ -36,6 +37,7 @@ const commands = [
   botHelp.toJSON(),
   ping.toJSON(),
   fact.toJSON(),
+  joke.toJSON(),
   leaderboard.toJSON(),
   profile.toJSON(),
   prompt.toJSON(),

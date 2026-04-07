@@ -14,6 +14,7 @@ import { welcomeConfig } from "./config/welcome.js";
 import * as ping from "./commands/ping.js";
 import * as ranks from "./commands/ranks.js";
 import * as fact from "./commands/fact.js";
+import * as joke from "./commands/joke.js";
 import * as leaderboard from "./commands/leaderboard.js";
 import * as profile from "./commands/profile.js";
 import * as prompt from "./commands/prompt.js";
@@ -72,6 +73,7 @@ const commands = new Collection([
   [botHelp.data.name, botHelp],
   [ping.data.name, ping],
   [fact.data.name, fact],
+  [joke.data.name, joke],
   [leaderboard.data.name, leaderboard],
   [profile.data.name, profile],
   [prompt.data.name, prompt],

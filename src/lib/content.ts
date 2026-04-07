@@ -5,6 +5,9 @@ import { facts as historyFacts } from "../content/facts/history.js";
 import { facts as palworldFacts } from "../content/facts/palworld.js";
 import { facts as pokemonFacts } from "../content/facts/pokemon.js";
 import { facts as valheimFacts } from "../content/facts/valheim.js";
+import { jokes as generalJokes } from "../content/jokes/general.js";
+import { jokes as palworldJokes } from "../content/jokes/palworld.js";
+import { jokes as valheimJokes } from "../content/jokes/valheim.js";
 import { prompts as generalDiscussionPrompts } from "../content/prompts/general.js";
 import { prompts as genealogyPrompts } from "../content/prompts/genealogy.js";
 import { prompts as harryPotterPrompts } from "../content/prompts/harry-potter.js";
@@ -23,7 +26,7 @@ import { wyrPrompts as historyWyrPrompts } from "../content/wyr/history.js";
 import { wyrPrompts as pokemonWyrPrompts } from "../content/wyr/pokemon.js";
 import { wyrPrompts as valheimWyrPrompts } from "../content/wyr/valheim.js";
 
-export type ContentType = "fact" | "wyr" | "prompt" | "trivia";
+export type ContentType = "fact" | "joke" | "wyr" | "prompt" | "trivia";
 const RECENT_ITEMS_TO_REMEMBER = 3;
 
 const factsByTopic: Partial<Record<Topic, readonly string[]>> = {
@@ -32,6 +35,12 @@ const factsByTopic: Partial<Record<Topic, readonly string[]>> = {
   palworld: palworldFacts,
   pokemon: pokemonFacts,
   valheim: valheimFacts,
+};
+
+const jokesByTopic: Partial<Record<Topic, readonly string[]>> = {
+  general: generalJokes,
+  palworld: palworldJokes,
+  valheim: valheimJokes,
 };
 
 const wyrPromptsByTopic: Partial<Record<Topic, readonly string[]>> = {
@@ -128,6 +137,15 @@ export function formatFactMessage(fact: string): string {
   return `**Cdawg Bot Fact Drop**\n${fact}`;
 }
 
+export function getJokeText(topic: Topic): string | undefined {
+  const jokes = jokesByTopic[topic] ?? generalJokes;
+  return pickRandomItem(jokes);
+}
+
+export function formatJokeMessage(joke: string): string {
+  return `**Cdawg Bot Joke Drop**\n${joke}`;
+}
+
 export function getWyrText(topic: Topic): string | undefined {
   const prompts = wyrPromptsByTopic[topic] ?? generalWyrPrompts;
   return pickRandomItem(prompts);
@@ -190,6 +208,18 @@ export function getContentMessage(
       }
 
       return prompt ? formatWyrMessage(prompt) : undefined;
+    }
+    case "joke": {
+      const jokes = jokesByTopic[topic] ?? generalJokes;
+      const joke = channelId
+        ? pickRandomItemAvoidingRecent(jokes, recentKeys, (item) => item)
+        : getJokeText(topic);
+
+      if (channelId && joke) {
+        rememberRecentItem(channelId, contentType, joke);
+      }
+
+      return joke ? formatJokeMessage(joke) : undefined;
     }
     case "prompt": {
       const prompts = discussionPromptsByTopic[topic] ?? generalDiscussionPrompts;
