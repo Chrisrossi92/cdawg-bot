@@ -1,4 +1,4 @@
-import { contentProviderConfig } from "../config/content-provider.js";
+import { getContentProviderSettings } from "../config/content-provider.js";
 import type { ContentType } from "./content-provider.js";
 
 type ContentProviderLogDetails = {
@@ -15,7 +15,7 @@ export function logContentProviderEvent(
   event: string,
   details: ContentProviderLogDetails = {},
 ) {
-  if (!contentProviderConfig.debugLogging) {
+  if (!getContentProviderSettings().debugLogging) {
     return;
   }
 

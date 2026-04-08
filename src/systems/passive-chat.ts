@@ -1,5 +1,5 @@
 import type { Message } from "discord.js";
-import { passiveChatConfig } from "../config/passive-chat.js";
+import { getPassiveChatSettings } from "../config/passive-chat.js";
 import type { Topic } from "../config/topics.js";
 import { passesMessageQualityThresholds, isLikelyCommandMessage, normalizeChatMessage } from "../lib/chat-messages.js";
 import { getChannelTopic, getContentMessage, pickRandomItem } from "../lib/content.js";
@@ -32,7 +32,7 @@ const recentPassiveRepliesByChannelId = new Map<string, string[]>();
 const passiveStateByChannelId = new Map<string, ChannelPassiveState>();
 
 function logPassiveDecision(message: Message, reason: string, details?: string) {
-  if (!passiveChatConfig.debugLogging) {
+  if (!getPassiveChatSettings().debugLogging) {
     return;
   }
 
@@ -41,9 +41,10 @@ function logPassiveDecision(message: Message, reason: string, details?: string) 
 }
 
 function rememberPassiveReply(channelId: string, reply: string) {
+  const settings = getPassiveChatSettings();
   const recentReplies = recentPassiveRepliesByChannelId.get(channelId) ?? [];
   const nextReplies = [...recentReplies.filter((entry) => entry !== reply), reply];
-  recentPassiveRepliesByChannelId.set(channelId, nextReplies.slice(-passiveChatConfig.recentReplyMemorySize));
+  recentPassiveRepliesByChannelId.set(channelId, nextReplies.slice(-settings.recentReplyMemorySize));
 }
 
 function getOrCreateChannelState(channelId: string): ChannelPassiveState {
@@ -64,8 +65,9 @@ function getOrCreateChannelState(channelId: string): ChannelPassiveState {
 }
 
 function rememberChannelMessage(state: ChannelPassiveState, normalizedContent: string) {
+  const settings = getPassiveChatSettings();
   const nextMessages = [...state.recentMessages, normalizedContent];
-  state.recentMessages = nextMessages.slice(-passiveChatConfig.recentMessageMemorySize);
+  state.recentMessages = nextMessages.slice(-settings.recentMessageMemorySize);
 }
 
 function getBiasedTopic(channelTopic: Topic, recentMessages: readonly string[]) {
@@ -73,8 +75,9 @@ function getBiasedTopic(channelTopic: Topic, recentMessages: readonly string[]) 
     return channelTopic;
   }
 
+  const settings = getPassiveChatSettings();
   const topicScores = getPassiveTopicSignalScores(recentMessages)
-    .filter((entry) => entry.score >= passiveChatConfig.topicBiasMinimumMatches)
+    .filter((entry) => entry.score >= settings.topicBiasMinimumMatches)
     .sort((left, right) => right.score - left.score);
   const topScore = topicScores[0];
   const secondScore = topicScores[1];
@@ -87,7 +90,7 @@ function getBiasedTopic(channelTopic: Topic, recentMessages: readonly string[]) 
 }
 
 function getConversationNudgeContentType() {
-  return pickRandomItem(passiveChatConfig.conversationNudgeContentTypes) ?? "prompt";
+  return pickRandomItem(getPassiveChatSettings().conversationNudgeContentTypes) ?? "prompt";
 }
 
 function getKeywordCandidate(message: Message, normalizedContent: string, topic: Topic): PassiveReplyCandidate | undefined {
@@ -112,10 +115,9 @@ function getSmartCandidate(
   topic: Topic,
   now: number,
 ): PassiveReplyCandidate | undefined {
-  if (
-    previousLastUserMessageAt > 0 &&
-    now - previousLastUserMessageAt >= passiveChatConfig.quietChannelThresholdMs
-  ) {
+  const settings = getPassiveChatSettings();
+
+  if (previousLastUserMessageAt > 0 && now - previousLastUserMessageAt >= settings.quietChannelThresholdMs) {
     return {
       kind: "smart",
       topic,
@@ -124,7 +126,7 @@ function getSmartCandidate(
     };
   }
 
-  if (state.messagesSinceBotInteraction < passiveChatConfig.conversationNudgeMessageThreshold) {
+  if (state.messagesSinceBotInteraction < settings.conversationNudgeMessageThreshold) {
     return undefined;
   }
 
@@ -137,19 +139,20 @@ function getSmartCandidate(
 }
 
 function passesPassiveCooldowns(message: Message, candidate: PassiveReplyCandidate, now: number) {
+  const settings = getPassiveChatSettings();
   const lastChannelReplyAt = lastPassiveReplyAtByChannelId.get(message.channelId) ?? 0;
 
-  if (Math.random() >= passiveChatConfig.triggerChance) {
+  if (Math.random() >= settings.triggerChance) {
     logPassiveDecision(message, "skip.chance-gate", `topic=${candidate.topic} ${candidate.reason}`);
     return false;
   }
 
-  if (now - lastPassiveReplyAt < passiveChatConfig.globalCooldownMs) {
+  if (now - lastPassiveReplyAt < settings.globalCooldownMs) {
     logPassiveDecision(message, "skip.global-cooldown", `topic=${candidate.topic} ${candidate.reason}`);
     return false;
   }
 
-  if (now - lastChannelReplyAt < passiveChatConfig.channelCooldownMs) {
+  if (now - lastChannelReplyAt < settings.channelCooldownMs) {
     logPassiveDecision(message, "skip.channel-cooldown", `topic=${candidate.topic} ${candidate.reason}`);
     return false;
   }
@@ -188,11 +191,13 @@ function markPassiveInteraction(channelId: string, reply: string) {
 }
 
 export async function handlePassiveChatMessage(message: Message) {
-  if (!passiveChatConfig.enabled || message.author.bot) {
+  const settings = getPassiveChatSettings();
+
+  if (!settings.enabled || message.author.bot) {
     return;
   }
 
-  if (!passiveChatConfig.eligibleChannelIds.has(message.channelId)) {
+  if (!settings.eligibleChannelIds.has(message.channelId)) {
     logPassiveDecision(message, "skip.channel-not-allowlisted");
     return;
   }
@@ -205,8 +210,8 @@ export async function handlePassiveChatMessage(message: Message) {
   if (
     !passesMessageQualityThresholds(
       message.content,
-      passiveChatConfig.minNonSpaceChars,
-      passiveChatConfig.minWordCount,
+      settings.minNonSpaceChars,
+      settings.minWordCount,
     )
   ) {
     logPassiveDecision(message, "skip.low-quality");

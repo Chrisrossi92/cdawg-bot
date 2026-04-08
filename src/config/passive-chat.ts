@@ -1,21 +1,10 @@
-export const passiveChatConfig = {
-  enabled: true,
-  debugLogging: true,
-  eligibleChannelIds: new Set([
-    "1480388771001139302",
-    "1463685992782237890",
-    "1463686052509388894",
-    "1482887724871712788",
-  ]),
-  globalCooldownMs: 12 * 60 * 1000,
-  channelCooldownMs: 5 * 60 * 1000,
-  triggerChance: 0.14,
-  minNonSpaceChars: 8,
-  minWordCount: 2,
-  recentReplyMemorySize: 3,
-  recentMessageMemorySize: 6,
-  quietChannelThresholdMs: 20 * 60 * 1000,
-  conversationNudgeMessageThreshold: 6,
-  topicBiasMinimumMatches: 2,
-  conversationNudgeContentTypes: ["prompt", "trivia", "joke"],
-} as const;
+import { getBotSettings } from "../systems/bot-settings.js";
+
+export function getPassiveChatSettings() {
+  const passiveChatSettings = getBotSettings().passiveChat;
+
+  return {
+    ...passiveChatSettings,
+    eligibleChannelIds: new Set(passiveChatSettings.eligibleChannelIds),
+  };
+}
