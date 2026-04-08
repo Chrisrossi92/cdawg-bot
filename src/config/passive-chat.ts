@@ -1,5 +1,6 @@
 export const passiveChatConfig = {
   enabled: true,
+  debugLogging: true,
   eligibleChannelIds: new Set([
     "1480388771001139302",
     "1463685992782237890",
@@ -11,4 +12,5 @@ export const passiveChatConfig = {
   triggerChance: 0.14,
   minNonSpaceChars: 8,
   minWordCount: 2,
+  recentReplyMemorySize: 3,
 } as const;

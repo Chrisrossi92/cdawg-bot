@@ -6,8 +6,14 @@ import { pickRandomItem } from "./content.js";
 
 export type PassiveReaction = {
   key: string;
-  keywords: readonly string[];
+  intent: string;
+  triggers: readonly string[];
   responses: readonly string[];
+};
+
+export type MatchedPassiveReaction = {
+  reaction: PassiveReaction;
+  reply: string;
 };
 
 const passiveReactionsByTopic: Partial<Record<Topic, readonly PassiveReaction[]>> = {
@@ -26,6 +32,15 @@ function keywordMatchesMessage(content: string, keyword: string) {
   return new RegExp(`(?:^|\\b)${pattern}(?:\\b|$)`, "i").test(content);
 }
 
+function pickPassiveReplyAvoidingRecent(
+  responses: readonly string[],
+  recentReplies: readonly string[],
+): string | undefined {
+  const availableReplies = responses.filter((response) => !recentReplies.includes(response));
+  const pool = availableReplies.length > 0 ? availableReplies : responses;
+  return pickRandomItem(pool);
+}
+
 export function getPassiveReactionsForTopic(topic: Topic): readonly PassiveReaction[] {
   if (topic === "general") {
     return generalPassiveReactions;
@@ -36,16 +51,29 @@ export function getPassiveReactionsForTopic(topic: Topic): readonly PassiveReact
 
 export function findPassiveReaction(content: string, topic: Topic): PassiveReaction | undefined {
   return getPassiveReactionsForTopic(topic).find((reaction) =>
-    reaction.keywords.some((keyword) => keywordMatchesMessage(content, keyword)),
+    reaction.triggers.some((keyword) => keywordMatchesMessage(content, keyword)),
   );
 }
 
-export function getPassiveReactionReply(content: string, topic: Topic): string | undefined {
+export function getMatchedPassiveReaction(
+  content: string,
+  topic: Topic,
+  recentReplies: readonly string[] = [],
+): MatchedPassiveReaction | undefined {
   const reaction = findPassiveReaction(content, topic);
 
   if (!reaction) {
     return undefined;
   }
 
-  return pickRandomItem(reaction.responses);
+  const reply = pickPassiveReplyAvoidingRecent(reaction.responses, recentReplies);
+
+  if (!reply) {
+    return undefined;
+  }
+
+  return {
+    reaction,
+    reply,
+  };
 }
