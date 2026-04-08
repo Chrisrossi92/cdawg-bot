@@ -1,6 +1,7 @@
 import { factProviderConfig } from "../config/fact-provider.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
 import { logContentProviderEvent } from "./content-provider-logging.js";
+import { recordContentProviderApiFailure, recordContentProviderApiSuccess } from "../systems/bot-metrics.js";
 
 type FactApiResponse = {
   id?: string;
@@ -53,6 +54,7 @@ async function fetchApiFact(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        recordContentProviderApiFailure("fact", "api-fact");
         logContentProviderEvent("fact", "api-failure", {
           provider: "api-fact",
           reason: `http-${response.status}`,
@@ -83,6 +85,7 @@ async function fetchApiFact(recentItemKeys: readonly string[]) {
       }
 
       rememberRecentApiFact(factKey);
+      recordContentProviderApiSuccess("fact", "api-fact");
       logContentProviderEvent("fact", "api-success", {
         provider: "api-fact",
         itemKey: factKey,
@@ -93,6 +96,7 @@ async function fetchApiFact(recentItemKeys: readonly string[]) {
         itemKey: factKey,
       };
     } catch {
+      recordContentProviderApiFailure("fact", "api-fact");
       logContentProviderEvent("fact", "api-failure", {
         provider: "api-fact",
         reason: controller.signal.aborted ? "timeout" : "fetch-error",

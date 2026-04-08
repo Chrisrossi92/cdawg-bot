@@ -7,6 +7,7 @@ import type { ContentItem, ContentProvider, ContentType } from "./content-provid
 import { logContentProviderEvent } from "./content-provider-logging.js";
 import { apiJokeProvider } from "./api-joke-provider.js";
 import { localContentProvider } from "./local-content-provider.js";
+import { recordContentProviderFallbackToLocal, recordContentProviderUsage } from "../systems/bot-metrics.js";
 
 const RECENT_ITEMS_TO_REMEMBER = 3;
 const recentItemKeysByScopeContent = new Map<string, string[]>();
@@ -121,6 +122,7 @@ async function getProviderItems<T extends ContentType>(
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      recordContentProviderFallbackToLocal(contentType, localTopicResult.providerName);
       logContentProviderEvent(contentType, "fallback-local", {
         provider: localTopicResult.providerName,
         topic,
@@ -167,6 +169,7 @@ async function getProviderItems<T extends ContentType>(
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      recordContentProviderFallbackToLocal(contentType, localTopicResult.providerName);
       logContentProviderEvent(contentType, "fallback-local", {
         provider: localTopicResult.providerName,
         topic,
@@ -213,6 +216,7 @@ async function getProviderItems<T extends ContentType>(
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      recordContentProviderFallbackToLocal(contentType, localTopicResult.providerName);
       logContentProviderEvent(contentType, "fallback-local", {
         provider: localTopicResult.providerName,
         topic,
@@ -282,6 +286,7 @@ export async function getContentItem<T extends ContentType>(
 
   const itemKey = getItemKey(contentType, item);
   rememberRecentItem(contentType, itemKey, channelId);
+  recordContentProviderUsage(contentType, providerResult.providerName);
   logContentProviderEvent(contentType, "item-selected", {
     provider: providerResult.providerName,
     topic,

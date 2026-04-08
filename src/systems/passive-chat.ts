@@ -5,6 +5,7 @@ import { passesMessageQualityThresholds, isLikelyCommandMessage, normalizeChatMe
 import { getChannelTopic, getContentMessage, pickRandomItem } from "../lib/content.js";
 import type { ContentType } from "../lib/content-provider.js";
 import { getMatchedPassiveReaction, getPassiveTopicSignalScores } from "../lib/passive-content.js";
+import { recordPassiveChatTrigger } from "./bot-metrics.js";
 
 type ChannelPassiveState = {
   lastUserMessageAt: number;
@@ -190,6 +191,14 @@ function markPassiveInteraction(channelId: string, reply: string) {
   }
 }
 
+function getPassiveTriggerType(candidate: PassiveReplyCandidate) {
+  if (candidate.kind === "keyword") {
+    return "keyword" as const;
+  }
+
+  return candidate.reason.includes("low-activity") ? ("quiet-gap" as const) : ("conversation-nudge" as const);
+}
+
 export async function handlePassiveChatMessage(message: Message) {
   const settings = getPassiveChatSettings();
 
@@ -265,6 +274,7 @@ export async function handlePassiveChatMessage(message: Message) {
     return;
   }
 
+  recordPassiveChatTrigger(getPassiveTriggerType(candidate));
   markPassiveInteraction(message.channelId, reply);
 
   logPassiveDecision(message, "send", `topic=${candidate.topic} ${candidate.reason}`);

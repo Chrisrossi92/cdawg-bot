@@ -35,6 +35,7 @@ import { handleLevelShareInteraction } from "./systems/level-share.js";
 import { addXp } from "./systems/xp.js";
 import { buildWelcomeMessage } from "./lib/welcome.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
+import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
 
 dotenv.config();
@@ -270,6 +271,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 
   try {
+    incrementSlashCommandUsage(interaction.commandName);
     await command.execute(interaction);
   } catch (error) {
     console.error(`Error running /${interaction.commandName}:`, error);

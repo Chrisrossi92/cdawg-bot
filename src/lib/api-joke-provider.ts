@@ -1,6 +1,7 @@
 import { jokeProviderConfig } from "../config/joke-provider.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
 import { logContentProviderEvent } from "./content-provider-logging.js";
+import { recordContentProviderApiFailure, recordContentProviderApiSuccess } from "../systems/bot-metrics.js";
 
 type JokeApiResponse =
   | {
@@ -88,6 +89,7 @@ async function fetchApiJoke(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        recordContentProviderApiFailure("joke", "api-joke");
         logContentProviderEvent("joke", "api-failure", {
           provider: "api-joke",
           reason: `http-${response.status}`,
@@ -118,6 +120,7 @@ async function fetchApiJoke(recentItemKeys: readonly string[]) {
       }
 
       rememberRecentApiJoke(jokeKey);
+      recordContentProviderApiSuccess("joke", "api-joke");
       logContentProviderEvent("joke", "api-success", {
         provider: "api-joke",
         itemKey: jokeKey,
@@ -128,6 +131,7 @@ async function fetchApiJoke(recentItemKeys: readonly string[]) {
         itemKey: jokeKey,
       };
     } catch {
+      recordContentProviderApiFailure("joke", "api-joke");
       logContentProviderEvent("joke", "api-failure", {
         provider: "api-joke",
         reason: controller.signal.aborted ? "timeout" : "fetch-error",

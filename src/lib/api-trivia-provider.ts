@@ -2,6 +2,7 @@ import { triviaProviderConfig } from "../config/trivia-provider.js";
 import type { TriviaItem } from "../content/trivia/general.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
 import { logContentProviderEvent } from "./content-provider-logging.js";
+import { recordContentProviderApiFailure, recordContentProviderApiSuccess } from "../systems/bot-metrics.js";
 
 type OpenTriviaApiResponse = {
   response_code?: number;
@@ -113,6 +114,7 @@ async function fetchApiTrivia(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        recordContentProviderApiFailure("trivia", "api-trivia");
         logContentProviderEvent("trivia", "api-failure", {
           provider: "api-trivia",
           reason: `http-${response.status}`,
@@ -152,6 +154,7 @@ async function fetchApiTrivia(recentItemKeys: readonly string[]) {
       }
 
       rememberRecentApiTrivia(triviaKey);
+      recordContentProviderApiSuccess("trivia", "api-trivia");
       logContentProviderEvent("trivia", "api-success", {
         provider: "api-trivia",
         itemKey: triviaKey,
@@ -162,6 +165,7 @@ async function fetchApiTrivia(recentItemKeys: readonly string[]) {
         itemKey: triviaKey,
       };
     } catch {
+      recordContentProviderApiFailure("trivia", "api-trivia");
       logContentProviderEvent("trivia", "api-failure", {
         provider: "api-trivia",
         reason: controller.signal.aborted ? "timeout" : "fetch-error",
