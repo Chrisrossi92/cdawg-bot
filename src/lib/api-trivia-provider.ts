@@ -1,6 +1,7 @@
 import { triviaProviderConfig } from "../config/trivia-provider.js";
 import type { TriviaItem } from "../content/trivia/general.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
+import { logContentProviderEvent } from "./content-provider-logging.js";
 
 type OpenTriviaApiResponse = {
   response_code?: number;
@@ -112,34 +113,59 @@ async function fetchApiTrivia(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        logContentProviderEvent("trivia", "api-failure", {
+          provider: "api-trivia",
+          reason: `http-${response.status}`,
+        });
         return undefined;
       }
 
       const parsed = (await response.json()) as OpenTriviaApiResponse;
 
       if (parsed.response_code !== 0 || !Array.isArray(parsed.results) || parsed.results.length === 0) {
+        logContentProviderEvent("trivia", "api-rejected", {
+          provider: "api-trivia",
+          reason: "malformed-response",
+        });
         continue;
       }
 
       const item = normalizeTriviaItem(parsed.results[0] ?? {});
 
       if (!item) {
+        logContentProviderEvent("trivia", "api-rejected", {
+          provider: "api-trivia",
+          reason: "invalid-trivia-shape",
+        });
         continue;
       }
 
       const triviaKey = getApiTriviaKey(item);
 
       if (disallowedKeys.has(triviaKey) || disallowedKeys.has(item.question)) {
+        logContentProviderEvent("trivia", "api-rejected", {
+          provider: "api-trivia",
+          reason: "recent-use",
+          itemKey: triviaKey,
+        });
         continue;
       }
 
       rememberRecentApiTrivia(triviaKey);
+      logContentProviderEvent("trivia", "api-success", {
+        provider: "api-trivia",
+        itemKey: triviaKey,
+      });
 
       return {
         item,
         itemKey: triviaKey,
       };
     } catch {
+      logContentProviderEvent("trivia", "api-failure", {
+        provider: "api-trivia",
+        reason: controller.signal.aborted ? "timeout" : "fetch-error",
+      });
       return undefined;
     } finally {
       clearTimeout(timeout);
@@ -163,6 +189,10 @@ export const apiTriviaProvider: ContentProvider = {
     const { contentType, recentItemKeys } = request;
 
     if (!triviaProviderConfig.apiEnabled || contentType !== "trivia") {
+      logContentProviderEvent("trivia", "provider-skip", {
+        provider: "api-trivia",
+        reason: !triviaProviderConfig.apiEnabled ? "disabled" : "not-applicable",
+      });
       return undefined;
     }
 

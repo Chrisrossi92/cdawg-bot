@@ -1,5 +1,6 @@
 import { jokeProviderConfig } from "../config/joke-provider.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
+import { logContentProviderEvent } from "./content-provider-logging.js";
 
 type JokeApiResponse =
   | {
@@ -87,6 +88,10 @@ async function fetchApiJoke(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        logContentProviderEvent("joke", "api-failure", {
+          provider: "api-joke",
+          reason: `http-${response.status}`,
+        });
         return undefined;
       }
 
@@ -94,22 +99,39 @@ async function fetchApiJoke(recentItemKeys: readonly string[]) {
       const jokeText = getJokeTextFromResponse(parsed);
 
       if (!jokeText) {
+        logContentProviderEvent("joke", "api-rejected", {
+          provider: "api-joke",
+          reason: "malformed-response",
+        });
         continue;
       }
 
       const jokeKey = getApiJokeKey(parsed, jokeText);
 
       if (disallowedKeys.has(jokeKey) || disallowedKeys.has(`text:${jokeText}`) || disallowedKeys.has(jokeText)) {
+        logContentProviderEvent("joke", "api-rejected", {
+          provider: "api-joke",
+          reason: "recent-use",
+          itemKey: jokeKey,
+        });
         continue;
       }
 
       rememberRecentApiJoke(jokeKey);
+      logContentProviderEvent("joke", "api-success", {
+        provider: "api-joke",
+        itemKey: jokeKey,
+      });
 
       return {
         item: jokeText,
         itemKey: jokeKey,
       };
     } catch {
+      logContentProviderEvent("joke", "api-failure", {
+        provider: "api-joke",
+        reason: controller.signal.aborted ? "timeout" : "fetch-error",
+      });
       return undefined;
     } finally {
       clearTimeout(timeout);
@@ -133,6 +155,10 @@ export const apiJokeProvider: ContentProvider = {
     const { contentType, recentItemKeys } = request;
 
     if (!jokeProviderConfig.apiEnabled || contentType !== "joke") {
+      logContentProviderEvent("joke", "provider-skip", {
+        provider: "api-joke",
+        reason: !jokeProviderConfig.apiEnabled ? "disabled" : "not-applicable",
+      });
       return undefined;
     }
 

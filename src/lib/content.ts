@@ -4,6 +4,7 @@ import type { TriviaItem } from "../content/trivia/general.js";
 import { apiFactProvider } from "./api-fact-provider.js";
 import { apiTriviaProvider } from "./api-trivia-provider.js";
 import type { ContentItem, ContentProvider, ContentType } from "./content-provider.js";
+import { logContentProviderEvent } from "./content-provider-logging.js";
 import { apiJokeProvider } from "./api-joke-provider.js";
 import { localContentProvider } from "./local-content-provider.js";
 
@@ -96,19 +97,45 @@ async function getProviderItems<T extends ContentType>(
     const localTopicResult = await localContentProvider.getItems(providerRequest);
 
     if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "topic-local-preferred",
+      });
       return localTopicResult;
     }
 
     const apiResult = await apiFactProvider.getItems(providerRequest);
 
     if (apiResult && apiResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: apiResult.providerName,
+        topic,
+        sourceTopic: apiResult.sourceTopic,
+        channelId,
+        reason: "api-selected",
+      });
       return apiResult;
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "fallback-local", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "api-unavailable",
+      });
       return localTopicResult;
     }
 
+    logContentProviderEvent(contentType, "provider-miss", {
+      topic,
+      channelId,
+      reason: "no-fact-provider-result",
+    });
     return undefined;
   }
 
@@ -116,19 +143,45 @@ async function getProviderItems<T extends ContentType>(
     const localTopicResult = await localContentProvider.getItems(providerRequest);
 
     if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "topic-local-preferred",
+      });
       return localTopicResult;
     }
 
     const apiResult = await apiJokeProvider.getItems(providerRequest);
 
     if (apiResult && apiResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: apiResult.providerName,
+        topic,
+        sourceTopic: apiResult.sourceTopic,
+        channelId,
+        reason: "api-selected",
+      });
       return apiResult;
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "fallback-local", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "api-unavailable",
+      });
       return localTopicResult;
     }
 
+    logContentProviderEvent(contentType, "provider-miss", {
+      topic,
+      channelId,
+      reason: "no-joke-provider-result",
+    });
     return undefined;
   }
 
@@ -136,19 +189,45 @@ async function getProviderItems<T extends ContentType>(
     const localTopicResult = await localContentProvider.getItems(providerRequest);
 
     if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "topic-local-preferred",
+      });
       return localTopicResult;
     }
 
     const apiResult = await apiTriviaProvider.getItems(providerRequest);
 
     if (apiResult && apiResult.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: apiResult.providerName,
+        topic,
+        sourceTopic: apiResult.sourceTopic,
+        channelId,
+        reason: "api-selected",
+      });
       return apiResult;
     }
 
     if (localTopicResult && localTopicResult.items.length > 0) {
+      logContentProviderEvent(contentType, "fallback-local", {
+        provider: localTopicResult.providerName,
+        topic,
+        sourceTopic: localTopicResult.sourceTopic,
+        channelId,
+        reason: "api-unavailable",
+      });
       return localTopicResult;
     }
 
+    logContentProviderEvent(contentType, "provider-miss", {
+      topic,
+      channelId,
+      reason: "no-trivia-provider-result",
+    });
     return undefined;
   }
 
@@ -158,10 +237,22 @@ async function getProviderItems<T extends ContentType>(
     const result = await provider.getItems(buildProviderRequest(contentType, topic, recentItemKeys, channelId));
 
     if (result && result.items.length > 0) {
+      logContentProviderEvent(contentType, "provider-selected", {
+        provider: result.providerName,
+        topic,
+        sourceTopic: result.sourceTopic,
+        channelId,
+        reason: "local-selected",
+      });
       return result;
     }
   }
 
+  logContentProviderEvent(contentType, "provider-miss", {
+    topic,
+    channelId,
+    reason: "no-provider-result",
+  });
   return undefined;
 }
 
@@ -179,10 +270,25 @@ export async function getContentItem<T extends ContentType>(
   const item = pickRandomItemAvoidingRecent(contentType, providerResult.items, channelId);
 
   if (!item) {
+    logContentProviderEvent(contentType, "selection-rejected", {
+      provider: providerResult.providerName,
+      topic,
+      sourceTopic: providerResult.sourceTopic,
+      channelId,
+      reason: "recent-channel-history",
+    });
     return undefined;
   }
 
-  rememberRecentItem(contentType, getItemKey(contentType, item), channelId);
+  const itemKey = getItemKey(contentType, item);
+  rememberRecentItem(contentType, itemKey, channelId);
+  logContentProviderEvent(contentType, "item-selected", {
+    provider: providerResult.providerName,
+    topic,
+    sourceTopic: providerResult.sourceTopic,
+    channelId,
+    itemKey,
+  });
   return item;
 }
 

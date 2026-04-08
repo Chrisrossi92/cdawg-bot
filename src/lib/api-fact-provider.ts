@@ -1,5 +1,6 @@
 import { factProviderConfig } from "../config/fact-provider.js";
 import type { ContentProvider, ContentProviderRequest, ContentProviderResult, ContentType } from "./content-provider.js";
+import { logContentProviderEvent } from "./content-provider-logging.js";
 
 type FactApiResponse = {
   id?: string;
@@ -52,6 +53,10 @@ async function fetchApiFact(recentItemKeys: readonly string[]) {
       });
 
       if (!response.ok) {
+        logContentProviderEvent("fact", "api-failure", {
+          provider: "api-fact",
+          reason: `http-${response.status}`,
+        });
         return undefined;
       }
 
@@ -59,22 +64,39 @@ async function fetchApiFact(recentItemKeys: readonly string[]) {
       const factText = getFactTextFromResponse(parsed);
 
       if (!factText) {
+        logContentProviderEvent("fact", "api-rejected", {
+          provider: "api-fact",
+          reason: "malformed-response",
+        });
         continue;
       }
 
       const factKey = getApiFactKey(parsed, factText);
 
       if (disallowedKeys.has(factKey) || disallowedKeys.has(`text:${factText}`) || disallowedKeys.has(factText)) {
+        logContentProviderEvent("fact", "api-rejected", {
+          provider: "api-fact",
+          reason: "recent-use",
+          itemKey: factKey,
+        });
         continue;
       }
 
       rememberRecentApiFact(factKey);
+      logContentProviderEvent("fact", "api-success", {
+        provider: "api-fact",
+        itemKey: factKey,
+      });
 
       return {
         item: factText,
         itemKey: factKey,
       };
     } catch {
+      logContentProviderEvent("fact", "api-failure", {
+        provider: "api-fact",
+        reason: controller.signal.aborted ? "timeout" : "fetch-error",
+      });
       return undefined;
     } finally {
       clearTimeout(timeout);
@@ -98,6 +120,10 @@ export const apiFactProvider: ContentProvider = {
     const { contentType, recentItemKeys } = request;
 
     if (!factProviderConfig.apiEnabled || contentType !== "fact") {
+      logContentProviderEvent("fact", "provider-skip", {
+        provider: "api-fact",
+        reason: !factProviderConfig.apiEnabled ? "disabled" : "not-applicable",
+      });
       return undefined;
     }
 
