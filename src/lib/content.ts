@@ -1,6 +1,7 @@
 import { DEFAULT_TOPIC, channelTopics } from "../config/channel-topics.js";
 import { topics, type Topic } from "../config/topics.js";
 import type { TriviaItem } from "../content/trivia/general.js";
+import { apiFactProvider } from "./api-fact-provider.js";
 import type { ContentItem, ContentProvider, ContentType } from "./content-provider.js";
 import { apiJokeProvider } from "./api-joke-provider.js";
 import { localContentProvider } from "./local-content-provider.js";
@@ -88,19 +89,36 @@ async function getProviderItems<T extends ContentType>(
   channelId?: string,
 ) {
   const recentItemKeys = getRecentItemKeys(contentType, channelId);
+  const providerRequest = buildProviderRequest(contentType, topic, recentItemKeys, channelId);
 
-  if (contentType === "joke") {
-    const localTopicResult = await localContentProvider.getItems({
-      ...buildProviderRequest(contentType, topic, recentItemKeys, channelId),
-    });
+  if (contentType === "fact") {
+    const localTopicResult = await localContentProvider.getItems(providerRequest);
 
     if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
       return localTopicResult;
     }
 
-    const apiResult = await apiJokeProvider.getItems({
-      ...buildProviderRequest(contentType, topic, recentItemKeys, channelId),
-    });
+    const apiResult = await apiFactProvider.getItems(providerRequest);
+
+    if (apiResult && apiResult.items.length > 0) {
+      return apiResult;
+    }
+
+    if (localTopicResult && localTopicResult.items.length > 0) {
+      return localTopicResult;
+    }
+
+    return undefined;
+  }
+
+  if (contentType === "joke") {
+    const localTopicResult = await localContentProvider.getItems(providerRequest);
+
+    if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
+      return localTopicResult;
+    }
+
+    const apiResult = await apiJokeProvider.getItems(providerRequest);
 
     if (apiResult && apiResult.items.length > 0) {
       return apiResult;
