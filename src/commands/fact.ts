@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { formatFactMessage, getFactText, resolveTopic } from "../lib/content.js";
+import { formatFactMessage, getResolvedContentItem } from "../lib/content.js";
 import { getRankMilestoneMessage } from "../lib/rank-milestones.js";
 import { syncRankRoleForMember } from "../lib/rank-role-sync.js";
 import { topics } from "../config/topics.js";
@@ -17,8 +17,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const topic = resolveTopic(interaction.options.getString("topic"), interaction.channelId);
-  const randomFact = getFactText(topic);
+  const randomFact = getResolvedContentItem("fact", interaction.options.getString("topic"), interaction.channelId);
 
   if (!randomFact) {
     await interaction.reply("No facts are available right now.");

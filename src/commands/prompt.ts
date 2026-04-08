@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { formatPromptMessage, getPromptText, resolveTopic } from "../lib/content.js";
+import { formatPromptMessage, getResolvedContentItem } from "../lib/content.js";
 import { getRankMilestoneMessage } from "../lib/rank-milestones.js";
 import { syncRankRoleForMember } from "../lib/rank-role-sync.js";
 import { addXp } from "../systems/xp.js";
@@ -27,8 +27,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const topic = resolveTopic(interaction.options.getString("topic"), interaction.channelId);
-  const prompt = getPromptText(topic);
+  const prompt = getResolvedContentItem("prompt", interaction.options.getString("topic"), interaction.channelId);
 
   if (!prompt) {
     await interaction.reply("No discussion prompts are available right now.");

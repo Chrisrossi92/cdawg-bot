@@ -7,7 +7,7 @@ import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
 } from "discord.js";
-import { getTriviaItem, resolveTopic } from "../lib/content.js";
+import { getResolvedContentItem } from "../lib/content.js";
 import { getRankMilestoneMessage } from "../lib/rank-milestones.js";
 import { syncRankRoleForMember } from "../lib/rank-role-sync.js";
 import { addXp } from "../systems/xp.js";
@@ -219,8 +219,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const topic = resolveTopic(interaction.options.getString("topic"), interaction.channelId);
-  const item = getTriviaItem(topic);
+  const item = getResolvedContentItem("trivia", interaction.options.getString("topic"), interaction.channelId);
 
   if (!item) {
     await interaction.reply("No trivia questions are available right now.");

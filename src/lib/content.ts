@@ -1,76 +1,14 @@
 import { DEFAULT_TOPIC, channelTopics } from "../config/channel-topics.js";
 import { topics, type Topic } from "../config/topics.js";
-import { facts as generalFacts } from "../content/facts/general.js";
-import { facts as historyFacts } from "../content/facts/history.js";
-import { facts as palworldFacts } from "../content/facts/palworld.js";
-import { facts as pokemonFacts } from "../content/facts/pokemon.js";
-import { facts as valheimFacts } from "../content/facts/valheim.js";
-import { jokes as generalJokes } from "../content/jokes/general.js";
-import { jokes as palworldJokes } from "../content/jokes/palworld.js";
-import { jokes as valheimJokes } from "../content/jokes/valheim.js";
-import { prompts as generalDiscussionPrompts } from "../content/prompts/general.js";
-import { prompts as genealogyPrompts } from "../content/prompts/genealogy.js";
-import { prompts as harryPotterPrompts } from "../content/prompts/harry-potter.js";
-import { prompts as historyDiscussionPrompts } from "../content/prompts/history.js";
-import { prompts as musicPrompts } from "../content/prompts/music.js";
-import { prompts as palworldPrompts } from "../content/prompts/palworld.js";
-import { prompts as pokemonDiscussionPrompts } from "../content/prompts/pokemon.js";
-import { prompts as valheimPrompts } from "../content/prompts/valheim.js";
-import { trivia as generalTrivia, type TriviaItem } from "../content/trivia/general.js";
-import { trivia as historyTrivia } from "../content/trivia/history.js";
-import { trivia as palworldTrivia } from "../content/trivia/palworld.js";
-import { trivia as pokemonTrivia } from "../content/trivia/pokemon.js";
-import { trivia as valheimTrivia } from "../content/trivia/valheim.js";
-import { wyrPrompts as generalWyrPrompts } from "../content/wyr/general.js";
-import { wyrPrompts as historyWyrPrompts } from "../content/wyr/history.js";
-import { wyrPrompts as pokemonWyrPrompts } from "../content/wyr/pokemon.js";
-import { wyrPrompts as valheimWyrPrompts } from "../content/wyr/valheim.js";
+import type { TriviaItem } from "../content/trivia/general.js";
+import type { ContentItem, ContentProvider, ContentType } from "./content-provider.js";
+import { localContentProvider } from "./local-content-provider.js";
 
-export type ContentType = "fact" | "joke" | "wyr" | "prompt" | "trivia";
 const RECENT_ITEMS_TO_REMEMBER = 3;
+const contentProviders: readonly ContentProvider[] = [localContentProvider];
+const recentItemKeysByScopeContent = new Map<string, string[]>();
 
-const factsByTopic: Partial<Record<Topic, readonly string[]>> = {
-  general: generalFacts,
-  history: historyFacts,
-  palworld: palworldFacts,
-  pokemon: pokemonFacts,
-  valheim: valheimFacts,
-};
-
-const jokesByTopic: Partial<Record<Topic, readonly string[]>> = {
-  general: generalJokes,
-  palworld: palworldJokes,
-  valheim: valheimJokes,
-};
-
-const wyrPromptsByTopic: Partial<Record<Topic, readonly string[]>> = {
-  general: generalWyrPrompts,
-  history: historyWyrPrompts,
-  pokemon: pokemonWyrPrompts,
-  valheim: valheimWyrPrompts,
-};
-
-const discussionPromptsByTopic: Partial<Record<Topic, readonly string[]>> = {
-  general: generalDiscussionPrompts,
-  history: historyDiscussionPrompts,
-  genealogy: genealogyPrompts,
-  palworld: palworldPrompts,
-  pokemon: pokemonDiscussionPrompts,
-  "harry-potter": harryPotterPrompts,
-  music: musicPrompts,
-  valheim: valheimPrompts,
-};
-
-const triviaByTopic: Partial<Record<Topic, readonly TriviaItem[]>> = {
-  general: generalTrivia,
-  history: historyTrivia,
-  pokemon: pokemonTrivia,
-  palworld: palworldTrivia,
-  valheim: valheimTrivia,
-};
-
-let lastFact: string | null = null;
-const recentItemKeysByChannelContent = new Map<string, string[]>();
+export type { ContentType } from "./content-provider.js";
 
 export function getChannelTopic(channelId: string | null): Topic {
   if (!channelId) {
@@ -96,77 +34,116 @@ export function pickRandomItem<T>(items: readonly T[]): T | undefined {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function getChannelContentKey(channelId: string, contentType: ContentType): string {
-  return `${channelId}:${contentType}`;
+function getScopeContentKey(contentType: ContentType, channelId?: string) {
+  return `${channelId ?? "global"}:${contentType}`;
 }
 
-function pickRandomItemAvoidingRecent<T>(
-  items: readonly T[],
-  recentKeys: readonly string[],
-  getItemKey: (item: T) => string,
-): T | undefined {
-  const availableItems = items.filter((item) => !recentKeys.includes(getItemKey(item)));
+function rememberRecentItem(contentType: ContentType, itemKey: string, channelId?: string) {
+  const historyKey = getScopeContentKey(contentType, channelId);
+  const currentHistory = recentItemKeysByScopeContent.get(historyKey) ?? [];
+  const nextHistory = [...currentHistory.filter((key) => key !== itemKey), itemKey];
+  recentItemKeysByScopeContent.set(historyKey, nextHistory.slice(-RECENT_ITEMS_TO_REMEMBER));
+}
+
+function getRecentItemKeys(contentType: ContentType, channelId?: string) {
+  return recentItemKeysByScopeContent.get(getScopeContentKey(contentType, channelId)) ?? [];
+}
+
+function getItemKey<T extends ContentType>(contentType: T, item: ContentItem<T>) {
+  if (contentType === "trivia") {
+    return (item as TriviaItem).question;
+  }
+
+  return item as string;
+}
+
+function pickRandomItemAvoidingRecent<T extends ContentType>(
+  contentType: T,
+  items: readonly ContentItem<T>[],
+  channelId?: string,
+): ContentItem<T> | undefined {
+  const recentKeys = getRecentItemKeys(contentType, channelId);
+  const availableItems = items.filter((item) => !recentKeys.includes(getItemKey(contentType, item)));
   const pool = availableItems.length > 0 ? availableItems : items;
   return pickRandomItem(pool);
 }
 
-function rememberRecentItem(channelId: string, contentType: ContentType, itemKey: string) {
-  const historyKey = getChannelContentKey(channelId, contentType);
-  const currentHistory = recentItemKeysByChannelContent.get(historyKey) ?? [];
-  const nextHistory = [...currentHistory.filter((key) => key !== itemKey), itemKey];
-  const trimmedHistory = nextHistory.slice(-RECENT_ITEMS_TO_REMEMBER);
+function getProviderItems<T extends ContentType>(contentType: T, topic: Topic) {
+  for (const provider of contentProviders) {
+    const result = provider.getItems({ contentType, topic });
 
-  recentItemKeysByChannelContent.set(historyKey, trimmedHistory);
+    if (result && result.items.length > 0) {
+      return result;
+    }
+  }
+
+  return undefined;
 }
 
-export function getFactText(topic: Topic): string | undefined {
-  const topicFacts = factsByTopic[topic] ?? generalFacts;
-  const availableFacts = topicFacts.filter((fact) => fact !== lastFact);
-  const pool = availableFacts.length > 0 ? availableFacts : topicFacts;
-  const randomFact = pickRandomItem(pool);
+export function getContentItem<T extends ContentType>(
+  contentType: T,
+  topic: Topic,
+  channelId?: string,
+): ContentItem<T> | undefined {
+  const providerResult = getProviderItems(contentType, topic);
 
-  if (!randomFact) {
+  if (!providerResult) {
     return undefined;
   }
 
-  lastFact = randomFact;
-  return randomFact;
+  const item = pickRandomItemAvoidingRecent(contentType, providerResult.items, channelId);
+
+  if (!item) {
+    return undefined;
+  }
+
+  rememberRecentItem(contentType, getItemKey(contentType, item), channelId);
+  return item;
+}
+
+export function getResolvedContentItem<T extends ContentType>(
+  contentType: T,
+  topic: string | null,
+  channelId: string | null,
+): ContentItem<T> | undefined {
+  const resolvedTopic = resolveTopic(topic, channelId);
+  return getContentItem(contentType, resolvedTopic, channelId ?? undefined);
+}
+
+export function getFactText(topic: Topic, channelId?: string): string | undefined {
+  return getContentItem("fact", topic, channelId);
 }
 
 export function formatFactMessage(fact: string): string {
   return `**Cdawg Bot Fact Drop**\n${fact}`;
 }
 
-export function getJokeText(topic: Topic): string | undefined {
-  const jokes = jokesByTopic[topic] ?? generalJokes;
-  return pickRandomItem(jokes);
+export function getJokeText(topic: Topic, channelId?: string): string | undefined {
+  return getContentItem("joke", topic, channelId);
 }
 
 export function formatJokeMessage(joke: string): string {
   return `**Cdawg Bot Joke Drop**\n${joke}`;
 }
 
-export function getWyrText(topic: Topic): string | undefined {
-  const prompts = wyrPromptsByTopic[topic] ?? generalWyrPrompts;
-  return pickRandomItem(prompts);
+export function getWyrText(topic: Topic, channelId?: string): string | undefined {
+  return getContentItem("wyr", topic, channelId);
 }
 
 export function formatWyrMessage(prompt: string): string {
   return `**Would You Rather...**\n${prompt}`;
 }
 
-export function getPromptText(topic: Topic): string | undefined {
-  const prompts = discussionPromptsByTopic[topic] ?? generalDiscussionPrompts;
-  return pickRandomItem(prompts);
+export function getPromptText(topic: Topic, channelId?: string): string | undefined {
+  return getContentItem("prompt", topic, channelId);
 }
 
 export function formatPromptMessage(prompt: string): string {
   return `**Cdawg Bot Discussion Prompt**\n${prompt}`;
 }
 
-export function getTriviaItem(topic: Topic): TriviaItem | undefined {
-  const triviaPool = triviaByTopic[topic] ?? generalTrivia;
-  return pickRandomItem(triviaPool);
+export function getTriviaItem(topic: Topic, channelId?: string): TriviaItem | undefined {
+  return getContentItem("trivia", topic, channelId);
 }
 
 export function formatTriviaMessage(item: TriviaItem): string {
@@ -180,69 +157,25 @@ export function getContentMessage(
   topic: Topic,
   channelId?: string,
 ): string | undefined {
-  const recentKeys = channelId
-    ? recentItemKeysByChannelContent.get(getChannelContentKey(channelId, contentType)) ?? []
-    : [];
-
   switch (contentType) {
     case "fact": {
-      const topicFacts = factsByTopic[topic] ?? generalFacts;
-      const fact = channelId
-        ? pickRandomItemAvoidingRecent(topicFacts, recentKeys, (item) => item)
-        : getFactText(topic);
-
-      if (channelId && fact) {
-        rememberRecentItem(channelId, contentType, fact);
-      }
-
+      const fact = getContentItem(contentType, topic, channelId);
       return fact ? formatFactMessage(fact) : undefined;
     }
-    case "wyr": {
-      const prompts = wyrPromptsByTopic[topic] ?? generalWyrPrompts;
-      const prompt = channelId
-        ? pickRandomItemAvoidingRecent(prompts, recentKeys, (item) => item)
-        : getWyrText(topic);
-
-      if (channelId && prompt) {
-        rememberRecentItem(channelId, contentType, prompt);
-      }
-
-      return prompt ? formatWyrMessage(prompt) : undefined;
-    }
     case "joke": {
-      const jokes = jokesByTopic[topic] ?? generalJokes;
-      const joke = channelId
-        ? pickRandomItemAvoidingRecent(jokes, recentKeys, (item) => item)
-        : getJokeText(topic);
-
-      if (channelId && joke) {
-        rememberRecentItem(channelId, contentType, joke);
-      }
-
+      const joke = getContentItem(contentType, topic, channelId);
       return joke ? formatJokeMessage(joke) : undefined;
     }
+    case "wyr": {
+      const prompt = getContentItem(contentType, topic, channelId);
+      return prompt ? formatWyrMessage(prompt) : undefined;
+    }
     case "prompt": {
-      const prompts = discussionPromptsByTopic[topic] ?? generalDiscussionPrompts;
-      const prompt = channelId
-        ? pickRandomItemAvoidingRecent(prompts, recentKeys, (item) => item)
-        : getPromptText(topic);
-
-      if (channelId && prompt) {
-        rememberRecentItem(channelId, contentType, prompt);
-      }
-
+      const prompt = getContentItem(contentType, topic, channelId);
       return prompt ? formatPromptMessage(prompt) : undefined;
     }
     case "trivia": {
-      const triviaPool = triviaByTopic[topic] ?? generalTrivia;
-      const item = channelId
-        ? pickRandomItemAvoidingRecent(triviaPool, recentKeys, (entry) => entry.question)
-        : getTriviaItem(topic);
-
-      if (channelId && item) {
-        rememberRecentItem(channelId, contentType, item.question);
-      }
-
+      const item = getContentItem(contentType, topic, channelId);
       return item ? formatTriviaMessage(item) : undefined;
     }
   }

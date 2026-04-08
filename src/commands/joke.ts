@@ -1,5 +1,5 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { formatJokeMessage, getJokeText, resolveTopic } from "../lib/content.js";
+import { formatJokeMessage, getResolvedContentItem } from "../lib/content.js";
 
 const JOKE_SELECTABLE_TOPICS = ["general", "palworld", "valheim"] as const;
 
@@ -14,8 +14,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const topic = resolveTopic(interaction.options.getString("topic"), interaction.channelId);
-  const joke = getJokeText(topic);
+  const joke = getResolvedContentItem("joke", interaction.options.getString("topic"), interaction.channelId);
 
   if (!joke) {
     await interaction.reply("No jokes are available right now.");

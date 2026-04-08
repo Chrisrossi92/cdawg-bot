@@ -6,7 +6,7 @@ import {
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
 } from "discord.js";
-import { getWyrText, resolveTopic } from "../lib/content.js";
+import { getResolvedContentItem } from "../lib/content.js";
 import { syncRankRoleForMember } from "../lib/rank-role-sync.js";
 import { addXp } from "../systems/xp.js";
 
@@ -126,8 +126,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const topic = resolveTopic(interaction.options.getString("topic"), interaction.channelId);
-  const rawPrompt = getWyrText(topic);
+  const rawPrompt = getResolvedContentItem("wyr", interaction.options.getString("topic"), interaction.channelId);
 
   if (!rawPrompt) {
     await interaction.reply("No Would You Rather prompts are available right now.");

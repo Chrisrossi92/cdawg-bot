@@ -1,0 +1,29 @@
+import type { Topic } from "../config/topics.js";
+import type { TriviaItem } from "../content/trivia/general.js";
+
+export type ContentType = "fact" | "joke" | "wyr" | "prompt" | "trivia";
+
+export type ContentItemMap = {
+  fact: string;
+  joke: string;
+  wyr: string;
+  prompt: string;
+  trivia: TriviaItem;
+};
+
+export type ContentItem<T extends ContentType> = ContentItemMap[T];
+
+export type ContentProviderRequest<T extends ContentType> = {
+  contentType: T;
+  topic: Topic;
+};
+
+export type ContentProviderResult<T extends ContentType> = {
+  items: readonly ContentItem<T>[];
+  sourceTopic: Topic;
+};
+
+export interface ContentProvider {
+  readonly name: string;
+  getItems<T extends ContentType>(request: ContentProviderRequest<T>): ContentProviderResult<T> | undefined;
+}
