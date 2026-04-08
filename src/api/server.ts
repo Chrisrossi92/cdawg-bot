@@ -36,6 +36,10 @@ type SettingsPatchBody = {
 };
 
 const allowedContentTypes: readonly ContentType[] = ["fact", "joke", "wyr", "prompt", "trivia"];
+const defaultHealthSnapshot: ApiHealthSnapshot = {
+  botReady: true,
+  botTag: null,
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -164,10 +168,12 @@ async function readJsonBody(request: IncomingMessage) {
   return JSON.parse(bodyText) as unknown;
 }
 
-export function startApiServer(dependencies: ApiServerDependencies) {
+export function startApiServer(dependencies?: ApiServerDependencies) {
   if (!apiConfig.enabled) {
     return null;
   }
+
+  const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
 
   const server = http.createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -193,7 +199,7 @@ export function startApiServer(dependencies: ApiServerDependencies) {
         sendJson(response, 200, {
           ok: true,
           apiEnabled: true,
-          ...dependencies.getHealthSnapshot(),
+          ...getHealthSnapshot(),
         });
         return;
       }

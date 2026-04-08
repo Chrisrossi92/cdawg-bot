@@ -8,82 +8,158 @@
   </head>
   <body>
     <main class="page">
-      <header class="header">
-        <div>
+      <header class="hero">
+        <div class="hero-copy">
           <h1>Cdawg Bot Dashboard</h1>
-          <p>Local operational panel for health, settings, and metrics.</p>
+          <p>Local operations panel for health, runtime settings, and metrics.</p>
         </div>
         <form id="api-config-form" class="api-config">
           <label>
             API Base URL
             <input id="api-base-url" name="apiBaseUrl" type="url" value="http://127.0.0.1:8787" />
           </label>
-          <button type="submit">Connect</button>
+          <div class="toolbar">
+            <label class="checkbox">
+              <input id="auto-refresh-enabled" type="checkbox" />
+              Auto-refresh
+            </label>
+            <button type="submit">Connect</button>
+            <button id="refresh-all" type="button" class="secondary">Refresh All</button>
+          </div>
         </form>
       </header>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Health</h2>
-          <button id="refresh-health" type="button">Refresh</button>
+          <div>
+            <h2>Health</h2>
+            <p>Current bot and API readiness snapshot.</p>
+          </div>
+          <button id="refresh-health" type="button" class="secondary">Refresh</button>
         </div>
-        <pre id="health-output">Loading...</pre>
+        <div id="health-cards" class="health-grid"></div>
+        <details class="details-block">
+          <summary>Raw health payload</summary>
+          <pre id="health-output">Loading...</pre>
+        </details>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Settings</h2>
-          <button id="refresh-settings" type="button">Refresh</button>
+          <div>
+            <h2>Settings</h2>
+            <p>Safe runtime tuning controls backed by the internal API.</p>
+          </div>
+          <button id="refresh-settings" type="button" class="secondary">Refresh</button>
         </div>
         <form id="settings-form" class="settings-form">
-          <label>
-            Passive Chat Enabled
-            <select name="passiveEnabled">
-              <option value="true">On</option>
-              <option value="false">Off</option>
-            </select>
-          </label>
-          <label>
-            Trigger Chance
-            <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
-          </label>
-          <label>
-            Global Cooldown (ms)
-            <input name="globalCooldownMs" type="number" min="1000" step="1000" />
-          </label>
-          <label>
-            Channel Cooldown (ms)
-            <input name="channelCooldownMs" type="number" min="1000" step="1000" />
-          </label>
-          <label>
-            Quiet Gap (ms)
-            <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
-          </label>
-          <label>
-            Conversation Threshold
-            <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
-          </label>
-          <label>
-            Provider Logging
-            <select name="providerLoggingEnabled">
-              <option value="true">On</option>
-              <option value="false">Off</option>
-            </select>
-          </label>
+          <section class="form-group">
+            <h3>Passive Chat</h3>
+            <label>
+              Enabled
+              <select name="passiveEnabled">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+            <label>
+              Trigger Chance
+              <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
+              <small>Probability from 0 to 1.</small>
+            </label>
+            <label>
+              Global Cooldown (ms)
+              <input name="globalCooldownMs" type="number" min="1000" step="1000" />
+            </label>
+            <label>
+              Channel Cooldown (ms)
+              <input name="channelCooldownMs" type="number" min="1000" step="1000" />
+            </label>
+          </section>
+
+          <section class="form-group">
+            <h3>Smart Engagement</h3>
+            <label>
+              Quiet Gap (ms)
+              <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
+              <small>Idle time before a low-activity nudge is considered.</small>
+            </label>
+            <label>
+              Conversation Threshold
+              <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
+              <small>Messages required before conversation nudges are considered.</small>
+            </label>
+          </section>
+
+          <section class="form-group">
+            <h3>Provider Logging</h3>
+            <label>
+              Enabled
+              <select name="providerLoggingEnabled">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+          </section>
+
           <div class="settings-actions">
             <button type="submit">Save Settings</button>
+            <button id="reset-settings" type="button" class="secondary">Reset Form</button>
             <span id="settings-status"></span>
           </div>
         </form>
-        <pre id="settings-output">Loading...</pre>
+
+        <details class="details-block">
+          <summary>Raw settings payload</summary>
+          <pre id="settings-output">Loading...</pre>
+        </details>
       </section>
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Metrics</h2>
-          <button id="refresh-metrics" type="button">Refresh</button>
+          <div>
+            <h2>Metrics</h2>
+            <p>Scan-friendly counters for command usage, passive activity, and provider behavior.</p>
+          </div>
+          <button id="refresh-metrics" type="button" class="secondary">Refresh</button>
         </div>
-        <pre id="metrics-output">Loading...</pre>
+
+        <div class="metrics-grid">
+          <section class="metric-card">
+            <h3>Passive Chat</h3>
+            <ul id="passive-metrics-list" class="metric-list"></ul>
+          </section>
+
+          <section class="metric-card">
+            <h3>Slash Commands</h3>
+            <ul id="command-metrics-list" class="metric-list"></ul>
+          </section>
+
+          <section class="metric-card">
+            <h3>Provider Usage</h3>
+            <ul id="provider-usage-list" class="metric-list"></ul>
+          </section>
+
+          <section class="metric-card">
+            <h3>API Success</h3>
+            <ul id="provider-success-list" class="metric-list"></ul>
+          </section>
+
+          <section class="metric-card">
+            <h3>Fallback To Local</h3>
+            <ul id="provider-fallback-list" class="metric-list"></ul>
+          </section>
+
+          <section class="metric-card">
+            <h3>API Failure / Timeout</h3>
+            <ul id="provider-failure-list" class="metric-list"></ul>
+          </section>
+        </div>
+
+        <details class="details-block">
+          <summary>Raw metrics payload</summary>
+          <pre id="metrics-output">Loading...</pre>
+        </details>
       </section>
     </main>
 

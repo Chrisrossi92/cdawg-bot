@@ -1,6 +1,7 @@
 import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
 import * as dotenv from "dotenv";
+import { apiConfig } from "./config/api.js";
 import {
   CHAT_XP_AMOUNT,
   CHAT_XP_COOLDOWN_MS,
@@ -105,7 +106,17 @@ const commands = new Collection<string, CommandModule>([
 
 client.once(Events.ClientReady, (readyClient) => {
   console.log(`Cdawg Bot is online as ${readyClient.user.tag}`);
+
   startScheduler(readyClient);
+
+  if (apiConfig.enabled) {
+    startApiServer();
+    console.log(
+      `[api] server enabled at http://${apiConfig.host}:${apiConfig.port}`
+    );
+  } else {
+    console.log("[api] disabled");
+  }
 });
 
 client.on(Events.GuildMemberAdd, async (member) => {
@@ -288,13 +299,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.reply(errorMessage);
   }
-});
-
-startApiServer({
-  getHealthSnapshot: () => ({
-    botReady: client.isReady(),
-    botTag: client.isReady() ? client.user.tag : null,
-  }),
 });
 
 client.login(token);
