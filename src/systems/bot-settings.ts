@@ -34,6 +34,10 @@ export type BotSettings = {
   contentProviders: ContentProviderSettings;
 };
 
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K];
+};
+
 export const defaultBotSettings: BotSettings = {
   passiveChat: {
     enabled: true,
@@ -196,7 +200,9 @@ export function getBotSettings() {
   return activeBotSettings;
 }
 
-export function updateBotSettings(nextSettings: Partial<BotSettings> | ((current: BotSettings) => Partial<BotSettings>)) {
+export function updateBotSettings(
+  nextSettings: DeepPartial<BotSettings> | ((current: BotSettings) => DeepPartial<BotSettings>),
+) {
   const resolvedPatch = typeof nextSettings === "function" ? nextSettings(activeBotSettings) : nextSettings;
   activeBotSettings = mergeBotSettings({
     ...activeBotSettings,

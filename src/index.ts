@@ -1,4 +1,5 @@
 import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
+import type { ChatInputCommandInteraction } from "discord.js";
 import * as dotenv from "dotenv";
 import {
   CHAT_XP_AMOUNT,
@@ -13,6 +14,7 @@ import * as botHelp from "./commands/bot-help.js";
 import { welcomeConfig } from "./config/welcome.js";
 import * as ping from "./commands/ping.js";
 import * as ranks from "./commands/ranks.js";
+import * as settings from "./commands/settings.js";
 import * as fact from "./commands/fact.js";
 import * as joke from "./commands/joke.js";
 import * as leaderboard from "./commands/leaderboard.js";
@@ -57,6 +59,13 @@ const recentChatMessagesByUserId = new Map<string, string[]>();
 const RECENT_CHAT_MESSAGE_LIMIT = 5;
 const activeRoleFollowupKeys = new Set<string>();
 
+type CommandModule = {
+  data: {
+    name: string;
+  };
+  execute: (interaction: ChatInputCommandInteraction) => Promise<void>;
+};
+
 function isRecentDuplicateMessage(userId: string, normalizedContent: string) {
   const recentMessages = recentChatMessagesByUserId.get(userId) ?? [];
   return recentMessages.includes(normalizedContent);
@@ -68,7 +77,7 @@ function rememberRecentChatMessage(userId: string, normalizedContent: string) {
   recentChatMessagesByUserId.set(userId, nextMessages.slice(-RECENT_CHAT_MESSAGE_LIMIT));
 }
 
-const commands = new Collection([
+const commands = new Collection<string, CommandModule>([
   [announce.data.name, announce],
   [botHelp.data.name, botHelp],
   [ping.data.name, ping],
@@ -78,6 +87,7 @@ const commands = new Collection([
   [profile.data.name, profile],
   [prompt.data.name, prompt],
   [ranks.data.name, ranks],
+  [settings.data.name, settings],
   [trivia.data.name, trivia],
   [triviaLeaderboard.data.name, triviaLeaderboard],
   [triviaStats.data.name, triviaStats],
