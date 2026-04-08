@@ -38,6 +38,7 @@ import { buildWelcomeMessage } from "./lib/welcome.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
 import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
+import { startApiServer } from "./api/server.js";
 
 dotenv.config();
 
@@ -287,6 +288,13 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     await interaction.reply(errorMessage);
   }
+});
+
+startApiServer({
+  getHealthSnapshot: () => ({
+    botReady: client.isReady(),
+    botTag: client.isReady() ? client.user.tag : null,
+  }),
 });
 
 client.login(token);
