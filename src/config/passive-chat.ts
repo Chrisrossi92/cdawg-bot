@@ -13,4 +13,9 @@ export const passiveChatConfig = {
   minNonSpaceChars: 8,
   minWordCount: 2,
   recentReplyMemorySize: 3,
+  recentMessageMemorySize: 6,
+  quietChannelThresholdMs: 20 * 60 * 1000,
+  conversationNudgeMessageThreshold: 6,
+  topicBiasMinimumMatches: 2,
+  conversationNudgeContentTypes: ["prompt", "trivia", "joke"],
 } as const;

@@ -22,6 +22,11 @@ const passiveReactionsByTopic: Partial<Record<Topic, readonly PassiveReaction[]>
   valheim: valheimPassiveReactions,
 };
 
+const passiveTopicSignalReactions: Partial<Record<Topic, readonly PassiveReaction[]>> = {
+  palworld: palworldPassiveReactions,
+  valheim: valheimPassiveReactions,
+};
+
 function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -53,6 +58,22 @@ export function findPassiveReaction(content: string, topic: Topic): PassiveReact
   return getPassiveReactionsForTopic(topic).find((reaction) =>
     reaction.triggers.some((keyword) => keywordMatchesMessage(content, keyword)),
   );
+}
+
+export function getPassiveTopicSignalScores(messages: readonly string[]) {
+  return Object.entries(passiveTopicSignalReactions).map(([topic, reactions]) => ({
+    topic: topic as Topic,
+    score: messages.reduce(
+      (total, message) =>
+        total +
+        reactions.reduce(
+          (reactionTotal, reaction) =>
+            reactionTotal + (reaction.triggers.some((keyword) => keywordMatchesMessage(message, keyword)) ? 1 : 0),
+          0,
+        ),
+      0,
+    ),
+  }));
 }
 
 export function getMatchedPassiveReaction(
