@@ -18,6 +18,7 @@ import * as settings from "./commands/settings.js";
 import * as fact from "./commands/fact.js";
 import * as joke from "./commands/joke.js";
 import * as leaderboard from "./commands/leaderboard.js";
+import * as metrics from "./commands/metrics.js";
 import * as profile from "./commands/profile.js";
 import * as prompt from "./commands/prompt.js";
 import * as trivia from "./commands/trivia.js";
@@ -85,6 +86,7 @@ const commands = new Collection<string, CommandModule>([
   [fact.data.name, fact],
   [joke.data.name, joke],
   [leaderboard.data.name, leaderboard],
+  [metrics.data.name, metrics],
   [profile.data.name, profile],
   [prompt.data.name, prompt],
   [ranks.data.name, ranks],
