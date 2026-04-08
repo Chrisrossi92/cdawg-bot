@@ -44,6 +44,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown) {
   response.writeHead(statusCode, {
     "Content-Type": "application/json; charset=utf-8",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
   });
   response.end(JSON.stringify(payload));
 }
@@ -171,6 +174,16 @@ export function startApiServer(dependencies: ApiServerDependencies) {
     const requestUrl = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
 
     try {
+      if (method === "OPTIONS") {
+        response.writeHead(204, {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+        });
+        response.end();
+        return;
+      }
+
       if (requestUrl.pathname === "/health") {
         if (method !== "GET") {
           sendMethodNotAllowed(response);

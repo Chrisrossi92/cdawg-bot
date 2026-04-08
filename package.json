@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "register": "tsx src/register-commands.ts"
+    "register": "tsx src/register-commands.ts",
+    "dashboard": "tsx dashboard/server.ts"
   },
   "keywords": [],
   "author": "",

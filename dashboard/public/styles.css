@@ -1,0 +1,128 @@
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f5f7fa;
+  color: #16202a;
+}
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.header,
+.panel {
+  background: #ffffff;
+  border: 1px solid #d9e2ec;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  align-items: end;
+}
+
+.header h1,
+.panel h2 {
+  margin: 0 0 8px;
+}
+
+.panel {
+  margin-bottom: 20px;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.api-config,
+.settings-form {
+  display: grid;
+  gap: 12px;
+}
+
+.api-config {
+  min-width: 280px;
+}
+
+.settings-form {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-bottom: 16px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+
+input,
+select,
+button {
+  font: inherit;
+}
+
+input,
+select {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #bcccdc;
+  background: #fff;
+}
+
+button {
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: #1f6feb;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #185abd;
+}
+
+.settings-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#settings-status {
+  font-size: 14px;
+  color: #52606d;
+}
+
+pre {
+  margin: 0;
+  padding: 16px;
+  background: #0f172a;
+  color: #d9e2ec;
+  border-radius: 10px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (max-width: 720px) {
+  .header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .settings-form {
+    grid-template-columns: 1fr;
+  }
+}
