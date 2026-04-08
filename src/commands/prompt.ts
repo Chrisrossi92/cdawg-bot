@@ -27,7 +27,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const prompt = getResolvedContentItem("prompt", interaction.options.getString("topic"), interaction.channelId);
+  const prompt = await getResolvedContentItem("prompt", interaction.options.getString("topic"), interaction.channelId);
 
   if (!prompt) {
     await interaction.reply("No discussion prompts are available right now.");

@@ -71,7 +71,7 @@ const localContentPools: ContentPoolsByType = {
 function getLocalItemsForTopic<T extends ContentType>(
   contentType: T,
   topic: Topic,
-): ContentProviderResult<T> | undefined {
+): Omit<ContentProviderResult<T>, "providerName"> | undefined {
   const topicPools = localContentPools[contentType];
   const topicItems = topicPools[topic];
 
@@ -96,7 +96,16 @@ function getLocalItemsForTopic<T extends ContentType>(
 
 export const localContentProvider: ContentProvider = {
   name: "local",
-  getItems({ contentType, topic }) {
-    return getLocalItemsForTopic(contentType, topic);
+  async getItems({ contentType, topic }) {
+    const result = getLocalItemsForTopic(contentType, topic);
+
+    if (!result) {
+      return undefined;
+    }
+
+    return {
+      ...result,
+      providerName: "local",
+    };
   },
 };

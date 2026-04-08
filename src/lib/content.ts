@@ -2,10 +2,10 @@ import { DEFAULT_TOPIC, channelTopics } from "../config/channel-topics.js";
 import { topics, type Topic } from "../config/topics.js";
 import type { TriviaItem } from "../content/trivia/general.js";
 import type { ContentItem, ContentProvider, ContentType } from "./content-provider.js";
+import { apiJokeProvider } from "./api-joke-provider.js";
 import { localContentProvider } from "./local-content-provider.js";
 
 const RECENT_ITEMS_TO_REMEMBER = 3;
-const contentProviders: readonly ContentProvider[] = [localContentProvider];
 const recentItemKeysByScopeContent = new Map<string, string[]>();
 
 export type { ContentType } from "./content-provider.js";
@@ -49,6 +49,20 @@ function getRecentItemKeys(contentType: ContentType, channelId?: string) {
   return recentItemKeysByScopeContent.get(getScopeContentKey(contentType, channelId)) ?? [];
 }
 
+function buildProviderRequest<T extends ContentType>(
+  contentType: T,
+  topic: Topic,
+  recentItemKeys: readonly string[],
+  channelId?: string,
+) {
+  return {
+    contentType,
+    topic,
+    recentItemKeys,
+    ...(channelId ? { channelId } : {}),
+  };
+}
+
 function getItemKey<T extends ContentType>(contentType: T, item: ContentItem<T>) {
   if (contentType === "trivia") {
     return (item as TriviaItem).question;
@@ -68,9 +82,41 @@ function pickRandomItemAvoidingRecent<T extends ContentType>(
   return pickRandomItem(pool);
 }
 
-function getProviderItems<T extends ContentType>(contentType: T, topic: Topic) {
+async function getProviderItems<T extends ContentType>(
+  contentType: T,
+  topic: Topic,
+  channelId?: string,
+) {
+  const recentItemKeys = getRecentItemKeys(contentType, channelId);
+
+  if (contentType === "joke") {
+    const localTopicResult = await localContentProvider.getItems({
+      ...buildProviderRequest(contentType, topic, recentItemKeys, channelId),
+    });
+
+    if (topic !== "general" && localTopicResult?.sourceTopic === topic && localTopicResult.items.length > 0) {
+      return localTopicResult;
+    }
+
+    const apiResult = await apiJokeProvider.getItems({
+      ...buildProviderRequest(contentType, topic, recentItemKeys, channelId),
+    });
+
+    if (apiResult && apiResult.items.length > 0) {
+      return apiResult;
+    }
+
+    if (localTopicResult && localTopicResult.items.length > 0) {
+      return localTopicResult;
+    }
+
+    return undefined;
+  }
+
+  const contentProviders: readonly ContentProvider[] = [localContentProvider];
+
   for (const provider of contentProviders) {
-    const result = provider.getItems({ contentType, topic });
+    const result = await provider.getItems(buildProviderRequest(contentType, topic, recentItemKeys, channelId));
 
     if (result && result.items.length > 0) {
       return result;
@@ -80,12 +126,12 @@ function getProviderItems<T extends ContentType>(contentType: T, topic: Topic) {
   return undefined;
 }
 
-export function getContentItem<T extends ContentType>(
+export async function getContentItem<T extends ContentType>(
   contentType: T,
   topic: Topic,
   channelId?: string,
-): ContentItem<T> | undefined {
-  const providerResult = getProviderItems(contentType, topic);
+): Promise<ContentItem<T> | undefined> {
+  const providerResult = await getProviderItems(contentType, topic, channelId);
 
   if (!providerResult) {
     return undefined;
@@ -101,16 +147,16 @@ export function getContentItem<T extends ContentType>(
   return item;
 }
 
-export function getResolvedContentItem<T extends ContentType>(
+export async function getResolvedContentItem<T extends ContentType>(
   contentType: T,
   topic: string | null,
   channelId: string | null,
-): ContentItem<T> | undefined {
+): Promise<ContentItem<T> | undefined> {
   const resolvedTopic = resolveTopic(topic, channelId);
   return getContentItem(contentType, resolvedTopic, channelId ?? undefined);
 }
 
-export function getFactText(topic: Topic, channelId?: string): string | undefined {
+export function getFactText(topic: Topic, channelId?: string): Promise<string | undefined> {
   return getContentItem("fact", topic, channelId);
 }
 
@@ -118,7 +164,7 @@ export function formatFactMessage(fact: string): string {
   return `**Cdawg Bot Fact Drop**\n${fact}`;
 }
 
-export function getJokeText(topic: Topic, channelId?: string): string | undefined {
+export function getJokeText(topic: Topic, channelId?: string): Promise<string | undefined> {
   return getContentItem("joke", topic, channelId);
 }
 
@@ -126,7 +172,7 @@ export function formatJokeMessage(joke: string): string {
   return `**Cdawg Bot Joke Drop**\n${joke}`;
 }
 
-export function getWyrText(topic: Topic, channelId?: string): string | undefined {
+export function getWyrText(topic: Topic, channelId?: string): Promise<string | undefined> {
   return getContentItem("wyr", topic, channelId);
 }
 
@@ -134,7 +180,7 @@ export function formatWyrMessage(prompt: string): string {
   return `**Would You Rather...**\n${prompt}`;
 }
 
-export function getPromptText(topic: Topic, channelId?: string): string | undefined {
+export function getPromptText(topic: Topic, channelId?: string): Promise<string | undefined> {
   return getContentItem("prompt", topic, channelId);
 }
 
@@ -142,7 +188,7 @@ export function formatPromptMessage(prompt: string): string {
   return `**Cdawg Bot Discussion Prompt**\n${prompt}`;
 }
 
-export function getTriviaItem(topic: Topic, channelId?: string): TriviaItem | undefined {
+export function getTriviaItem(topic: Topic, channelId?: string): Promise<TriviaItem | undefined> {
   return getContentItem("trivia", topic, channelId);
 }
 
@@ -152,30 +198,30 @@ export function formatTriviaMessage(item: TriviaItem): string {
   return `**Cdawg Bot Trivia**\n${item.question}\n\nA. ${optionA}\nB. ${optionB}\nC. ${optionC}\nD. ${optionD}\n\nAnswer: ||${item.answer}||`;
 }
 
-export function getContentMessage(
+export async function getContentMessage(
   contentType: ContentType,
   topic: Topic,
   channelId?: string,
-): string | undefined {
+): Promise<string | undefined> {
   switch (contentType) {
     case "fact": {
-      const fact = getContentItem(contentType, topic, channelId);
+      const fact = await getContentItem(contentType, topic, channelId);
       return fact ? formatFactMessage(fact) : undefined;
     }
     case "joke": {
-      const joke = getContentItem(contentType, topic, channelId);
+      const joke = await getContentItem(contentType, topic, channelId);
       return joke ? formatJokeMessage(joke) : undefined;
     }
     case "wyr": {
-      const prompt = getContentItem(contentType, topic, channelId);
+      const prompt = await getContentItem(contentType, topic, channelId);
       return prompt ? formatWyrMessage(prompt) : undefined;
     }
     case "prompt": {
-      const prompt = getContentItem(contentType, topic, channelId);
+      const prompt = await getContentItem(contentType, topic, channelId);
       return prompt ? formatPromptMessage(prompt) : undefined;
     }
     case "trivia": {
-      const item = getContentItem(contentType, topic, channelId);
+      const item = await getContentItem(contentType, topic, channelId);
       return item ? formatTriviaMessage(item) : undefined;
     }
   }

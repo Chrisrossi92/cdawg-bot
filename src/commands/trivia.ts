@@ -219,7 +219,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const item = getResolvedContentItem("trivia", interaction.options.getString("topic"), interaction.channelId);
+  const item = await getResolvedContentItem("trivia", interaction.options.getString("topic"), interaction.channelId);
 
   if (!item) {
     await interaction.reply("No trivia questions are available right now.");

@@ -14,7 +14,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const joke = getResolvedContentItem("joke", interaction.options.getString("topic"), interaction.channelId);
+  const joke = await getResolvedContentItem("joke", interaction.options.getString("topic"), interaction.channelId);
 
   if (!joke) {
     await interaction.reply("No jokes are available right now.");

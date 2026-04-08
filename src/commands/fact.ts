@@ -17,7 +17,7 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const randomFact = getResolvedContentItem("fact", interaction.options.getString("topic"), interaction.channelId);
+  const randomFact = await getResolvedContentItem("fact", interaction.options.getString("topic"), interaction.channelId);
 
   if (!randomFact) {
     await interaction.reply("No facts are available right now.");

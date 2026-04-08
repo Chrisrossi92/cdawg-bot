@@ -31,7 +31,7 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
   }
 
   const topic = resolveTopic(null, schedule.channelId);
-  const message = getContentMessage(schedule.contentType, topic, schedule.channelId);
+  const message = await getContentMessage(schedule.contentType, topic, schedule.channelId);
 
   if (!message) {
     return;
