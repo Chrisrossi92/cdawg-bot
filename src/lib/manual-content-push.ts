@@ -1,8 +1,9 @@
 import type { Client } from "discord.js";
-import { resolveTopic, getContentMessage } from "./content.js";
+import { resolveTopic, getContentMessage, getResolvedContentItem } from "./content.js";
 import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import { postInteractiveTriviaSession } from "./trivia-session.js";
 
 export const manualPushContentTypes = ["joke", "prompt", "fact", "trivia"] as const;
 
@@ -12,6 +13,7 @@ export type ManualContentPushRequest = {
   channelId: string;
   contentType: ContentType;
   topicOverride?: Topic | null;
+  source?: "manual" | "feed" | "scheduler" | "command" | "passive-chat" | "daily-challenge";
 };
 
 export type ManualContentPushResult =
@@ -85,25 +87,10 @@ export async function pushManualContentToChannel(
   logManualPush("attempt", {
     contentType: request.contentType,
     channelId: request.channelId,
+    source: request.source ?? "manual",
     topicOverride: request.topicOverride ?? null,
     resolvedTopic,
   });
-
-  const message = await getContentMessage(request.contentType as ContentType, resolvedTopic, request.channelId);
-
-  if (!message) {
-    logManualPush("error", {
-      contentType: request.contentType,
-      channelId: request.channelId,
-      resolvedTopic,
-      reason: "content-unavailable",
-    });
-    return {
-      ok: false,
-      code: "CONTENT_UNAVAILABLE",
-      error: "No content is available for that request.",
-    };
-  }
 
   const channel = await client.channels.fetch(request.channelId);
 
@@ -135,10 +122,68 @@ export async function pushManualContentToChannel(
     };
   }
 
+  if (request.contentType === "trivia") {
+    const triviaItem = await getResolvedContentItem("trivia", request.topicOverride ?? null, request.channelId);
+
+    if (!triviaItem) {
+      logManualPush("error", {
+        contentType: request.contentType,
+        channelId: request.channelId,
+        source: request.source ?? "manual",
+        resolvedTopic,
+        reason: "content-unavailable",
+      });
+      return {
+        ok: false,
+        code: "CONTENT_UNAVAILABLE",
+        error: "No trivia questions are available for that request.",
+      };
+    }
+
+    const sentMessage = await postInteractiveTriviaSession({
+      item: triviaItem,
+      source: request.source ?? "manual",
+      post: (payload) => channel.send(payload),
+    });
+    logManualPush("success", {
+      contentType: request.contentType,
+      channelId: request.channelId,
+      source: request.source ?? "manual",
+      resolvedTopic,
+      messageId: sentMessage.id,
+    });
+
+    return {
+      ok: true,
+      channelId: request.channelId,
+      contentType: request.contentType,
+      resolvedTopic,
+      messageId: sentMessage.id,
+    };
+  }
+
+  const message = await getContentMessage(request.contentType as ContentType, resolvedTopic, request.channelId);
+
+  if (!message) {
+    logManualPush("error", {
+      contentType: request.contentType,
+      channelId: request.channelId,
+      source: request.source ?? "manual",
+      resolvedTopic,
+      reason: "content-unavailable",
+    });
+    return {
+      ok: false,
+      code: "CONTENT_UNAVAILABLE",
+      error: "No content is available for that request.",
+    };
+  }
+
   const sentMessage = await channel.send(message);
   logManualPush("success", {
     contentType: request.contentType,
     channelId: request.channelId,
+    source: request.source ?? "manual",
     resolvedTopic,
     messageId: sentMessage.id,
   });
@@ -211,6 +256,7 @@ export async function triggerAutomatedContentNow(
   const pushResult = await pushManualContentToChannel(client, {
     channelId: request.channelId,
     contentType: nextPlan.contentType,
+    source: nextPlan.source,
   });
 
   if (!pushResult.ok) {
