@@ -319,6 +319,10 @@ function getFeedBlockedLabel(feed) {
     return "skip-next";
   }
 
+  if (feed.blockedReason === "outside-window") {
+    return "outside-window";
+  }
+
   return "clear";
 }
 
@@ -416,6 +420,8 @@ function resetFeedForm() {
   feedForm.elements.contentType.value = "prompt";
   feedForm.elements.cadenceMinutes.value = "60";
   feedForm.elements.topicOverride.value = "";
+  feedForm.elements.allowedStartTime.value = "";
+  feedForm.elements.allowedEndTime.value = "";
   feedForm.elements.channelPreset.value = channelPresets[0]?.channelId ?? "";
   setFeedStatus("Feed form reset.");
 }
@@ -429,6 +435,8 @@ function populateFeedForm(feed) {
   feedForm.elements.contentType.value = feed.contentType;
   feedForm.elements.cadenceMinutes.value = String(feed.cadenceMinutes);
   feedForm.elements.topicOverride.value = feed.topicOverride ?? "";
+  feedForm.elements.allowedStartTime.value = feed.allowedWindow?.startTime ?? "";
+  feedForm.elements.allowedEndTime.value = feed.allowedWindow?.endTime ?? "";
   setFeedStatus(`Editing ${feed.id}.`);
 }
 
@@ -458,7 +466,7 @@ function renderFeeds() {
     main.className = "channel-operation-main";
     title.textContent = `${feed.channelLabel} • ${feed.contentType}`;
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}`;
+    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}${feed.allowedWindow ? ` • Window ${feed.allowedWindow.startTime}-${feed.allowedWindow.endTime}` : ""}`;
     primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
     primaryDetail.textContent = `Next run: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`;
     secondaryDetail.className = "channel-operation-detail";
@@ -699,6 +707,8 @@ async function submitManualPush(event) {
 function buildFeedPayload() {
   const manualChannelId = feedForm.elements.channelId.value.trim();
   const topicOverride = feedForm.elements.topicOverride.value.trim();
+  const allowedStartTime = feedForm.elements.allowedStartTime.value;
+  const allowedEndTime = feedForm.elements.allowedEndTime.value;
 
   return {
     enabled: feedForm.elements.enabled.value === "true",
@@ -706,6 +716,7 @@ function buildFeedPayload() {
     contentType: feedForm.elements.contentType.value,
     cadenceMinutes: Number(feedForm.elements.cadenceMinutes.value),
     topicOverride: topicOverride || null,
+    allowedWindow: allowedStartTime && allowedEndTime ? { startTime: allowedStartTime, endTime: allowedEndTime } : null,
   };
 }
 

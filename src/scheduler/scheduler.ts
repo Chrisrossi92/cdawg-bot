@@ -4,7 +4,13 @@ import { getContentMessage, resolveTopic } from "../lib/content.js";
 import { pushManualContentToChannel } from "../lib/manual-content-push.js";
 import { getAutomatedContentBlock } from "../systems/channel-operations.js";
 import { recordAutomatedContentSend } from "../systems/channel-automation-status.js";
-import { getFeedConfigs, getFeedNextEligibleAt, recordFeedExecuted, type FeedConfig } from "../systems/feed-configs.js";
+import {
+  getFeedConfigs,
+  getFeedNextEligibleAt,
+  isWithinFeedAllowedWindow,
+  recordFeedExecuted,
+  type FeedConfig,
+} from "../systems/feed-configs.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
 
@@ -60,6 +66,10 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
 
 async function postManagedFeed(client: Client, feed: FeedConfig, now: Date) {
   if (!feed.enabled || getFeedNextEligibleAt(feed, now.getTime()) > now.getTime()) {
+    return;
+  }
+
+  if (!isWithinFeedAllowedWindow(feed, now.getTime())) {
     return;
   }
 

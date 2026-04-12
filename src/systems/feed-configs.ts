@@ -11,9 +11,15 @@ export type FeedConfig = {
   contentType: ContentType;
   cadenceMinutes: number;
   topicOverride: Topic | null;
+  allowedWindow: FeedAllowedWindow | null;
   createdAt: number;
   updatedAt: number;
   lastExecutedAt: number | null;
+};
+
+export type FeedAllowedWindow = {
+  startTime: string;
+  endTime: string;
 };
 
 export type FeedOverlapWarning = {
@@ -25,7 +31,7 @@ type FeedStore = {
   feeds: FeedConfig[];
 };
 
-type FeedPatch = Partial<Pick<FeedConfig, "enabled" | "channelId" | "contentType" | "cadenceMinutes" | "topicOverride">>;
+type FeedPatch = Partial<Pick<FeedConfig, "enabled" | "channelId" | "contentType" | "cadenceMinutes" | "topicOverride" | "allowedWindow">>;
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -66,6 +72,28 @@ function sanitizeTopicOverride(value: unknown): Topic | null {
   return typeof value === "string" && value.trim().length > 0 ? (value.trim() as Topic) : null;
 }
 
+function sanitizeDailyTime(value: unknown) {
+  return typeof value === "string" && /^([01]\d|2[0-3]):([0-5]\d)$/.test(value.trim()) ? value.trim() : null;
+}
+
+function sanitizeAllowedWindow(value: unknown): FeedAllowedWindow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const startTime = sanitizeDailyTime(value.startTime);
+  const endTime = sanitizeDailyTime(value.endTime);
+
+  if (!startTime || !endTime || startTime === endTime) {
+    return null;
+  }
+
+  return {
+    startTime,
+    endTime,
+  };
+}
+
 function sanitizeFeedConfig(value: unknown): FeedConfig | null {
   if (!isRecord(value)) {
     return null;
@@ -89,6 +117,7 @@ function sanitizeFeedConfig(value: unknown): FeedConfig | null {
     contentType,
     cadenceMinutes,
     topicOverride: sanitizeTopicOverride(value.topicOverride),
+    allowedWindow: sanitizeAllowedWindow(value.allowedWindow),
     createdAt,
     updatedAt,
     lastExecutedAt: sanitizeTimestamp(value.lastExecutedAt),
@@ -136,7 +165,7 @@ function loadFeedStore(): FeedStore {
 }
 
 function logFeedEvent(
-  event: "created" | "updated" | "enabled" | "disabled" | "deleted" | "executed",
+  event: "created" | "updated" | "enabled" | "disabled" | "deleted" | "executed" | "window-blocked",
   details: Record<string, string | number | null | undefined>,
 ) {
   const parts = [`event=${event}`];
@@ -168,6 +197,77 @@ export function getFeedNextEligibleAt(feed: FeedConfig, now = Date.now()) {
   const referenceTime = Math.max(feed.lastExecutedAt ?? feed.createdAt, feed.updatedAt);
   const nextEligibleAt = referenceTime + feed.cadenceMinutes * 60 * 1000;
   return nextEligibleAt > now ? nextEligibleAt : now;
+}
+
+function getMinutesSinceMidnight(date: Date) {
+  return date.getHours() * 60 + date.getMinutes();
+}
+
+function parseWindowMinutes(time: string) {
+  const parts = time.split(":");
+  const hours = Number(parts[0] ?? 0);
+  const minutes = Number(parts[1] ?? 0);
+  return hours * 60 + minutes;
+}
+
+export function isWithinFeedAllowedWindow(feed: FeedConfig, now = Date.now()) {
+  if (!feed.allowedWindow) {
+    return true;
+  }
+
+  const date = new Date(now);
+  const nowMinutes = getMinutesSinceMidnight(date);
+  const startMinutes = parseWindowMinutes(feed.allowedWindow.startTime);
+  const endMinutes = parseWindowMinutes(feed.allowedWindow.endTime);
+
+  if (startMinutes < endMinutes) {
+    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
+  }
+
+  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+}
+
+export function getFeedAllowedWindowNextStartAt(feed: FeedConfig, now = Date.now()) {
+  if (!feed.allowedWindow) {
+    return null;
+  }
+
+  const date = new Date(now);
+  const nowMinutes = getMinutesSinceMidnight(date);
+  const startMinutes = parseWindowMinutes(feed.allowedWindow.startTime);
+  const endMinutes = parseWindowMinutes(feed.allowedWindow.endTime);
+  const nextStart = new Date(now);
+  nextStart.setSeconds(0, 0);
+
+  if (startMinutes < endMinutes) {
+    if (nowMinutes < startMinutes) {
+      nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+      return nextStart.getTime();
+    }
+
+    nextStart.setDate(nextStart.getDate() + 1);
+    nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+    return nextStart.getTime();
+  }
+
+  if (nowMinutes >= startMinutes || nowMinutes < endMinutes) {
+    return now;
+  }
+
+  nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
+  return nextStart.getTime();
+}
+
+export function getFeedWindowBlockedUntil(feed: FeedConfig, now = Date.now()) {
+  return isWithinFeedAllowedWindow(feed, now) ? null : getFeedAllowedWindowNextStartAt(feed, now);
+}
+
+export function logFeedWindowBlocked(feed: FeedConfig, blockedUntil: number | null) {
+  logFeedEvent("window-blocked", {
+    feedId: feed.id,
+    channelId: feed.channelId,
+    blockedUntil,
+  });
 }
 
 export function getFeedOverlapWarnings(feed: FeedConfig, feeds = activeFeedStore.feeds): FeedOverlapWarning[] {
@@ -203,6 +303,7 @@ export function createFeedConfig(input: {
   contentType: ContentType;
   cadenceMinutes: number;
   topicOverride?: Topic | null;
+  allowedWindow?: FeedAllowedWindow | null;
 }) {
   const now = Date.now();
   const feed: FeedConfig = {
@@ -212,6 +313,7 @@ export function createFeedConfig(input: {
     contentType: input.contentType,
     cadenceMinutes: input.cadenceMinutes,
     topicOverride: input.topicOverride ?? null,
+    allowedWindow: input.allowedWindow ?? null,
     createdAt: now,
     updatedAt: now,
     lastExecutedAt: null,
@@ -241,6 +343,7 @@ export function updateFeedConfig(feedId: string, patch: FeedPatch) {
     ...currentFeed,
     ...patch,
     topicOverride: patch.topicOverride === undefined ? currentFeed.topicOverride : patch.topicOverride,
+    allowedWindow: patch.allowedWindow === undefined ? currentFeed.allowedWindow : patch.allowedWindow,
     updatedAt: Date.now(),
   };
 

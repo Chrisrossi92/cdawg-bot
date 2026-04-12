@@ -27,8 +27,11 @@ import {
   getFeedConfigs,
   getFeedNextEligibleAt,
   getFeedOverlapWarnings,
+  getFeedWindowBlockedUntil,
+  isWithinFeedAllowedWindow,
   setFeedEnabled,
   updateFeedConfig,
+  type FeedAllowedWindow,
 } from "../systems/feed-configs.js";
 import { getChannelOperationalStatus } from "../systems/channel-operations.js";
 
@@ -100,6 +103,7 @@ type FeedRequestBody = {
   contentType?: ContentType;
   cadenceMinutes?: number;
   topicOverride?: Topic | null;
+  allowedWindow?: FeedAllowedWindow | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -368,6 +372,34 @@ function sanitizeFeedRequest(value: unknown, requireId: boolean, requireFullConf
     nextValue.topicOverride = value.topicOverride as Topic | null;
   }
 
+  if ("allowedWindow" in value) {
+    if (value.allowedWindow !== null && !isRecord(value.allowedWindow)) {
+      return {
+        ok: false as const,
+        error: "Invalid allowed window.",
+      };
+    }
+
+    if (value.allowedWindow === null) {
+      nextValue.allowedWindow = null;
+    } else {
+      const startTime = typeof value.allowedWindow.startTime === "string" ? value.allowedWindow.startTime.trim() : "";
+      const endTime = typeof value.allowedWindow.endTime === "string" ? value.allowedWindow.endTime.trim() : "";
+
+      if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(startTime) || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(endTime) || startTime === endTime) {
+        return {
+          ok: false as const,
+          error: "Invalid allowed window. Expected daily HH:MM start/end values.",
+        };
+      }
+
+      nextValue.allowedWindow = {
+        startTime,
+        endTime,
+      };
+    }
+  }
+
   if (Object.keys(nextValue).length === 0) {
     return {
       ok: false as const,
@@ -389,6 +421,8 @@ function buildFeedResponse(feedId: string) {
   }
 
   const operationalStatus = getChannelOperationalStatus(feed.channelId);
+  const outsideAllowedWindow = !isWithinFeedAllowedWindow(feed);
+  const allowedWindowBlockedUntil = outsideAllowedWindow ? getFeedWindowBlockedUntil(feed) : null;
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
   const blockedReason = operationalStatus.isSilenced
     ? "silenced"
@@ -396,11 +430,15 @@ function buildFeedResponse(feedId: string) {
       ? "cooldown"
       : operationalStatus.skipNextSend
         ? "skip-next"
+        : outsideAllowedWindow
+          ? "outside-window"
         : null;
   const blockedUntil = operationalStatus.isSilenced
     ? operationalStatus.silencedUntil
     : operationalStatus.isCoolingDown
       ? operationalStatus.cooldownUntil
+      : outsideAllowedWindow
+        ? allowedWindowBlockedUntil
       : null;
   const nextRunAt = blockedUntil ? Math.max(getFeedNextEligibleAt(feed), blockedUntil) : getFeedNextEligibleAt(feed);
 
@@ -568,6 +606,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
           contentType: validation.value.contentType ?? "prompt",
           cadenceMinutes: validation.value.cadenceMinutes ?? 60,
           topicOverride: validation.value.topicOverride ?? null,
+          allowedWindow: validation.value.allowedWindow ?? null,
         });
 
         sendJson(response, 200, {
@@ -598,6 +637,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
           ...(validation.value.contentType ? { contentType: validation.value.contentType } : {}),
           ...(validation.value.cadenceMinutes ? { cadenceMinutes: validation.value.cadenceMinutes } : {}),
           ...("topicOverride" in validation.value ? { topicOverride: validation.value.topicOverride ?? null } : {}),
+          ...("allowedWindow" in validation.value ? { allowedWindow: validation.value.allowedWindow ?? null } : {}),
         });
 
         if (!feed) {
