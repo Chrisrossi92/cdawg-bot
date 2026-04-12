@@ -163,7 +163,12 @@ function formatTimestamp(timestamp) {
     return "none";
   }
 
-  return new Date(timestamp).toLocaleString();
+  return new Date(timestamp).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function formatRelativeTime(timestamp) {
@@ -307,6 +312,7 @@ function renderChannelOperations() {
     const card = document.createElement("section");
     const main = document.createElement("div");
     const times = document.createElement("div");
+    const identity = document.createElement("div");
     const title = document.createElement("h3");
     const meta = document.createElement("p");
     const status = document.createElement("p");
@@ -315,10 +321,13 @@ function renderChannelOperations() {
     const blockedUntil = document.createElement("p");
     const lastSend = document.createElement("p");
     const actions = document.createElement("div");
+    const primaryActions = document.createElement("div");
+    const secondaryActions = document.createElement("div");
 
     card.className = "channel-operation-card compact";
     main.className = "channel-operation-main";
     times.className = "channel-operation-times";
+    identity.className = "channel-operation-identity";
     title.textContent = channelStatus.label;
     meta.className = "channel-operation-meta";
     meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""}`;
@@ -333,26 +342,32 @@ function renderChannelOperations() {
     if (channelStatus.skipNextSendPending) {
       badges.append(createStatusBadge("skip-next pending", "blocked"));
     }
-    nextEligible.className = "channel-operation-detail";
+    nextEligible.className = "channel-operation-detail channel-operation-detail-strong";
     nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
     lastSend.textContent = `Last automated send: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
     actions.className = "channel-operation-actions";
+    primaryActions.className = "channel-operation-action-group";
+    secondaryActions.className = "channel-operation-action-group secondary";
 
-    actions.append(
+    primaryActions.append(
+      createChannelActionButton("Trigger Next Now", () => void applyChannelOperation(channelStatus.channelId, "trigger-now")),
+      createChannelActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next")),
       createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000)),
       createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
       createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
-      createChannelActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next")),
-      createChannelActionButton("Trigger Next Now", () => void applyChannelOperation(channelStatus.channelId, "trigger-now")),
+    );
+    secondaryActions.append(
       createChannelActionButton("Clear Skip", () => void applyChannelOperation(channelStatus.channelId, "clear-skip-next")),
       createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
-    main.append(title, meta, badges, status);
-    times.append(nextEligible, blockedUntil, lastSend);
+    actions.append(primaryActions, secondaryActions);
+    identity.append(title, badges);
+    main.append(identity, status, nextEligible, blockedUntil, meta);
+    times.append(lastSend);
     card.append(main, times, actions);
     channelOperationsGrid.append(card);
   }

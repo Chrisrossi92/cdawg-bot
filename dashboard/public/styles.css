@@ -212,16 +212,22 @@ button.secondary:hover {
 }
 
 .channel-operation-card.compact {
-  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(280px, auto);
+  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.65fr) minmax(300px, auto);
   align-items: start;
-  padding: 12px 14px;
+  gap: 14px;
+  padding: 14px 16px;
 }
 
 .channel-operation-main,
 .channel-operation-times,
 .channel-operation-actions {
   display: grid;
-  gap: 6px;
+  gap: 8px;
+}
+
+.channel-operation-identity {
+  display: grid;
+  gap: 8px;
 }
 
 .channel-operation-meta,
@@ -239,6 +245,17 @@ button.secondary:hover {
 
 .channel-operation-status {
   font-weight: 700;
+  font-size: 13px;
+}
+
+.channel-operation-detail {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.channel-operation-detail-strong {
+  color: var(--text);
+  font-weight: 700;
 }
 
 .channel-operation-status.active {
@@ -250,15 +267,30 @@ button.secondary:hover {
 }
 
 .channel-operation-actions {
+  align-content: start;
+  justify-items: end;
+}
+
+.channel-operation-action-group {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
   justify-content: flex-end;
 }
 
+.channel-operation-action-group.secondary button {
+  background: #dfe7f3;
+  color: #16324f;
+}
+
+.channel-operation-action-group.secondary button:hover {
+  background: #c9d7eb;
+}
+
 .channel-operation-actions button {
-  padding: 8px 10px;
-  font-size: 13px;
+  padding: 7px 10px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 
 .channel-operation-badges {
@@ -398,6 +430,10 @@ pre {
   }
 
   .channel-operation-actions {
+    justify-items: stretch;
+  }
+
+  .channel-operation-action-group {
     justify-content: flex-start;
   }
 }
