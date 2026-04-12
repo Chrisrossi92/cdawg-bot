@@ -24,6 +24,7 @@ export type TriviaSessionPresentation = {
 };
 
 type ActiveTriviaQuestion = {
+  questionId: string;
   question: string;
   correctAnswer: string;
   options: readonly [string, string, string, string];
@@ -33,9 +34,33 @@ type ActiveTriviaQuestion = {
   fastestCorrectUserId: string | null;
   firstCorrectAt: number | null;
   source: TriviaSessionSource;
+  channelId: string | null;
+  messageId: string | null;
+  postedAt: number;
+  presentationVariant: TriviaSessionPresentation["variant"];
+  item: TriviaItem;
 };
 
 const activeTriviaQuestions = new Map<string, ActiveTriviaQuestion>();
+const latestTriviaSessionBySourceChannel = new Map<string, TriviaSessionSnapshot>();
+
+export type TriviaSessionSnapshot = {
+  questionId: string;
+  source: TriviaSessionSource;
+  channelId: string | null;
+  messageId: string | null;
+  postedAt: number;
+  closedAt: number | null;
+  active: boolean;
+  question: string;
+  category: string | null;
+  difficulty: string | null;
+  answerCount: number;
+  hasCorrectAnswer: boolean;
+  correctAnswerCount: number;
+  fastestCorrectUserId: string | null;
+  presentationVariant: TriviaSessionPresentation["variant"];
+};
 
 function logTriviaSession(
   event: "posted" | "answered" | "closed",
@@ -50,6 +75,30 @@ function logTriviaSession(
   }
 
   console.log(`[trivia-session] ${parts.join(" ")}`);
+}
+
+function getTriviaSessionKey(source: TriviaSessionSource, channelId: string | null) {
+  return `${source}:${channelId ?? "unknown"}`;
+}
+
+function buildTriviaSessionSnapshot(question: ActiveTriviaQuestion, closedAt: number | null): TriviaSessionSnapshot {
+  return {
+    questionId: question.questionId,
+    source: question.source,
+    channelId: question.channelId,
+    messageId: question.messageId,
+    postedAt: question.postedAt,
+    closedAt,
+    active: closedAt === null,
+    question: question.question,
+    category: question.item.category ?? null,
+    difficulty: question.item.difficulty ?? null,
+    answerCount: question.answeredUsers.size,
+    hasCorrectAnswer: question.correctUsers.size > 0,
+    correctAnswerCount: question.correctUsers.size,
+    fastestCorrectUserId: question.fastestCorrectUserId,
+    presentationVariant: question.presentationVariant,
+  };
 }
 
 function buildTriviaButtons(questionId: string, disabled = false) {
@@ -252,6 +301,7 @@ export async function postInteractiveTriviaSession(options: {
   const row = buildTriviaButtons(questionId);
 
   activeTriviaQuestions.set(questionId, {
+    questionId,
     question: options.item.question,
     correctAnswer: options.item.answer,
     options: options.item.options,
@@ -261,6 +311,11 @@ export async function postInteractiveTriviaSession(options: {
     fastestCorrectUserId: null,
     firstCorrectAt: null,
     source: options.source,
+    channelId: null,
+    messageId: null,
+    postedAt: Date.now(),
+    presentationVariant: options.presentation?.variant,
+    item: options.item,
   });
 
   const message = await options.post({
@@ -274,6 +329,17 @@ export async function postInteractiveTriviaSession(options: {
     questionId,
     messageId: message.id,
   });
+
+  const activeQuestion = activeTriviaQuestions.get(questionId);
+
+  if (activeQuestion) {
+    activeQuestion.channelId = message.channelId ?? null;
+    activeQuestion.messageId = message.id;
+    latestTriviaSessionBySourceChannel.set(
+      getTriviaSessionKey(activeQuestion.source, activeQuestion.channelId),
+      buildTriviaSessionSnapshot(activeQuestion, null),
+    );
+  }
 
   const collector = message.createMessageComponentCollector({
     componentType: ComponentType.Button,
@@ -292,6 +358,15 @@ export async function postInteractiveTriviaSession(options: {
     }
 
     await handleTriviaAnswer(buttonInteraction, questionId, Number(rawOptionIndex));
+
+    const currentQuestion = activeTriviaQuestions.get(questionId);
+
+    if (currentQuestion) {
+      latestTriviaSessionBySourceChannel.set(
+        getTriviaSessionKey(currentQuestion.source, currentQuestion.channelId),
+        buildTriviaSessionSnapshot(currentQuestion, null),
+      );
+    }
   });
 
   collector.on("end", async () => {
@@ -302,6 +377,10 @@ export async function postInteractiveTriviaSession(options: {
     }
 
     activeTriviaQuestions.delete(questionId);
+    latestTriviaSessionBySourceChannel.set(
+      getTriviaSessionKey(activeQuestion.source, activeQuestion.channelId),
+      buildTriviaSessionSnapshot(activeQuestion, Date.now()),
+    );
     logTriviaSession("closed", {
       source: activeQuestion.source,
       questionId,
@@ -319,4 +398,8 @@ export async function postInteractiveTriviaSession(options: {
   });
 
   return message;
+}
+
+export function getLatestTriviaSessionSnapshot(source: TriviaSessionSource, channelId: string) {
+  return latestTriviaSessionBySourceChannel.get(getTriviaSessionKey(source, channelId)) ?? null;
 }

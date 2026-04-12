@@ -569,6 +569,7 @@ function renderDailyTriviaChallenge() {
   const primaryDetail = document.createElement("p");
   const blockedDetail = document.createElement("p");
   const secondaryDetail = document.createElement("p");
+  const sessionDetail = document.createElement("p");
   const meta = document.createElement("p");
 
   row.className = "channel-operation-card compact";
@@ -591,10 +592,14 @@ function renderDailyTriviaChallenge() {
     : "Blocked: none";
   secondaryDetail.className = "channel-operation-detail";
   secondaryDetail.textContent = `Daily time: ${dailyTriviaChallenge.dailyTime} • Last run: ${formatTimestamp(dailyTriviaChallenge.lastExecutedAt)} (${formatRelativeTime(dailyTriviaChallenge.lastExecutedAt)})`;
+  sessionDetail.className = "channel-operation-detail";
+  sessionDetail.textContent = dailyTriviaChallenge.latestSession
+    ? `Session: ${dailyTriviaChallenge.latestSession.active ? "active" : "closed"} • Answers: ${dailyTriviaChallenge.latestSession.answerCount} • Correct recorded: ${dailyTriviaChallenge.latestSession.hasCorrectAnswer ? "yes" : "no"}${dailyTriviaChallenge.latestSession.fastestCorrectUserId ? ` • Fastest correct: <@${dailyTriviaChallenge.latestSession.fastestCorrectUserId}>` : ""}`
+    : "Session: none yet";
   meta.className = "channel-operation-meta";
-  meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}${dailyTriviaChallenge.triviaEligibility && !dailyTriviaChallenge.triviaEligibility.ok ? ` • ${dailyTriviaChallenge.triviaEligibility.error}` : ""}`;
+  meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}${dailyTriviaChallenge.latestSession?.category ? ` • Category ${dailyTriviaChallenge.latestSession.category}` : ""}${dailyTriviaChallenge.latestSession?.difficulty ? ` • Difficulty ${dailyTriviaChallenge.latestSession.difficulty}` : ""}${dailyTriviaChallenge.triviaEligibility && !dailyTriviaChallenge.triviaEligibility.ok ? ` • ${dailyTriviaChallenge.triviaEligibility.error}` : ""}`;
 
-  main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, meta);
+  main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, sessionDetail, meta);
   row.append(main);
   dailyTriviaSummary.append(row);
   applyDailyTriviaToForm(dailyTriviaChallenge);

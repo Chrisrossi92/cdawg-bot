@@ -7,6 +7,7 @@ import {
   isWithinDailyAllowedWindow,
   type DailyAllowedWindow,
 } from "../lib/allowed-window.js";
+import { getLatestTriviaSessionSnapshot } from "../lib/trivia-session.js";
 import { getChannelOperationalStatus } from "./channel-operations.js";
 
 export type DailyTriviaChallengeConfig = {
@@ -339,11 +340,14 @@ export function getDailyTriviaChallengeStatus(now = Date.now()) {
     return null;
   }
 
+  const latestSession = getLatestTriviaSessionSnapshot("daily-challenge", activeConfig.channelId);
+
   return {
     ...activeConfig,
     blockedReason: getDailyTriviaChallengeBlockedReason(activeConfig, now),
     blockedUntil: getDailyTriviaChallengeBlockedUntil(activeConfig, now),
     dueAt: getDailyTriviaChallengeDueAt(activeConfig, now),
     nextRunAt: getDailyTriviaChallengeNextRunAt(activeConfig, now),
+    latestSession,
   };
 }
