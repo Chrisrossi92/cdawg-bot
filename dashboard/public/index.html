@@ -135,8 +135,11 @@
               </select>
             </label>
             <label>
-              Channel ID
-              <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel snowflake" />
+              Channel Preset
+              <select name="channelPreset">
+                <option value="">Loading presets...</option>
+              </select>
+              <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
             </label>
             <label>
               Topic Override

@@ -1,5 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { apiConfig } from "../config/api.js";
+import { dashboardChannelPresets } from "../config/dashboard-channel-presets.js";
 import type { ContentType } from "../lib/content-provider.js";
 import { manualPushContentTypes, type ManualPushContentType, type ManualContentPushResult } from "../lib/manual-content-push.js";
 import { topics, type Topic } from "../config/topics.js";
@@ -310,6 +311,18 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           metrics: getBotMetrics(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-presets") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          channelPresets: dashboardChannelPresets,
         });
         return;
       }

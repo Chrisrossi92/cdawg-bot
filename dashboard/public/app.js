@@ -12,6 +12,7 @@ const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
+const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -31,6 +32,7 @@ const autoRefreshIntervalMs = 15000;
 
 let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
+let channelPresets = [];
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -61,6 +63,49 @@ function setManualPushStatus(message, kind = "neutral") {
   manualPushStatus.textContent = message;
   manualPushStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function getSelectedChannelPreset() {
+  const selectedChannelId = manualPushForm.elements.channelPreset.value;
+  return channelPresets.find((preset) => preset.channelId === selectedChannelId) ?? null;
+}
+
+function renderChannelPresetOptions() {
+  const presetSelect = manualPushForm.elements.channelPreset;
+  const previousValue = presetSelect.value;
+  presetSelect.replaceChildren();
+
+  for (const preset of channelPresets) {
+    const option = document.createElement("option");
+    option.value = preset.channelId;
+    option.textContent = preset.label;
+    presetSelect.append(option);
+  }
+
+  if (channelPresets.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No channel presets available";
+    presetSelect.append(option);
+  }
+
+  const hasPreviousValue = channelPresets.some((preset) => preset.channelId === previousValue);
+  presetSelect.value = hasPreviousValue ? previousValue : channelPresets[0]?.channelId ?? "";
+}
+
+function syncManualPushPresetSelection(prefillTopic = true) {
+  const selectedPreset = getSelectedChannelPreset();
+
+  if (!selectedPreset) {
+    manualPushChannelMeta.textContent = "Select a channel preset to use its channel ID.";
+    return;
+  }
+
+  manualPushChannelMeta.textContent = `Channel ID: ${selectedPreset.channelId}`;
+
+  if (prefillTopic) {
+    manualPushForm.elements.topicOverride.value = selectedPreset.defaultTopic ?? "";
+  }
 }
 
 function createHealthCard(label, value, statusClass = "") {
@@ -187,6 +232,20 @@ async function loadMetrics() {
   }
 }
 
+async function loadChannelPresets() {
+  try {
+    const data = await fetchJson("/api/channel-presets");
+    channelPresets = Array.isArray(data.channelPresets) ? data.channelPresets : [];
+    const previousSelection = manualPushForm.elements.channelPreset.value;
+    renderChannelPresetOptions();
+    syncManualPushPresetSelection(!previousSelection || previousSelection !== manualPushForm.elements.channelPreset.value);
+  } catch (error) {
+    channelPresets = [];
+    renderChannelPresetOptions();
+    manualPushChannelMeta.textContent = `Preset load failed: ${error.message}`;
+  }
+}
+
 function buildSettingsPayload() {
   return {
     passiveChat: {
@@ -227,10 +286,11 @@ async function saveSettings(event) {
 }
 
 function buildManualPushPayload() {
+  const selectedPreset = getSelectedChannelPreset();
   const topicOverride = manualPushForm.elements.topicOverride.value.trim();
 
   return {
-    channelId: manualPushForm.elements.channelId.value.trim(),
+    channelId: selectedPreset ? selectedPreset.channelId : "",
     contentType: manualPushForm.elements.contentType.value,
     ...(topicOverride ? { topicOverride } : {}),
   };
@@ -289,6 +349,7 @@ apiConfigForm.addEventListener("submit", async (event) => {
 
 settingsForm.addEventListener("submit", saveSettings);
 manualPushForm.addEventListener("submit", submitManualPush);
+manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 refreshAllButton.addEventListener("click", () => void reloadAll());
 refreshHealthButton.addEventListener("click", loadHealth);
@@ -297,4 +358,5 @@ refreshMetricsButton.addEventListener("click", loadMetrics);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 configureAutoRefresh();
+void loadChannelPresets();
 void reloadAll();
