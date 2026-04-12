@@ -40,7 +40,7 @@ import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThres
 import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
 import { startApiServer } from "./api/server.js";
-import { pushManualContentToChannel } from "./lib/manual-content-push.js";
+import { pushManualContentToChannel, triggerAutomatedContentNow } from "./lib/manual-content-push.js";
 
 dotenv.config();
 
@@ -117,6 +117,7 @@ client.once(Events.ClientReady, (readyClient) => {
         botTag: client.isReady() ? client.user.tag : null,
       }),
       pushManualContent: (request) => pushManualContentToChannel(client, request),
+      triggerAutomatedContentNow: (request) => triggerAutomatedContentNow(client, request),
     });
     console.log(
       `[api] server enabled at http://${apiConfig.host}:${apiConfig.port}`

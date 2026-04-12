@@ -1,5 +1,6 @@
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getPassiveChatSettings } from "../config/passive-chat.js";
+import type { ContentType } from "../lib/content-provider.js";
 import type { AutomationBlockReason } from "./channel-operations.js";
 import { getChannelOperationalStatus } from "./channel-operations.js";
 
@@ -10,11 +11,19 @@ export type ChannelAutomationStatus = {
   operationalStatus: AutomationOperationalStatus;
   blockedReason: AutomationBlockReason | null;
   blockedUntil: number | null;
+  skipNextSendPending: boolean;
   lastAutomatedSendAt: number | null;
   nextEligibleSendAt: number | null;
   passiveEligibleAt: number | null;
   scheduledEligibleAt: number | null;
   automationMode: "none" | "passive" | "scheduled" | "passive+scheduler";
+};
+
+export type NextAutomatedContentPlan = {
+  channelId: string;
+  source: "scheduler" | "passive-chat";
+  contentType: ContentType;
+  eligibleAt: number | null;
 };
 
 const lastAutomatedSendAtByChannelId = new Map<string, number>();
@@ -97,6 +106,51 @@ function getScheduledEligibleAt(channelId: string, blockedUntil: number | null, 
   return Math.min(...candidateTimes);
 }
 
+function getNextScheduledPlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  const schedulesForChannel = getSchedulesForChannel(channelId);
+
+  if (schedulesForChannel.length === 0) {
+    return null;
+  }
+
+  const referenceTime = Math.max(now, blockedUntil ?? 0);
+  type ScheduledPlanCandidate = {
+    channelId: string;
+    source: "scheduler";
+    contentType: ContentType;
+    eligibleAt: number;
+  };
+  const candidatePlans = schedulesForChannel
+    .map((schedule) => {
+      if (typeof schedule.hour === "number" && typeof schedule.minute === "number") {
+        return {
+          channelId,
+          source: "scheduler" as const,
+          contentType: schedule.contentType,
+          eligibleAt: getNextDailyRunAt(schedule as Schedule & { hour: number; minute: number }, referenceTime),
+        };
+      }
+
+      if (typeof schedule.intervalMinutes === "number") {
+        return {
+          channelId,
+          source: "scheduler" as const,
+          contentType: schedule.contentType,
+          eligibleAt: getNextIntervalRunAt(schedule as Schedule & { intervalMinutes: number }, channelId, referenceTime),
+        };
+      }
+
+      return null;
+    })
+    .filter((plan): plan is ScheduledPlanCandidate => Boolean(plan && typeof plan.eligibleAt === "number"));
+
+  if (candidatePlans.length === 0) {
+    return null;
+  }
+
+  return candidatePlans.sort((left, right) => left.eligibleAt - right.eligibleAt)[0] ?? null;
+}
+
 function getPassiveEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
   const passiveChatSettings = getPassiveChatSettings();
 
@@ -112,6 +166,21 @@ function getPassiveEligibleAt(channelId: string, blockedUntil: number | null, no
     lastPassiveSendAtGlobal + passiveChatSettings.globalCooldownMs,
     lastChannelPassiveSendAt + passiveChatSettings.channelCooldownMs,
   );
+}
+
+function getNextPassivePlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  const passiveChatSettings = getPassiveChatSettings();
+
+  if (!passiveChatSettings.enabled || !passiveChatSettings.eligibleChannelIds.has(channelId)) {
+    return null;
+  }
+
+  return {
+    channelId,
+    source: "passive-chat",
+    contentType: passiveChatSettings.conversationNudgeContentTypes[0] ?? "prompt",
+    eligibleAt: getPassiveEligibleAt(channelId, blockedUntil, now),
+  };
 }
 
 function getBlockedState(channelId: string, now: number) {
@@ -160,8 +229,9 @@ export function getChannelAutomationStatus(channelId: string, now = Date.now()):
   return {
     channelId,
     operationalStatus: blockedState.operationalStatus,
-    blockedReason: blockedState.blockedReason,
+    blockedReason: blockedState.blockedReason ?? (getChannelOperationalStatus(channelId, now).skipNextSend ? "skip-next" : null),
     blockedUntil: blockedState.blockedUntil,
+    skipNextSendPending: getChannelOperationalStatus(channelId, now).skipNextSend,
     lastAutomatedSendAt: lastAutomatedSendAtByChannelId.get(channelId) ?? null,
     nextEligibleSendAt: nextEligibleCandidates.length > 0 ? Math.min(...nextEligibleCandidates) : null,
     passiveEligibleAt,
@@ -172,4 +242,19 @@ export function getChannelAutomationStatus(channelId: string, now = Date.now()):
 
 export function getChannelAutomationStatuses(channelIds: readonly string[], now = Date.now()) {
   return channelIds.map((channelId) => getChannelAutomationStatus(channelId, now));
+}
+
+export function getNextAutomatedContentPlan(channelId: string, now = Date.now()): NextAutomatedContentPlan | null {
+  const blockedUntil = getChannelOperationalStatus(channelId, now).nextEligibleAt;
+  const scheduledPlan = getNextScheduledPlan(channelId, blockedUntil, now);
+  const passivePlan = getNextPassivePlan(channelId, blockedUntil, now);
+  const candidatePlans = [scheduledPlan, passivePlan].filter((plan): plan is NextAutomatedContentPlan => Boolean(plan));
+
+  if (candidatePlans.length === 0) {
+    return null;
+  }
+
+  return candidatePlans.sort(
+    (left, right) => (left.eligibleAt ?? Number.POSITIVE_INFINITY) - (right.eligibleAt ?? Number.POSITIVE_INFINITY),
+  )[0] ?? null;
 }

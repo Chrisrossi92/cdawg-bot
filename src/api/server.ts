@@ -2,11 +2,18 @@ import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { apiConfig } from "../config/api.js";
 import { dashboardChannelPresets } from "../config/dashboard-channel-presets.js";
 import type { ContentType } from "../lib/content-provider.js";
-import { manualPushContentTypes, type ManualPushContentType, type ManualContentPushResult } from "../lib/manual-content-push.js";
+import {
+  manualPushContentTypes,
+  type ManualPushContentType,
+  type ManualContentPushResult,
+  type TriggerAutomatedContentNowResult,
+} from "../lib/manual-content-push.js";
 import { topics, type Topic } from "../config/topics.js";
 import {
+  clearChannelSkipNextSend,
   getChannelOperationalStates,
   resumeChannelAutomation,
+  setChannelSkipNextSend,
   setChannelManualCooldown,
   setChannelSilenced,
 } from "../systems/channel-operations.js";
@@ -22,6 +29,7 @@ type ApiHealthSnapshot = {
 type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
   pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
+  triggerAutomatedContentNow: (request: { channelId: string }) => Promise<TriggerAutomatedContentNowResult>;
 };
 
 type SettingsPatchBody = {
@@ -295,6 +303,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
   const pushManualContent = dependencies?.pushManualContent;
+  const triggerAutomatedContentNow = dependencies?.triggerAutomatedContentNow;
 
   const server = http.createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -485,6 +494,52 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         return;
       }
 
+      if (requestUrl.pathname === "/api/channel-operations/skip-next") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = setChannelSkipNextSend(validation.value.channelId);
+        sendJson(response, 200, {
+          channelOperation,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/clear-skip-next") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = clearChannelSkipNextSend(validation.value.channelId);
+        sendJson(response, 200, {
+          channelOperation,
+        });
+        return;
+      }
+
       if (requestUrl.pathname === "/api/channel-operations/resume") {
         if (method !== "POST") {
           sendMethodNotAllowed(response);
@@ -505,6 +560,48 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           channelOperation,
         });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/trigger-now") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!triggerAutomatedContentNow) {
+          sendUnsupportedRoute(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const result = await triggerAutomatedContentNow({
+          channelId: validation.value.channelId,
+        });
+
+        if (!result.ok) {
+          const statusCode =
+            result.code === "BOT_NOT_READY"
+              ? 503
+              : result.code === "CHANNEL_BLOCKED" || result.code === "NO_AUTOMATED_CONTENT_PLAN"
+                ? 409
+                : result.code === "CONTENT_UNAVAILABLE"
+                  ? 404
+                  : 400;
+          sendJson(response, statusCode, result);
+          return;
+        }
+
+        sendJson(response, 200, result);
         return;
       }
 

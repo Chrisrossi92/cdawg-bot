@@ -202,6 +202,10 @@ function getChannelOperationStatusText(channelStatus) {
     return `Cooling down until ${formatTimestamp(channelStatus.blockedUntil)}`;
   }
 
+  if (channelStatus.blockedReason === "skip-next") {
+    return "Skip next automated send is pending";
+  }
+
   return "Active";
 }
 
@@ -231,6 +235,7 @@ function renderChannelOperations() {
     const meta = document.createElement("p");
     const status = document.createElement("p");
     const automationMode = document.createElement("p");
+    const skipNext = document.createElement("p");
     const nextEligible = document.createElement("p");
     const passiveEligible = document.createElement("p");
     const scheduledEligible = document.createElement("p");
@@ -245,6 +250,8 @@ function renderChannelOperations() {
     status.textContent = getChannelOperationStatusText(channelStatus);
     automationMode.className = "channel-operation-detail";
     automationMode.textContent = `Automation mode: ${channelStatus.automationMode}`;
+    skipNext.className = "channel-operation-detail";
+    skipNext.textContent = `Skip next: ${channelStatus.skipNextSendPending ? "pending" : "off"}`;
     nextEligible.className = "channel-operation-detail";
     nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
     passiveEligible.className = "channel-operation-detail";
@@ -259,10 +266,13 @@ function renderChannelOperations() {
       createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000)),
       createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
       createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
+      createChannelActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next")),
+      createChannelActionButton("Trigger Next Now", () => void applyChannelOperation(channelStatus.channelId, "trigger-now")),
+      createChannelActionButton("Clear Skip", () => void applyChannelOperation(channelStatus.channelId, "clear-skip-next")),
       createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
-    card.append(title, meta, status, automationMode, nextEligible, passiveEligible, scheduledEligible, lastSend, actions);
+    card.append(title, meta, status, automationMode, skipNext, nextEligible, passiveEligible, scheduledEligible, lastSend, actions);
     channelOperationsGrid.append(card);
   }
 }
@@ -455,7 +465,13 @@ async function applyChannelOperation(channelId, operation, durationMs) {
       ? "/api/channel-operations/silence"
       : operation === "cooldown"
         ? "/api/channel-operations/cooldown"
-        : "/api/channel-operations/resume";
+        : operation === "skip-next"
+          ? "/api/channel-operations/skip-next"
+          : operation === "clear-skip-next"
+            ? "/api/channel-operations/clear-skip-next"
+            : operation === "trigger-now"
+              ? "/api/channel-operations/trigger-now"
+              : "/api/channel-operations/resume";
   const payload = durationMs ? { channelId, durationMs } : { channelId };
 
   channelOperationsOutput.textContent = JSON.stringify(
