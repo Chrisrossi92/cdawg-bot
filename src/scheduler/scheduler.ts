@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getContentMessage, resolveTopic } from "../lib/content.js";
+import { getAutomatedContentBlock } from "../systems/channel-operations.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
 
@@ -27,6 +28,12 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
   const minuteWindowKey = getMinuteWindowKey(now);
 
   if (lastPostedMinuteBySchedule.get(scheduleKey) === minuteWindowKey) {
+    return;
+  }
+
+  const automationBlock = getAutomatedContentBlock(schedule.channelId, "scheduler", now.getTime());
+
+  if (automationBlock.blocked) {
     return;
   }
 

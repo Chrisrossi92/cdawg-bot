@@ -4,6 +4,12 @@ import { dashboardChannelPresets } from "../config/dashboard-channel-presets.js"
 import type { ContentType } from "../lib/content-provider.js";
 import { manualPushContentTypes, type ManualPushContentType, type ManualContentPushResult } from "../lib/manual-content-push.js";
 import { topics, type Topic } from "../config/topics.js";
+import {
+  getChannelOperationalStates,
+  resumeChannelAutomation,
+  setChannelManualCooldown,
+  setChannelSilenced,
+} from "../systems/channel-operations.js";
 import { getBotMetrics } from "../systems/bot-metrics.js";
 import { getBotSettings, updateBotSettings } from "../systems/bot-settings.js";
 
@@ -61,6 +67,11 @@ type ManualPushValidationResult =
       ok: false;
       error: string;
     };
+
+type ChannelOperationRequestBody = {
+  channelId: string;
+  durationMs?: number;
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -212,6 +223,46 @@ function sanitizeManualPushRequest(value: unknown): ManualPushValidationResult {
   };
 }
 
+function sanitizeChannelOperationRequest(value: unknown, requireDuration: boolean) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Channel operation payload must be a JSON object.",
+    };
+  }
+
+  if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (!requireDuration) {
+    return {
+      ok: true as const,
+      value: {
+        channelId: value.channelId,
+      } satisfies ChannelOperationRequestBody,
+    };
+  }
+
+  if (typeof value.durationMs !== "number" || !Number.isFinite(value.durationMs) || value.durationMs < 1000) {
+    return {
+      ok: false as const,
+      error: "Invalid duration. Expected a number of at least 1000 milliseconds.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId: value.channelId,
+      durationMs: Math.floor(value.durationMs),
+    } satisfies ChannelOperationRequestBody,
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -323,6 +374,108 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           channelPresets: dashboardChannelPresets,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const channelIds = [
+          ...new Set([
+            ...dashboardChannelPresets.map((preset) => preset.channelId),
+            ...getChannelOperationalStates().map((status) => status.channelId),
+          ]),
+        ];
+        const channelOperations = getChannelOperationalStates(channelIds).map((status) => {
+          const preset = dashboardChannelPresets.find((entry) => entry.channelId === status.channelId);
+          return {
+            ...status,
+            label: preset?.label ?? status.channelId,
+            defaultTopic: preset?.defaultTopic ?? null,
+          };
+        });
+
+        sendJson(response, 200, {
+          channelOperations,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/silence") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = setChannelSilenced(
+          validation.value.channelId,
+          Date.now() + (validation.value.durationMs ?? 0),
+        );
+        sendJson(response, 200, {
+          channelOperation,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/cooldown") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = setChannelManualCooldown(
+          validation.value.channelId,
+          Date.now() + (validation.value.durationMs ?? 0),
+        );
+        sendJson(response, 200, {
+          channelOperation,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/resume") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelOperationRequest(nextBody, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = resumeChannelAutomation(validation.value.channelId);
+        sendJson(response, 200, {
+          channelOperation,
         });
         return;
       }

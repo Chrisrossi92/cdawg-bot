@@ -7,12 +7,14 @@ const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
 const settingsOutput = document.querySelector("#settings-output");
 const manualPushOutput = document.querySelector("#manual-push-output");
+const channelOperationsOutput = document.querySelector("#channel-operations-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
+const channelOperationsGrid = document.querySelector("#channel-operations-grid");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -24,6 +26,7 @@ const providerFailureList = document.querySelector("#provider-failure-list");
 const refreshHealthButton = document.querySelector("#refresh-health");
 const refreshSettingsButton = document.querySelector("#refresh-settings");
 const refreshMetricsButton = document.querySelector("#refresh-metrics");
+const refreshChannelOperationsButton = document.querySelector("#refresh-channel-operations");
 const resetSettingsButton = document.querySelector("#reset-settings");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
@@ -33,6 +36,7 @@ const autoRefreshIntervalMs = 15000;
 let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
+let channelOperations = [];
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -152,6 +156,73 @@ function renderMetricList(target, entries) {
   }
 }
 
+function formatTimestamp(timestamp) {
+  if (!timestamp) {
+    return "none";
+  }
+
+  return new Date(timestamp).toLocaleString();
+}
+
+function getChannelOperationStatusText(channelOperation) {
+  if (channelOperation.isSilenced) {
+    return `Silenced until ${formatTimestamp(channelOperation.silencedUntil)}`;
+  }
+
+  if (channelOperation.isCoolingDown) {
+    return `Cooling down until ${formatTimestamp(channelOperation.cooldownUntil)}`;
+  }
+
+  return "Active";
+}
+
+function createChannelActionButton(label, handler, disabled = false) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.textContent = label;
+  button.disabled = disabled;
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function renderChannelOperations() {
+  channelOperationsGrid.replaceChildren();
+
+  if (channelOperations.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No channel controls available.";
+    channelOperationsGrid.append(emptyState);
+    return;
+  }
+
+  for (const channelOperation of channelOperations) {
+    const card = document.createElement("section");
+    const title = document.createElement("h3");
+    const meta = document.createElement("p");
+    const status = document.createElement("p");
+    const actions = document.createElement("div");
+
+    card.className = "channel-operation-card";
+    title.textContent = channelOperation.label;
+    meta.className = "channel-operation-meta";
+    meta.textContent = `Channel ID: ${channelOperation.channelId}${channelOperation.defaultTopic ? ` • Topic: ${channelOperation.defaultTopic}` : ""}`;
+    status.className = `channel-operation-status ${channelOperation.isSilenced || channelOperation.isCoolingDown ? "blocked" : "active"}`;
+    status.textContent = getChannelOperationStatusText(channelOperation);
+    actions.className = "channel-operation-actions";
+
+    actions.append(
+      createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelOperation.channelId, "silence", 60 * 60 * 1000)),
+      createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelOperation.channelId, "silence", 6 * 60 * 60 * 1000)),
+      createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelOperation.channelId, "cooldown", 30 * 60 * 1000)),
+      createChannelActionButton("Resume", () => void applyChannelOperation(channelOperation.channelId, "resume")),
+    );
+
+    card.append(title, meta, status, actions);
+    channelOperationsGrid.append(card);
+  }
+}
+
 function sortCounterEntries(counterMap) {
   return Object.entries(counterMap).sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]));
 }
@@ -246,6 +317,19 @@ async function loadChannelPresets() {
   }
 }
 
+async function loadChannelOperations() {
+  try {
+    const data = await fetchJson("/api/channel-operations");
+    channelOperations = Array.isArray(data.channelOperations) ? data.channelOperations : [];
+    renderChannelOperations();
+    setPrettyJson(channelOperationsOutput, data);
+  } catch (error) {
+    channelOperations = [];
+    renderChannelOperations();
+    channelOperationsOutput.textContent = `Failed to load channel operations.\n${error.message}`;
+  }
+}
+
 function buildSettingsPayload() {
   return {
     passiveChat: {
@@ -321,8 +405,42 @@ async function submitManualPush(event) {
   }
 }
 
+async function applyChannelOperation(channelId, operation, durationMs) {
+  const requestPath =
+    operation === "silence"
+      ? "/api/channel-operations/silence"
+      : operation === "cooldown"
+        ? "/api/channel-operations/cooldown"
+        : "/api/channel-operations/resume";
+  const payload = durationMs ? { channelId, durationMs } : { channelId };
+
+  channelOperationsOutput.textContent = JSON.stringify(
+    {
+      requestPath,
+      ...payload,
+    },
+    null,
+    2,
+  );
+
+  try {
+    const data = await fetchJson(requestPath, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setPrettyJson(channelOperationsOutput, data);
+    await loadChannelOperations();
+  } catch (error) {
+    channelOperationsOutput.textContent = `Channel operation failed.\n${error.message}`;
+  }
+}
+
 async function reloadAll() {
-  await Promise.all([loadHealth(), loadSettings(), loadMetrics()]);
+  await Promise.all([loadHealth(), loadSettings(), loadMetrics(), loadChannelOperations(), loadChannelPresets()]);
 }
 
 function configureAutoRefresh() {
@@ -355,8 +473,8 @@ refreshAllButton.addEventListener("click", () => void reloadAll());
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
+refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 configureAutoRefresh();
-void loadChannelPresets();
 void reloadAll();

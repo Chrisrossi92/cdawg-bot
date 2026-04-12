@@ -51,7 +51,8 @@ body {
 .hero h1,
 .panel h2,
 .form-group h3,
-.metric-card h3 {
+.metric-card h3,
+.channel-operation-card h3 {
   margin: 0;
 }
 
@@ -156,7 +157,8 @@ button.secondary:hover {
 }
 
 .form-group,
-.metric-card {
+.metric-card,
+.channel-operation-card {
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -168,7 +170,8 @@ button.secondary:hover {
 }
 
 .form-group h3,
-.metric-card h3 {
+.metric-card h3,
+.channel-operation-card h3 {
   margin-bottom: 4px;
 }
 
@@ -183,7 +186,8 @@ button.secondary:hover {
 }
 
 .health-grid,
-.metrics-grid {
+.metrics-grid,
+.channel-operations-grid {
   display: grid;
   gap: 14px;
 }
@@ -195,6 +199,44 @@ button.secondary:hover {
 
 .metrics-grid {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+}
+
+.channel-operations-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.channel-operation-card {
+  display: grid;
+  gap: 10px;
+}
+
+.channel-operation-meta,
+.channel-operation-empty,
+.channel-operation-status {
+  margin: 0;
+}
+
+.channel-operation-meta,
+.channel-operation-empty {
+  color: var(--muted);
+}
+
+.channel-operation-status {
+  font-weight: 700;
+}
+
+.channel-operation-status.active {
+  color: var(--success);
+}
+
+.channel-operation-status.blocked {
+  color: var(--danger);
+}
+
+.channel-operation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .health-card {
@@ -289,7 +331,8 @@ pre {
   }
 
   .settings-form,
-  .metrics-grid {
+  .metrics-grid,
+  .channel-operations-grid {
     grid-template-columns: 1fr;
   }
 }

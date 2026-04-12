@@ -6,6 +6,7 @@ import { getChannelTopic, getContentMessage, pickRandomItem } from "../lib/conte
 import type { ContentType } from "../lib/content-provider.js";
 import { getMatchedPassiveReaction, getPassiveTopicSignalScores } from "../lib/passive-content.js";
 import { recordPassiveChatTrigger } from "./bot-metrics.js";
+import { getAutomatedContentBlock } from "./channel-operations.js";
 
 type ChannelPassiveState = {
   lastUserMessageAt: number;
@@ -259,6 +260,17 @@ export async function handlePassiveChatMessage(message: Message) {
   }
 
   if (!passesPassiveCooldowns(message, candidate, now)) {
+    return;
+  }
+
+  const automationBlock = getAutomatedContentBlock(message.channelId, "passive-chat", now);
+
+  if (automationBlock.blocked) {
+    logPassiveDecision(
+      message,
+      `skip.channel-${automationBlock.reason}`,
+      `blockedUntil=${automationBlock.blockedUntil ?? "unknown"}`,
+    );
     return;
   }
 
