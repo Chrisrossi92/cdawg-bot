@@ -297,6 +297,50 @@ export async function getContentItem<T extends ContentType>(
   return item;
 }
 
+export async function getStrictContentItem<T extends ContentType>(
+  contentType: T,
+  topic: Topic,
+  channelId?: string,
+): Promise<ContentItem<T> | undefined> {
+  const providerResult = await getProviderItems(contentType, topic, channelId);
+
+  if (!providerResult || providerResult.sourceTopic !== topic) {
+    logContentProviderEvent(contentType, "selection-rejected", {
+      provider: providerResult?.providerName,
+      topic,
+      sourceTopic: providerResult?.sourceTopic,
+      channelId,
+      reason: !providerResult ? "no-provider-result" : "source-topic-mismatch",
+    });
+    return undefined;
+  }
+
+  const item = pickRandomItemAvoidingRecent(contentType, providerResult.items, channelId);
+
+  if (!item) {
+    logContentProviderEvent(contentType, "selection-rejected", {
+      provider: providerResult.providerName,
+      topic,
+      sourceTopic: providerResult.sourceTopic,
+      channelId,
+      reason: "recent-channel-history",
+    });
+    return undefined;
+  }
+
+  const itemKey = getItemKey(contentType, item);
+  rememberRecentItem(contentType, itemKey, channelId);
+  recordContentProviderUsage(contentType, providerResult.providerName);
+  logContentProviderEvent(contentType, "item-selected", {
+    provider: providerResult.providerName,
+    topic,
+    sourceTopic: providerResult.sourceTopic,
+    channelId,
+    itemKey,
+  });
+  return item;
+}
+
 export async function getResolvedContentItem<T extends ContentType>(
   contentType: T,
   topic: string | null,

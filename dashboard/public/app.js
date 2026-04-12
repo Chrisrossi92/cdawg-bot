@@ -335,7 +335,11 @@ function getFeedBlockedLabel(feed) {
     return "outside-window";
   }
 
-  return "clear";
+  if (feed.blockedReason === "trivia-ineligible") {
+    return "trivia-ineligible";
+  }
+
+  return feed.blockedReason || "clear";
 }
 
 function getDailyTriviaBlockedLabel(challenge) {
@@ -355,7 +359,11 @@ function getDailyTriviaBlockedLabel(challenge) {
     return "outside-window";
   }
 
-  return "clear";
+  if (challenge.blockedReason === "trivia-ineligible") {
+    return "trivia-ineligible";
+  }
+
+  return challenge.blockedReason || "clear";
 }
 
 function createChannelActionButton(label, handler, disabled = false) {
@@ -508,14 +516,14 @@ function renderFeeds() {
     main.className = "channel-operation-main";
     title.textContent = `${feed.channelLabel} • ${feed.contentType}`;
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}${feed.allowedWindow ? ` • Window ${feed.allowedWindow.startTime}-${feed.allowedWindow.endTime}` : ""}`;
+    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}${feed.allowedWindow ? ` • Window ${feed.allowedWindow.startTime}-${feed.allowedWindow.endTime}` : ""}${feed.triviaEligibility && !feed.triviaEligibility.ok ? ` • ${feed.triviaEligibility.error}` : ""}`;
     primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
     primaryDetail.textContent = `Next run: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`;
     secondaryDetail.className = "channel-operation-detail";
     secondaryDetail.textContent = `Cadence: every ${feed.cadenceMinutes} min • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
     blockedDetail.className = "channel-operation-detail";
     blockedDetail.textContent = feed.blockedReason
-      ? `Blocked: ${getFeedBlockedLabel(feed)} until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})`
+      ? `Blocked: ${getFeedBlockedLabel(feed)}${feed.blockedUntil ? ` until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})` : ""}`
       : "Blocked: none";
     badges.className = "channel-operation-badges";
     badges.append(
@@ -579,12 +587,12 @@ function renderDailyTriviaChallenge() {
   primaryDetail.textContent = `Next run: ${formatTimestamp(dailyTriviaChallenge.nextRunAt)} (${formatRelativeTime(dailyTriviaChallenge.nextRunAt)})`;
   blockedDetail.className = "channel-operation-detail";
   blockedDetail.textContent = dailyTriviaChallenge.blockedReason
-    ? `Blocked: ${getDailyTriviaBlockedLabel(dailyTriviaChallenge)} until ${formatTimestamp(dailyTriviaChallenge.blockedUntil)} (${formatRelativeTime(dailyTriviaChallenge.blockedUntil)})`
+    ? `Blocked: ${getDailyTriviaBlockedLabel(dailyTriviaChallenge)}${dailyTriviaChallenge.blockedUntil ? ` until ${formatTimestamp(dailyTriviaChallenge.blockedUntil)} (${formatRelativeTime(dailyTriviaChallenge.blockedUntil)})` : ""}`
     : "Blocked: none";
   secondaryDetail.className = "channel-operation-detail";
   secondaryDetail.textContent = `Daily time: ${dailyTriviaChallenge.dailyTime} • Last run: ${formatTimestamp(dailyTriviaChallenge.lastExecutedAt)} (${formatRelativeTime(dailyTriviaChallenge.lastExecutedAt)})`;
   meta.className = "channel-operation-meta";
-  meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}`;
+  meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}${dailyTriviaChallenge.triviaEligibility && !dailyTriviaChallenge.triviaEligibility.ok ? ` • ${dailyTriviaChallenge.triviaEligibility.error}` : ""}`;
 
   main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, meta);
   row.append(main);

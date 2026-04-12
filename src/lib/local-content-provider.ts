@@ -68,6 +68,12 @@ const localContentPools: ContentPoolsByType = {
   },
 };
 
+export function hasLocalContentPool<T extends ContentType>(contentType: T, topic: Topic) {
+  const topicPools = localContentPools[contentType];
+  const topicItems = topicPools[topic];
+  return Array.isArray(topicItems) && topicItems.length > 0;
+}
+
 function getLocalItemsForTopic<T extends ContentType>(
   contentType: T,
   topic: Topic,

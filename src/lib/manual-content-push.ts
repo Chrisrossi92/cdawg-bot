@@ -1,9 +1,10 @@
 import type { Client } from "discord.js";
-import { resolveTopic, getContentMessage, getResolvedContentItem } from "./content.js";
+import { resolveTopic, getContentMessage } from "./content.js";
 import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
 import { postInteractiveTriviaSession, type TriviaSessionPresentation } from "./trivia-session.js";
+import { getEligibleTriviaItem, type TriviaIneligibilityCode } from "./trivia-topic-eligibility.js";
 
 export const manualPushContentTypes = ["joke", "prompt", "fact", "trivia"] as const;
 
@@ -27,8 +28,10 @@ export type ManualContentPushResult =
     }
   | {
       ok: false;
-      code: "BOT_NOT_READY" | "CHANNEL_NOT_FOUND" | "CHANNEL_NOT_SENDABLE" | "CONTENT_UNAVAILABLE";
+      code: "BOT_NOT_READY" | "CHANNEL_NOT_FOUND" | "CHANNEL_NOT_SENDABLE" | "CONTENT_UNAVAILABLE" | "TRIVIA_INELIGIBLE";
       error: string;
+      triviaIneligibilityCode?: TriviaIneligibilityCode;
+      resolvedTopic?: Topic;
     };
 
 export type TriggerAutomatedContentNowResult =
@@ -47,9 +50,12 @@ export type TriggerAutomatedContentNowResult =
         | "CHANNEL_NOT_FOUND"
         | "CHANNEL_NOT_SENDABLE"
         | "CONTENT_UNAVAILABLE"
+        | "TRIVIA_INELIGIBLE"
         | "CHANNEL_BLOCKED"
         | "NO_AUTOMATED_CONTENT_PLAN";
       error: string;
+      triviaIneligibilityCode?: TriviaIneligibilityCode;
+      resolvedTopic?: Topic;
     };
 
 function logManualPush(
@@ -124,25 +130,30 @@ export async function pushManualContentToChannel(
   }
 
   if (request.contentType === "trivia") {
-    const triviaItem = await getResolvedContentItem("trivia", request.topicOverride ?? null, request.channelId);
+    const triviaResult = await getEligibleTriviaItem(request.channelId, request.topicOverride ?? null);
 
-    if (!triviaItem) {
+    if (!triviaResult.ok) {
       logManualPush("error", {
         contentType: request.contentType,
         channelId: request.channelId,
         source: request.source ?? "manual",
-        resolvedTopic,
-        reason: "content-unavailable",
+        resolvedTopic: triviaResult.resolvedTopic,
+        reason: triviaResult.code,
       });
       return {
         ok: false,
-        code: "CONTENT_UNAVAILABLE",
-        error: "No trivia questions are available for that request.",
+        code:
+          triviaResult.code === "no-eligible-trivia-available" && triviaResult.resolvedTopic === "general"
+            ? "CONTENT_UNAVAILABLE"
+            : "TRIVIA_INELIGIBLE",
+        error: triviaResult.error,
+        triviaIneligibilityCode: triviaResult.code,
+        resolvedTopic: triviaResult.resolvedTopic,
       };
     }
 
     const sentMessage = await postInteractiveTriviaSession({
-      item: triviaItem,
+      item: triviaResult.item,
       source: request.source ?? "manual",
       ...(request.triviaPresentation ? { presentation: request.triviaPresentation } : {}),
       post: (payload) => channel.send(payload),

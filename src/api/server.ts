@@ -9,6 +9,7 @@ import {
   type ManualContentPushResult,
   type TriggerAutomatedContentNowResult,
 } from "../lib/manual-content-push.js";
+import { getTriviaTopicEligibility } from "../lib/trivia-topic-eligibility.js";
 import { topics, type Topic } from "../config/topics.js";
 import {
   clearChannelSkipNextSend,
@@ -534,6 +535,7 @@ function buildFeedResponse(feedId: string) {
   const outsideAllowedWindow = !isWithinFeedAllowedWindow(feed);
   const allowedWindowBlockedUntil = outsideAllowedWindow ? getFeedWindowBlockedUntil(feed) : null;
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
+  const triviaEligibility = feed.contentType === "trivia" ? getTriviaTopicEligibility(feed.channelId, feed.topicOverride) : null;
   const blockedReason = operationalStatus.isSilenced
     ? "silenced"
     : operationalStatus.isCoolingDown
@@ -542,6 +544,8 @@ function buildFeedResponse(feedId: string) {
         ? "skip-next"
         : outsideAllowedWindow
           ? "outside-window"
+          : triviaEligibility && !triviaEligibility.ok
+            ? "trivia-ineligible"
         : null;
   const blockedUntil = operationalStatus.isSilenced
     ? operationalStatus.silencedUntil
@@ -558,6 +562,7 @@ function buildFeedResponse(feedId: string) {
     nextRunAt,
     blockedReason,
     blockedUntil,
+    triviaEligibility,
     overlapWarnings: getFeedOverlapWarnings(feed),
     channelLabel: preset?.label ?? feed.channelId,
     presetTopic: preset?.defaultTopic ?? null,
@@ -573,9 +578,12 @@ function buildDailyTriviaChallengeResponse() {
   }
 
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === config.channelId);
+  const triviaEligibility = getTriviaTopicEligibility(config.channelId, config.topicOverride);
 
   return {
     ...status,
+    blockedReason: status.blockedReason ?? (!triviaEligibility.ok ? "trivia-ineligible" : null),
+    triviaEligibility,
     channelLabel: preset?.label ?? config.channelId,
     presetTopic: preset?.defaultTopic ?? null,
   };
@@ -1134,7 +1142,14 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         const result = await pushManualContent(manualPushValidation.value);
 
         if (!result.ok) {
-          const statusCode = result.code === "CONTENT_UNAVAILABLE" ? 404 : result.code === "BOT_NOT_READY" ? 503 : 400;
+          const statusCode =
+            result.code === "CONTENT_UNAVAILABLE"
+              ? 404
+              : result.code === "BOT_NOT_READY"
+                ? 503
+                : result.code === "TRIVIA_INELIGIBLE"
+                  ? 409
+                  : 400;
           sendJson(response, statusCode, result);
           return;
         }
