@@ -177,9 +177,27 @@
             <h2>Channel Controls</h2>
             <p>Temporarily silence or cool down automated content per channel, with next-eligible visibility.</p>
           </div>
-          <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
+          <div class="toolbar">
+            <label>
+              Filter
+              <select id="channel-operations-filter">
+                <option value="all">All</option>
+                <option value="active">Active Only</option>
+                <option value="blocked">Blocked Only</option>
+              </select>
+            </label>
+            <label>
+              Sort
+              <select id="channel-operations-sort">
+                <option value="status">By Status</option>
+                <option value="next-eligible">By Next Eligible</option>
+                <option value="name">By Name</option>
+              </select>
+            </label>
+            <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
+          </div>
         </div>
-        <div id="channel-operations-grid" class="channel-operations-grid"></div>
+        <div id="channel-operations-grid" class="channel-operations-list"></div>
 
         <details class="details-block">
           <summary>Raw channel operations payload</summary>

@@ -187,7 +187,8 @@ button.secondary:hover {
 
 .health-grid,
 .metrics-grid,
-.channel-operations-grid {
+.channel-operations-grid,
+.channel-operations-list {
   display: grid;
   gap: 14px;
 }
@@ -201,13 +202,26 @@ button.secondary:hover {
   grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
 }
 
-.channel-operations-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-
 .channel-operation-card {
   display: grid;
   gap: 10px;
+}
+
+.channel-operations-list {
+  gap: 10px;
+}
+
+.channel-operation-card.compact {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.5fr) minmax(280px, auto);
+  align-items: start;
+  padding: 12px 14px;
+}
+
+.channel-operation-main,
+.channel-operation-times,
+.channel-operation-actions {
+  display: grid;
+  gap: 6px;
 }
 
 .channel-operation-meta,
@@ -238,7 +252,47 @@ button.secondary:hover {
 .channel-operation-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.channel-operation-actions button {
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.channel-operation-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.status-badge.active {
+  background: rgba(19, 115, 51, 0.1);
+  color: var(--success);
+  border-color: rgba(19, 115, 51, 0.2);
+}
+
+.status-badge.blocked {
+  background: rgba(180, 35, 24, 0.1);
+  color: var(--danger);
+  border-color: rgba(180, 35, 24, 0.2);
+}
+
+.status-badge.neutral {
+  background: rgba(17, 32, 51, 0.06);
+  color: var(--muted);
+  border-color: rgba(17, 32, 51, 0.1);
 }
 
 .health-card {
@@ -334,7 +388,16 @@ pre {
 
   .settings-form,
   .metrics-grid,
-  .channel-operations-grid {
+  .channel-operations-grid,
+  .channel-operations-list {
     grid-template-columns: 1fr;
+  }
+
+  .channel-operation-card.compact {
+    grid-template-columns: 1fr;
+  }
+
+  .channel-operation-actions {
+    justify-content: flex-start;
   }
 }

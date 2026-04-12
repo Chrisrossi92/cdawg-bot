@@ -15,6 +15,8 @@ const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
 const channelOperationsGrid = document.querySelector("#channel-operations-grid");
+const channelOperationsFilter = document.querySelector("#channel-operations-filter");
+const channelOperationsSort = document.querySelector("#channel-operations-sort");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -209,6 +211,76 @@ function getChannelOperationStatusText(channelStatus) {
   return "Active";
 }
 
+function getChannelStatusLabel(channelStatus) {
+  if (channelStatus.blockedReason === "silenced") {
+    return "Silenced";
+  }
+
+  if (channelStatus.blockedReason === "cooldown") {
+    return "Cooling Down";
+  }
+
+  if (channelStatus.blockedReason === "skip-next") {
+    return "Skip Next";
+  }
+
+  return "Active";
+}
+
+function getChannelStatusRank(channelStatus) {
+  if (channelStatus.blockedReason === "silenced") {
+    return 0;
+  }
+
+  if (channelStatus.blockedReason === "cooldown") {
+    return 1;
+  }
+
+  if (channelStatus.blockedReason === "skip-next") {
+    return 2;
+  }
+
+  return 3;
+}
+
+function getFilteredAndSortedChannelStatuses() {
+  const filterValue = channelOperationsFilter.value;
+  const sortValue = channelOperationsSort.value;
+
+  const filteredStatuses = channelAutomationStatuses.filter((channelStatus) => {
+    if (filterValue === "active") {
+      return !channelStatus.blockedReason;
+    }
+
+    if (filterValue === "blocked") {
+      return Boolean(channelStatus.blockedReason);
+    }
+
+    return true;
+  });
+
+  return [...filteredStatuses].sort((left, right) => {
+    if (sortValue === "next-eligible") {
+      const leftEligible = left.nextEligibleSendAt ?? Number.POSITIVE_INFINITY;
+      const rightEligible = right.nextEligibleSendAt ?? Number.POSITIVE_INFINITY;
+      return leftEligible - rightEligible || left.label.localeCompare(right.label);
+    }
+
+    if (sortValue === "name") {
+      return left.label.localeCompare(right.label);
+    }
+
+    return getChannelStatusRank(left) - getChannelStatusRank(right) || left.label.localeCompare(right.label);
+  });
+}
+
+function createStatusBadge(label, tone) {
+  const badge = document.createElement("span");
+  badge.className = `status-badge ${tone}`;
+  badge.textContent = label;
+  return badge;
+}
+
 function createChannelActionButton(label, handler, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
@@ -220,44 +292,51 @@ function createChannelActionButton(label, handler, disabled = false) {
 
 function renderChannelOperations() {
   channelOperationsGrid.replaceChildren();
+  const visibleChannelStatuses = getFilteredAndSortedChannelStatuses();
 
-  if (channelAutomationStatuses.length === 0) {
+  if (visibleChannelStatuses.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No channel automation status available.";
+    emptyState.textContent =
+      channelAutomationStatuses.length === 0 ? "No channel automation status available." : "No channels match the current filter.";
     channelOperationsGrid.append(emptyState);
     return;
   }
 
-  for (const channelStatus of channelAutomationStatuses) {
+  for (const channelStatus of visibleChannelStatuses) {
     const card = document.createElement("section");
+    const main = document.createElement("div");
+    const times = document.createElement("div");
     const title = document.createElement("h3");
     const meta = document.createElement("p");
     const status = document.createElement("p");
-    const automationMode = document.createElement("p");
-    const skipNext = document.createElement("p");
+    const badges = document.createElement("div");
     const nextEligible = document.createElement("p");
-    const passiveEligible = document.createElement("p");
-    const scheduledEligible = document.createElement("p");
+    const blockedUntil = document.createElement("p");
     const lastSend = document.createElement("p");
     const actions = document.createElement("div");
 
-    card.className = "channel-operation-card";
+    card.className = "channel-operation-card compact";
+    main.className = "channel-operation-main";
+    times.className = "channel-operation-times";
     title.textContent = channelStatus.label;
     meta.className = "channel-operation-meta";
     meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""}`;
     status.className = `channel-operation-status ${channelStatus.blockedReason ? "blocked" : "active"}`;
     status.textContent = getChannelOperationStatusText(channelStatus);
-    automationMode.className = "channel-operation-detail";
-    automationMode.textContent = `Automation mode: ${channelStatus.automationMode}`;
-    skipNext.className = "channel-operation-detail";
-    skipNext.textContent = `Skip next: ${channelStatus.skipNextSendPending ? "pending" : "off"}`;
+    badges.className = "channel-operation-badges";
+    badges.append(
+      createStatusBadge(getChannelStatusLabel(channelStatus), channelStatus.blockedReason ? "blocked" : "active"),
+      createStatusBadge(channelStatus.defaultTopic ?? "no-topic", "neutral"),
+      createStatusBadge(channelStatus.automationMode, "neutral"),
+    );
+    if (channelStatus.skipNextSendPending) {
+      badges.append(createStatusBadge("skip-next pending", "blocked"));
+    }
     nextEligible.className = "channel-operation-detail";
     nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
-    passiveEligible.className = "channel-operation-detail";
-    passiveEligible.textContent = `Passive eligible: ${formatTimestamp(channelStatus.passiveEligibleAt)} (${formatRelativeTime(channelStatus.passiveEligibleAt)})`;
-    scheduledEligible.className = "channel-operation-detail";
-    scheduledEligible.textContent = `Scheduled eligible: ${formatTimestamp(channelStatus.scheduledEligibleAt)} (${formatRelativeTime(channelStatus.scheduledEligibleAt)})`;
+    blockedUntil.className = "channel-operation-detail";
+    blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
     lastSend.textContent = `Last automated send: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
     actions.className = "channel-operation-actions";
@@ -272,7 +351,9 @@ function renderChannelOperations() {
       createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
-    card.append(title, meta, status, automationMode, skipNext, nextEligible, passiveEligible, scheduledEligible, lastSend, actions);
+    main.append(title, meta, badges, status);
+    times.append(nextEligible, blockedUntil, lastSend);
+    card.append(main, times, actions);
     channelOperationsGrid.append(card);
   }
 }
@@ -534,6 +615,8 @@ refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
 refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
+channelOperationsFilter.addEventListener("change", renderChannelOperations);
+channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 configureAutoRefresh();
