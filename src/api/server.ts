@@ -1,6 +1,7 @@
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { apiConfig } from "../config/api.js";
 import { dashboardChannelPresets } from "../config/dashboard-channel-presets.js";
+import type { DailyAllowedWindow } from "../lib/allowed-window.js";
 import type { ContentType } from "../lib/content-provider.js";
 import {
   manualPushContentTypes,
@@ -34,6 +35,12 @@ import {
   type FeedAllowedWindow,
 } from "../systems/feed-configs.js";
 import { getChannelOperationalStatus } from "../systems/channel-operations.js";
+import {
+  getDailyTriviaChallengeConfig,
+  getDailyTriviaChallengeStatus,
+  updateDailyTriviaChallengeConfig,
+  upsertDailyTriviaChallengeConfig,
+} from "../systems/daily-trivia-challenge.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -104,6 +111,14 @@ type FeedRequestBody = {
   cadenceMinutes?: number;
   topicOverride?: Topic | null;
   allowedWindow?: FeedAllowedWindow | null;
+};
+
+type DailyTriviaChallengeRequestBody = {
+  enabled?: boolean;
+  channelId?: string;
+  dailyTime?: string;
+  topicOverride?: Topic | null;
+  allowedWindow?: DailyAllowedWindow | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -413,6 +428,101 @@ function sanitizeFeedRequest(value: unknown, requireId: boolean, requireFullConf
   };
 }
 
+function sanitizeDailyTriviaChallengeRequest(value: unknown, requireFullConfig: boolean) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Daily trivia payload must be a JSON object.",
+    };
+  }
+
+  const nextValue: DailyTriviaChallengeRequestBody = {};
+
+  if (requireFullConfig || "enabled" in value) {
+    if (typeof value.enabled !== "boolean") {
+      return {
+        ok: false as const,
+        error: "Invalid enabled flag.",
+      };
+    }
+
+    nextValue.enabled = value.enabled;
+  }
+
+  if (requireFullConfig || "channelId" in value) {
+    if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+      return {
+        ok: false as const,
+        error: "Invalid channel ID. Expected a Discord snowflake string.",
+      };
+    }
+
+    nextValue.channelId = value.channelId;
+  }
+
+  if (requireFullConfig || "dailyTime" in value) {
+    if (typeof value.dailyTime !== "string" || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(value.dailyTime.trim())) {
+      return {
+        ok: false as const,
+        error: "Invalid daily time. Expected a local HH:MM value.",
+      };
+    }
+
+    nextValue.dailyTime = value.dailyTime.trim();
+  }
+
+  if ("topicOverride" in value) {
+    if (value.topicOverride !== null && (typeof value.topicOverride !== "string" || !topics.includes(value.topicOverride as Topic))) {
+      return {
+        ok: false as const,
+        error: `Invalid topic override. Allowed values: ${topics.join(", ")}.`,
+      };
+    }
+
+    nextValue.topicOverride = value.topicOverride as Topic | null;
+  }
+
+  if ("allowedWindow" in value) {
+    if (value.allowedWindow !== null && !isRecord(value.allowedWindow)) {
+      return {
+        ok: false as const,
+        error: "Invalid allowed window.",
+      };
+    }
+
+    if (value.allowedWindow === null) {
+      nextValue.allowedWindow = null;
+    } else {
+      const startTime = typeof value.allowedWindow.startTime === "string" ? value.allowedWindow.startTime.trim() : "";
+      const endTime = typeof value.allowedWindow.endTime === "string" ? value.allowedWindow.endTime.trim() : "";
+
+      if (!/^([01]\d|2[0-3]):([0-5]\d)$/.test(startTime) || !/^([01]\d|2[0-3]):([0-5]\d)$/.test(endTime) || startTime === endTime) {
+        return {
+          ok: false as const,
+          error: "Invalid allowed window. Expected daily HH:MM start/end values.",
+        };
+      }
+
+      nextValue.allowedWindow = {
+        startTime,
+        endTime,
+      };
+    }
+  }
+
+  if (Object.keys(nextValue).length === 0) {
+    return {
+      ok: false as const,
+      error: "No daily trivia fields were provided.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: nextValue,
+  };
+}
+
 function buildFeedResponse(feedId: string) {
   const feed = getFeedConfig(feedId);
 
@@ -450,6 +560,23 @@ function buildFeedResponse(feedId: string) {
     blockedUntil,
     overlapWarnings: getFeedOverlapWarnings(feed),
     channelLabel: preset?.label ?? feed.channelId,
+    presetTopic: preset?.defaultTopic ?? null,
+  };
+}
+
+function buildDailyTriviaChallengeResponse() {
+  const config = getDailyTriviaChallengeConfig();
+  const status = getDailyTriviaChallengeStatus();
+
+  if (!config || !status) {
+    return null;
+  }
+
+  const preset = dashboardChannelPresets.find((entry) => entry.channelId === config.channelId);
+
+  return {
+    ...status,
+    channelLabel: preset?.label ?? config.channelId,
     presetTopic: preset?.defaultTopic ?? null,
   };
 }
@@ -566,6 +693,57 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           channelPresets: dashboardChannelPresets,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/daily-trivia") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          dailyTriviaChallenge: buildDailyTriviaChallengeResponse(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/daily-trivia/update") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeDailyTriviaChallengeRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const currentConfig = getDailyTriviaChallengeConfig();
+        const config = currentConfig
+          ? updateDailyTriviaChallengeConfig({
+              ...(validation.value.enabled !== undefined ? { enabled: validation.value.enabled } : {}),
+              ...(validation.value.channelId ? { channelId: validation.value.channelId } : {}),
+              ...(validation.value.dailyTime ? { dailyTime: validation.value.dailyTime } : {}),
+              ...("topicOverride" in validation.value ? { topicOverride: validation.value.topicOverride ?? null } : {}),
+              ...("allowedWindow" in validation.value ? { allowedWindow: validation.value.allowedWindow ?? null } : {}),
+            })
+          : upsertDailyTriviaChallengeConfig({
+              enabled: validation.value.enabled ?? true,
+              channelId: validation.value.channelId ?? "",
+              dailyTime: validation.value.dailyTime ?? "09:00",
+              topicOverride: validation.value.topicOverride ?? null,
+              allowedWindow: validation.value.allowedWindow ?? null,
+            });
+
+        sendJson(response, 200, {
+          dailyTriviaChallenge: config ? buildDailyTriviaChallengeResponse() : null,
         });
         return;
       }

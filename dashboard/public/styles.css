@@ -181,6 +181,7 @@ button.secondary:hover {
 
 #settings-status,
 #manual-push-status,
+#daily-trivia-status,
 #feed-status {
   font-size: 14px;
   color: var(--muted);

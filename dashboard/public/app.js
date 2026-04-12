@@ -8,12 +8,16 @@ const healthOutput = document.querySelector("#health-output");
 const settingsOutput = document.querySelector("#settings-output");
 const manualPushOutput = document.querySelector("#manual-push-output");
 const channelOperationsOutput = document.querySelector("#channel-operations-output");
+const dailyTriviaOutput = document.querySelector("#daily-trivia-output");
 const feedsOutput = document.querySelector("#feeds-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
+const dailyTriviaForm = document.querySelector("#daily-trivia-form");
+const dailyTriviaStatus = document.querySelector("#daily-trivia-status");
+const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
 const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
@@ -45,6 +49,7 @@ let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let channelAutomationStatuses = [];
+let dailyTriviaChallenge = null;
 let feeds = [];
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
@@ -84,6 +89,12 @@ function setFeedStatus(message, kind = "neutral") {
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
+function setDailyTriviaStatus(message, kind = "neutral") {
+  dailyTriviaStatus.textContent = message;
+  dailyTriviaStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
 function getSelectedChannelPreset() {
   const selectedChannelId = manualPushForm.elements.channelPreset.value;
   return channelPresets.find((preset) => preset.channelId === selectedChannelId) ?? null;
@@ -112,6 +123,7 @@ function renderPresetOptions(targetSelect, previousValue) {
 
 function renderChannelPresetOptions() {
   renderPresetOptions(manualPushForm.elements.channelPreset, manualPushForm.elements.channelPreset.value);
+  renderPresetOptions(dailyTriviaForm.elements.channelPreset, dailyTriviaForm.elements.channelPreset.value);
   renderPresetOptions(feedForm.elements.channelPreset, feedForm.elements.channelPreset.value);
 }
 
@@ -326,6 +338,26 @@ function getFeedBlockedLabel(feed) {
   return "clear";
 }
 
+function getDailyTriviaBlockedLabel(challenge) {
+  if (challenge.blockedReason === "silenced") {
+    return "silenced";
+  }
+
+  if (challenge.blockedReason === "cooldown") {
+    return "cooldown";
+  }
+
+  if (challenge.blockedReason === "skip-next") {
+    return "skip-next";
+  }
+
+  if (challenge.blockedReason === "outside-window") {
+    return "outside-window";
+  }
+
+  return "clear";
+}
+
 function createChannelActionButton(label, handler, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
@@ -426,6 +458,16 @@ function resetFeedForm() {
   setFeedStatus("Feed form reset.");
 }
 
+function applyDailyTriviaToForm(challenge) {
+  const preset = challenge ? findPresetForChannel(challenge.channelId) : null;
+  dailyTriviaForm.elements.enabled.value = String(challenge?.enabled ?? true);
+  dailyTriviaForm.elements.channelPreset.value = preset?.channelId ?? channelPresets[0]?.channelId ?? "";
+  dailyTriviaForm.elements.dailyTime.value = challenge?.dailyTime ?? "09:00";
+  dailyTriviaForm.elements.topicOverride.value = challenge?.topicOverride ?? "";
+  dailyTriviaForm.elements.allowedStartTime.value = challenge?.allowedWindow?.startTime ?? "";
+  dailyTriviaForm.elements.allowedEndTime.value = challenge?.allowedWindow?.endTime ?? "";
+}
+
 function populateFeedForm(feed) {
   const preset = findPresetForChannel(feed.channelId);
   feedForm.elements.feedId.value = feed.id;
@@ -498,6 +540,56 @@ function renderFeeds() {
     row.append(main, actions);
     feedsList.append(row);
   }
+}
+
+function renderDailyTriviaChallenge() {
+  dailyTriviaSummary.replaceChildren();
+
+  if (!dailyTriviaChallenge) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "Daily Trivia Challenge is not configured yet.";
+    dailyTriviaSummary.append(emptyState);
+    applyDailyTriviaToForm(null);
+    return;
+  }
+
+  const row = document.createElement("section");
+  const main = document.createElement("div");
+  const title = document.createElement("h3");
+  const badges = document.createElement("div");
+  const primaryDetail = document.createElement("p");
+  const blockedDetail = document.createElement("p");
+  const secondaryDetail = document.createElement("p");
+  const meta = document.createElement("p");
+
+  row.className = "channel-operation-card compact";
+  main.className = "channel-operation-main";
+  title.textContent = `${dailyTriviaChallenge.channelLabel} • Daily Trivia`;
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(dailyTriviaChallenge.enabled ? "enabled" : "disabled", dailyTriviaChallenge.enabled ? "active" : "neutral"),
+    createStatusBadge("daily-trivia", "neutral"),
+    createStatusBadge(dailyTriviaChallenge.presetTopic ?? "custom", "neutral"),
+  );
+  if (dailyTriviaChallenge.blockedReason) {
+    badges.append(createStatusBadge(getDailyTriviaBlockedLabel(dailyTriviaChallenge), "blocked"));
+  }
+  primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
+  primaryDetail.textContent = `Next run: ${formatTimestamp(dailyTriviaChallenge.nextRunAt)} (${formatRelativeTime(dailyTriviaChallenge.nextRunAt)})`;
+  blockedDetail.className = "channel-operation-detail";
+  blockedDetail.textContent = dailyTriviaChallenge.blockedReason
+    ? `Blocked: ${getDailyTriviaBlockedLabel(dailyTriviaChallenge)} until ${formatTimestamp(dailyTriviaChallenge.blockedUntil)} (${formatRelativeTime(dailyTriviaChallenge.blockedUntil)})`
+    : "Blocked: none";
+  secondaryDetail.className = "channel-operation-detail";
+  secondaryDetail.textContent = `Daily time: ${dailyTriviaChallenge.dailyTime} • Last run: ${formatTimestamp(dailyTriviaChallenge.lastExecutedAt)} (${formatRelativeTime(dailyTriviaChallenge.lastExecutedAt)})`;
+  meta.className = "channel-operation-meta";
+  meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}`;
+
+  main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, meta);
+  row.append(main);
+  dailyTriviaSummary.append(row);
+  applyDailyTriviaToForm(dailyTriviaChallenge);
 }
 
 function sortCounterEntries(counterMap) {
@@ -587,6 +679,9 @@ async function loadChannelPresets() {
     const previousSelection = manualPushForm.elements.channelPreset.value;
     renderChannelPresetOptions();
     syncManualPushPresetSelection(!previousSelection || previousSelection !== manualPushForm.elements.channelPreset.value);
+    if (!dailyTriviaChallenge) {
+      applyDailyTriviaToForm(null);
+    }
     if (!feedForm.elements.feedId.value) {
       feedForm.elements.channelPreset.value = feedForm.elements.channelPreset.value || channelPresets[0]?.channelId || "";
       if (!feedForm.elements.cadenceMinutes.value) {
@@ -613,6 +708,20 @@ async function loadFeeds() {
     feeds = [];
     renderFeeds();
     feedsOutput.textContent = `Failed to load feeds.\n${error.message}`;
+  }
+}
+
+async function loadDailyTriviaChallenge() {
+  try {
+    const data = await fetchJson("/api/daily-trivia");
+    dailyTriviaChallenge = data.dailyTriviaChallenge ?? null;
+    renderDailyTriviaChallenge();
+    setPrettyJson(dailyTriviaOutput, data);
+  } catch (error) {
+    dailyTriviaChallenge = null;
+    renderDailyTriviaChallenge();
+    dailyTriviaOutput.textContent = `Failed to load daily trivia.\n${error.message}`;
+    setDailyTriviaStatus(`Daily trivia load failed: ${error.message}`, "error");
   }
 }
 
@@ -701,6 +810,45 @@ async function submitManualPush(event) {
   } catch (error) {
     manualPushOutput.textContent = `Manual push failed.\n${error.message}`;
     setManualPushStatus(`Push failed: ${error.message}`, "error");
+  }
+}
+
+function buildDailyTriviaPayload() {
+  const topicOverride = dailyTriviaForm.elements.topicOverride.value.trim();
+  const allowedStartTime = dailyTriviaForm.elements.allowedStartTime.value;
+  const allowedEndTime = dailyTriviaForm.elements.allowedEndTime.value;
+
+  return {
+    enabled: dailyTriviaForm.elements.enabled.value === "true",
+    channelId: dailyTriviaForm.elements.channelPreset.value,
+    dailyTime: dailyTriviaForm.elements.dailyTime.value,
+    topicOverride: topicOverride || null,
+    allowedWindow: allowedStartTime && allowedEndTime ? { startTime: allowedStartTime, endTime: allowedEndTime } : null,
+  };
+}
+
+async function saveDailyTriviaChallenge(event) {
+  event.preventDefault();
+  setDailyTriviaStatus("Saving...");
+
+  const payload = buildDailyTriviaPayload();
+
+  try {
+    const data = await fetchJson("/api/daily-trivia/update", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    dailyTriviaChallenge = data.dailyTriviaChallenge ?? null;
+    renderDailyTriviaChallenge();
+    setPrettyJson(dailyTriviaOutput, data);
+    setDailyTriviaStatus("Daily trivia saved.", "success");
+    await loadChannelOperations();
+  } catch (error) {
+    setDailyTriviaStatus(`Daily trivia save failed: ${error.message}`, "error");
   }
 }
 
@@ -829,7 +977,15 @@ async function applyChannelOperation(channelId, operation, durationMs) {
 }
 
 async function reloadAll() {
-  await Promise.all([loadHealth(), loadSettings(), loadMetrics(), loadChannelOperations(), loadChannelPresets(), loadFeeds()]);
+  await Promise.all([
+    loadHealth(),
+    loadSettings(),
+    loadMetrics(),
+    loadChannelOperations(),
+    loadChannelPresets(),
+    loadDailyTriviaChallenge(),
+    loadFeeds(),
+  ]);
 }
 
 function configureAutoRefresh() {
@@ -856,6 +1012,7 @@ apiConfigForm.addEventListener("submit", async (event) => {
 
 settingsForm.addEventListener("submit", saveSettings);
 manualPushForm.addEventListener("submit", submitManualPush);
+dailyTriviaForm.addEventListener("submit", saveDailyTriviaChallenge);
 feedForm.addEventListener("submit", saveFeed);
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
 resetSettingsButton.addEventListener("click", resetSettingsForm);

@@ -91,6 +91,12 @@ function normalizeTriviaItem(question: OpenTriviaQuestion): TriviaItem | undefin
     question: rawQuestion,
     options: shuffledOptions,
     answer: rawAnswer,
+    ...(typeof question.category === "string" && question.category.trim().length > 0
+      ? { category: decodeTriviaText(question.category) }
+      : {}),
+    ...(typeof question.difficulty === "string" && question.difficulty.trim().length > 0
+      ? { difficulty: decodeTriviaText(question.difficulty) }
+      : {}),
   };
 }
 

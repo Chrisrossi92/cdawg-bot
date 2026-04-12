@@ -2,8 +2,15 @@ import type { Client } from "discord.js";
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getContentMessage, resolveTopic } from "../lib/content.js";
 import { pushManualContentToChannel } from "../lib/manual-content-push.js";
+import { isWithinDailyAllowedWindow } from "../lib/allowed-window.js";
 import { getAutomatedContentBlock } from "../systems/channel-operations.js";
 import { recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import {
+  getDailyTriviaChallengeConfig,
+  logDailyTriviaChallengeWindowBlocked,
+  recordDailyTriviaChallengeExecuted,
+  shouldRunDailyTriviaChallengeNow,
+} from "../systems/daily-trivia-challenge.js";
 import {
   getFeedConfigs,
   getFeedNextEligibleAt,
@@ -93,6 +100,42 @@ async function postManagedFeed(client: Client, feed: FeedConfig, now: Date) {
   recordAutomatedContentSend(feed.channelId, "feed", now.getTime());
 }
 
+async function postDailyTriviaChallenge(client: Client, now: Date) {
+  const config = getDailyTriviaChallengeConfig();
+
+  if (!config || !config.enabled || !shouldRunDailyTriviaChallengeNow(config, now.getTime())) {
+    return;
+  }
+
+  if (!isWithinDailyAllowedWindow(config.allowedWindow, now.getTime())) {
+    logDailyTriviaChallengeWindowBlocked(config, now.getTime());
+    return;
+  }
+
+  const automationBlock = getAutomatedContentBlock(config.channelId, "daily-challenge", now.getTime());
+
+  if (automationBlock.blocked) {
+    return;
+  }
+
+  const result = await pushManualContentToChannel(client, {
+    channelId: config.channelId,
+    contentType: "trivia",
+    topicOverride: config.topicOverride,
+    source: "daily-challenge",
+    triviaPresentation: {
+      variant: "daily-challenge",
+    },
+  });
+
+  if (!result.ok) {
+    return;
+  }
+
+  recordDailyTriviaChallengeExecuted(now.getTime());
+  recordAutomatedContentSend(config.channelId, "daily-challenge", now.getTime());
+}
+
 export function startScheduler(client: Client) {
   for (const schedule of schedules) {
     if (hasDailyTime(schedule)) {
@@ -146,6 +189,12 @@ export function startScheduler(client: Client) {
           error,
         );
       }
+    }
+
+    try {
+      await postDailyTriviaChallenge(client, now);
+    } catch (error) {
+      console.error("Error posting Daily Trivia Challenge:", error);
     }
   }, 30 * 1000);
 }

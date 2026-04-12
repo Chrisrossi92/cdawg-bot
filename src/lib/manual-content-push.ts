@@ -3,7 +3,7 @@ import { resolveTopic, getContentMessage, getResolvedContentItem } from "./conte
 import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
-import { postInteractiveTriviaSession } from "./trivia-session.js";
+import { postInteractiveTriviaSession, type TriviaSessionPresentation } from "./trivia-session.js";
 
 export const manualPushContentTypes = ["joke", "prompt", "fact", "trivia"] as const;
 
@@ -14,6 +14,7 @@ export type ManualContentPushRequest = {
   contentType: ContentType;
   topicOverride?: Topic | null;
   source?: "manual" | "feed" | "scheduler" | "command" | "passive-chat" | "daily-challenge";
+  triviaPresentation?: TriviaSessionPresentation;
 };
 
 export type ManualContentPushResult =
@@ -143,6 +144,7 @@ export async function pushManualContentToChannel(
     const sentMessage = await postInteractiveTriviaSession({
       item: triviaItem,
       source: request.source ?? "manual",
+      ...(request.triviaPresentation ? { presentation: request.triviaPresentation } : {}),
       post: (payload) => channel.send(payload),
     });
     logManualPush("success", {

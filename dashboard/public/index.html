@@ -208,6 +208,66 @@
       <section class="panel">
         <div class="panel-header">
           <div>
+            <h2>Daily Trivia Challenge</h2>
+            <p>Configure one recognizable daily trivia drop using the shared interactive session flow.</p>
+          </div>
+        </div>
+
+        <form id="daily-trivia-form" class="settings-form">
+          <section class="form-group">
+            <h3>Daily Challenge Config</h3>
+            <label>
+              Enabled
+              <select name="enabled">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+            <label>
+              Channel Preset
+              <select name="channelPreset">
+                <option value="">Loading presets...</option>
+              </select>
+            </label>
+            <label>
+              Daily Time
+              <input name="dailyTime" type="time" required />
+              <small>Local daily post time.</small>
+            </label>
+            <label>
+              Topic Override
+              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+              <small>Leave blank to use the channel preset topic.</small>
+            </label>
+            <label>
+              Allowed Start Time
+              <input name="allowedStartTime" type="time" />
+              <small>Optional daily local start time.</small>
+            </label>
+            <label>
+              Allowed End Time
+              <input name="allowedEndTime" type="time" />
+              <small>Optional daily local end time.</small>
+            </label>
+          </section>
+
+          <div class="settings-actions">
+            <button type="submit">Save Daily Trivia</button>
+            <span id="daily-trivia-status"></span>
+          </div>
+        </form>
+
+        <div id="daily-trivia-summary" class="feed-list"></div>
+
+        <details class="details-block">
+          <summary>Raw daily trivia payload</summary>
+          <pre id="daily-trivia-output">Loading...</pre>
+        </details>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
             <h2>Feeds</h2>
             <p>Manage recurring content feeds backed by the internal scheduler.</p>
           </div>

@@ -3,6 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ContentType } from "../lib/content-provider.js";
 import type { Topic } from "../config/topics.js";
+import {
+  getDailyAllowedWindowBlockedUntil,
+  getDailyAllowedWindowNextStartAt,
+  isWithinDailyAllowedWindow,
+  type DailyAllowedWindow,
+} from "../lib/allowed-window.js";
 
 export type FeedConfig = {
   id: string;
@@ -17,10 +23,7 @@ export type FeedConfig = {
   lastExecutedAt: number | null;
 };
 
-export type FeedAllowedWindow = {
-  startTime: string;
-  endTime: string;
-};
+export type FeedAllowedWindow = DailyAllowedWindow;
 
 export type FeedOverlapWarning = {
   code: "AGGRESSIVE_CADENCE" | "SAME_CHANNEL_CONTENT_OVERLAP";
@@ -199,67 +202,16 @@ export function getFeedNextEligibleAt(feed: FeedConfig, now = Date.now()) {
   return nextEligibleAt > now ? nextEligibleAt : now;
 }
 
-function getMinutesSinceMidnight(date: Date) {
-  return date.getHours() * 60 + date.getMinutes();
-}
-
-function parseWindowMinutes(time: string) {
-  const parts = time.split(":");
-  const hours = Number(parts[0] ?? 0);
-  const minutes = Number(parts[1] ?? 0);
-  return hours * 60 + minutes;
-}
-
 export function isWithinFeedAllowedWindow(feed: FeedConfig, now = Date.now()) {
-  if (!feed.allowedWindow) {
-    return true;
-  }
-
-  const date = new Date(now);
-  const nowMinutes = getMinutesSinceMidnight(date);
-  const startMinutes = parseWindowMinutes(feed.allowedWindow.startTime);
-  const endMinutes = parseWindowMinutes(feed.allowedWindow.endTime);
-
-  if (startMinutes < endMinutes) {
-    return nowMinutes >= startMinutes && nowMinutes < endMinutes;
-  }
-
-  return nowMinutes >= startMinutes || nowMinutes < endMinutes;
+  return isWithinDailyAllowedWindow(feed.allowedWindow, now);
 }
 
 export function getFeedAllowedWindowNextStartAt(feed: FeedConfig, now = Date.now()) {
-  if (!feed.allowedWindow) {
-    return null;
-  }
-
-  const date = new Date(now);
-  const nowMinutes = getMinutesSinceMidnight(date);
-  const startMinutes = parseWindowMinutes(feed.allowedWindow.startTime);
-  const endMinutes = parseWindowMinutes(feed.allowedWindow.endTime);
-  const nextStart = new Date(now);
-  nextStart.setSeconds(0, 0);
-
-  if (startMinutes < endMinutes) {
-    if (nowMinutes < startMinutes) {
-      nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
-      return nextStart.getTime();
-    }
-
-    nextStart.setDate(nextStart.getDate() + 1);
-    nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
-    return nextStart.getTime();
-  }
-
-  if (nowMinutes >= startMinutes || nowMinutes < endMinutes) {
-    return now;
-  }
-
-  nextStart.setHours(Math.floor(startMinutes / 60), startMinutes % 60, 0, 0);
-  return nextStart.getTime();
+  return getDailyAllowedWindowNextStartAt(feed.allowedWindow, now);
 }
 
 export function getFeedWindowBlockedUntil(feed: FeedConfig, now = Date.now()) {
-  return isWithinFeedAllowedWindow(feed, now) ? null : getFeedAllowedWindowNextStartAt(feed, now);
+  return getDailyAllowedWindowBlockedUntil(feed.allowedWindow, now);
 }
 
 export function logFeedWindowBlocked(feed: FeedConfig, blockedUntil: number | null) {

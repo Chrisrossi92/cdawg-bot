@@ -19,6 +19,10 @@ const TRIVIA_TIMEOUT_MS = 10 * 60 * 1000;
 
 type TriviaSessionSource = "command" | "manual" | "feed" | "scheduler" | "daily-challenge" | "passive-chat";
 
+export type TriviaSessionPresentation = {
+  variant?: "default" | "daily-challenge";
+};
+
 type ActiveTriviaQuestion = {
   question: string;
   correctAnswer: string;
@@ -62,22 +66,45 @@ function getCorrectOptionLabel(options: readonly [string, string, string, string
   return ["A", "B", "C", "D"][correctIndex] ?? answer;
 }
 
-function formatTriviaQuestion(item: TriviaItem) {
-  const [optionA, optionB, optionC, optionD] = item.options;
-  return `**Cdawg Bot Trivia**\n${item.question}\n\nA. ${optionA}\nB. ${optionB}\nC. ${optionC}\nD. ${optionD}\n\nAnswers are open for 10 minutes.\nFastest correct gets bonus XP.\nOthers can still answer before time runs out.`;
+function formatTriviaMetadata(item: TriviaItem) {
+  const parts = [];
+
+  if (item.category) {
+    parts.push(`Category: ${item.category}`);
+  }
+
+  if (item.difficulty) {
+    parts.push(`Difficulty: ${item.difficulty}`);
+  }
+
+  return parts.length > 0 ? `${parts.join(" • ")}\n\n` : "";
 }
 
-function formatResolvedTriviaQuestion(activeQuestion: ActiveTriviaQuestion, userId: string) {
+function formatTriviaQuestion(item: TriviaItem, presentation?: TriviaSessionPresentation) {
+  const [optionA, optionB, optionC, optionD] = item.options;
+  const title =
+    presentation?.variant === "daily-challenge" ? "**Daily Trivia Challenge**" : "**Cdawg Bot Trivia**";
+  const metadata = formatTriviaMetadata(item);
+  return `${title}\n${metadata}${item.question}\n\nA. ${optionA}\nB. ${optionB}\nC. ${optionC}\nD. ${optionD}\n\nAnswers are open for 10 minutes.\nFastest correct gets bonus XP.\nOthers can still answer before time runs out.`;
+}
+
+function formatResolvedTriviaQuestion(
+  activeQuestion: ActiveTriviaQuestion,
+  userId: string,
+  presentation?: TriviaSessionPresentation,
+) {
   const labels = ["A", "B", "C", "D"];
   const optionLines = activeQuestion.options.map((option, index) => {
     const label = labels[index] ?? "?";
     return option === activeQuestion.correctAnswer ? `${label}. ✅ ${option}` : `${label}. ${option}`;
   });
+  const title =
+    presentation?.variant === "daily-challenge" ? "**Daily Trivia Challenge**" : "**Cdawg Bot Trivia**";
 
-  return `**Cdawg Bot Trivia**\n${activeQuestion.question}\n\n${optionLines.join("\n")}\n\n🏆 First correct: <@${userId}>`;
+  return `${title}\n${activeQuestion.question}\n\n${optionLines.join("\n")}\n\n🏆 First correct: <@${userId}>`;
 }
 
-function formatClosedTriviaQuestion(activeQuestion: ActiveTriviaQuestion) {
+function formatClosedTriviaQuestion(activeQuestion: ActiveTriviaQuestion, presentation?: TriviaSessionPresentation) {
   const labels = ["A", "B", "C", "D"];
   const correctOption = getCorrectOptionLabel(activeQuestion.options, activeQuestion.correctAnswer);
   const optionLines = activeQuestion.options.map((option, index) => {
@@ -90,8 +117,10 @@ function formatClosedTriviaQuestion(activeQuestion: ActiveTriviaQuestion) {
   const fastestLine = activeQuestion.fastestCorrectUserId
     ? `🏆 Fastest correct: <@${activeQuestion.fastestCorrectUserId}>`
     : "🏆 No correct answers this round.";
+  const title =
+    presentation?.variant === "daily-challenge" ? "**Daily Trivia Challenge Results**" : "**Cdawg Bot Trivia Results**";
 
-  return `**Cdawg Bot Trivia Results**\n${activeQuestion.question}\n\n${optionLines.join("\n")}\n\n✅ Correct answer: ${correctOption}\n${fastestLine}\n📊 Correct: ${correctCount} • Incorrect: ${wrongCount}`;
+  return `${title}\n${activeQuestion.question}\n\n${optionLines.join("\n")}\n\n✅ Correct answer: ${correctOption}\n${fastestLine}\n📊 Correct: ${correctCount} • Incorrect: ${wrongCount}`;
 }
 
 async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, questionId: string, optionIndex: number) {
@@ -212,6 +241,7 @@ async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, question
 export async function postInteractiveTriviaSession(options: {
   item: TriviaItem;
   source: TriviaSessionSource;
+  presentation?: TriviaSessionPresentation;
   post: (payload: {
     content: string;
     components: ActionRowBuilder<ButtonBuilder>[];
@@ -234,7 +264,7 @@ export async function postInteractiveTriviaSession(options: {
   });
 
   const message = await options.post({
-    content: formatTriviaQuestion(options.item),
+    content: formatTriviaQuestion(options.item, options.presentation),
     components: [row],
     fetchReply: true,
   });
@@ -280,7 +310,7 @@ export async function postInteractiveTriviaSession(options: {
 
     try {
       await message.edit({
-        content: formatClosedTriviaQuestion(activeQuestion),
+        content: formatClosedTriviaQuestion(activeQuestion, options.presentation),
         components: [buildTriviaButtons(questionId, true)],
       });
     } catch {

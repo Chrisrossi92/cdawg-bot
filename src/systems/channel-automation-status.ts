@@ -268,7 +268,11 @@ function getBlockedState(channelId: string, now: number) {
   };
 }
 
-export function recordAutomatedContentSend(channelId: string, source: "passive-chat" | "scheduler" | "feed", sentAt = Date.now()) {
+export function recordAutomatedContentSend(
+  channelId: string,
+  source: "passive-chat" | "scheduler" | "feed" | "daily-challenge",
+  sentAt = Date.now(),
+) {
   lastAutomatedSendAtByChannelId.set(channelId, sentAt);
 
   if (source === "passive-chat") {

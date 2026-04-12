@@ -2,6 +2,8 @@ export type TriviaItem = {
   question: string;
   options: [string, string, string, string];
   answer: string;
+  category?: string;
+  difficulty?: string;
 };
 
 export const trivia: TriviaItem[] = [
