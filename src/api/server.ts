@@ -26,9 +26,11 @@ import {
   getFeedConfig,
   getFeedConfigs,
   getFeedNextEligibleAt,
+  getFeedOverlapWarnings,
   setFeedEnabled,
   updateFeedConfig,
 } from "../systems/feed-configs.js";
+import { getChannelOperationalStatus } from "../systems/channel-operations.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -386,10 +388,29 @@ function buildFeedResponse(feedId: string) {
     return null;
   }
 
+  const operationalStatus = getChannelOperationalStatus(feed.channelId);
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
+  const blockedReason = operationalStatus.isSilenced
+    ? "silenced"
+    : operationalStatus.isCoolingDown
+      ? "cooldown"
+      : operationalStatus.skipNextSend
+        ? "skip-next"
+        : null;
+  const blockedUntil = operationalStatus.isSilenced
+    ? operationalStatus.silencedUntil
+    : operationalStatus.isCoolingDown
+      ? operationalStatus.cooldownUntil
+      : null;
+  const nextRunAt = blockedUntil ? Math.max(getFeedNextEligibleAt(feed), blockedUntil) : getFeedNextEligibleAt(feed);
+
   return {
     ...feed,
     nextEligibleAt: getFeedNextEligibleAt(feed),
+    nextRunAt,
+    blockedReason,
+    blockedUntil,
+    overlapWarnings: getFeedOverlapWarnings(feed),
     channelLabel: preset?.label ?? feed.channelId,
     presetTopic: preset?.defaultTopic ?? null,
   };

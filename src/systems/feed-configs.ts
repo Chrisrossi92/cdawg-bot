@@ -16,6 +16,11 @@ export type FeedConfig = {
   lastExecutedAt: number | null;
 };
 
+export type FeedOverlapWarning = {
+  code: "AGGRESSIVE_CADENCE" | "SAME_CHANNEL_CONTENT_OVERLAP";
+  message: string;
+};
+
 type FeedStore = {
   feeds: FeedConfig[];
 };
@@ -163,6 +168,33 @@ export function getFeedNextEligibleAt(feed: FeedConfig, now = Date.now()) {
   const referenceTime = Math.max(feed.lastExecutedAt ?? feed.createdAt, feed.updatedAt);
   const nextEligibleAt = referenceTime + feed.cadenceMinutes * 60 * 1000;
   return nextEligibleAt > now ? nextEligibleAt : now;
+}
+
+export function getFeedOverlapWarnings(feed: FeedConfig, feeds = activeFeedStore.feeds): FeedOverlapWarning[] {
+  const warnings: FeedOverlapWarning[] = [];
+  const overlappingFeeds = feeds.filter(
+    (candidate) =>
+      candidate.id !== feed.id &&
+      candidate.enabled &&
+      candidate.channelId === feed.channelId &&
+      candidate.contentType === feed.contentType,
+  );
+
+  if (feed.cadenceMinutes <= 5) {
+    warnings.push({
+      code: "AGGRESSIVE_CADENCE",
+      message: `Cadence is very aggressive at every ${feed.cadenceMinutes} minutes.`,
+    });
+  }
+
+  if (overlappingFeeds.length > 0) {
+    warnings.push({
+      code: "SAME_CHANNEL_CONTENT_OVERLAP",
+      message: `${overlappingFeeds.length + 1} feeds target ${feed.contentType} in this channel.`,
+    });
+  }
+
+  return warnings;
 }
 
 export function createFeedConfig(input: {

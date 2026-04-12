@@ -306,6 +306,22 @@ function findPresetForChannel(channelId) {
   return channelPresets.find((preset) => preset.channelId === channelId) ?? null;
 }
 
+function getFeedBlockedLabel(feed) {
+  if (feed.blockedReason === "silenced") {
+    return "silenced";
+  }
+
+  if (feed.blockedReason === "cooldown") {
+    return "cooldown";
+  }
+
+  if (feed.blockedReason === "skip-next") {
+    return "skip-next";
+  }
+
+  return "clear";
+}
+
 function createChannelActionButton(label, handler, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
@@ -432,7 +448,9 @@ function renderFeeds() {
     const main = document.createElement("div");
     const title = document.createElement("h3");
     const meta = document.createElement("p");
-    const detail = document.createElement("p");
+    const primaryDetail = document.createElement("p");
+    const secondaryDetail = document.createElement("p");
+    const blockedDetail = document.createElement("p");
     const badges = document.createElement("div");
     const actions = document.createElement("div");
 
@@ -440,14 +458,27 @@ function renderFeeds() {
     main.className = "channel-operation-main";
     title.textContent = `${feed.channelLabel} • ${feed.contentType}`;
     meta.className = "channel-operation-meta";
-    meta.textContent = `Every ${feed.cadenceMinutes} min • Channel ${feed.channelId}${feed.topicOverride ? ` • Topic ${feed.topicOverride}` : ""}`;
-    detail.className = "channel-operation-detail";
-    detail.textContent = `Next run: ${formatTimestamp(feed.nextEligibleAt)} (${formatRelativeTime(feed.nextEligibleAt)}) • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
+    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}`;
+    primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
+    primaryDetail.textContent = `Next run: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`;
+    secondaryDetail.className = "channel-operation-detail";
+    secondaryDetail.textContent = `Cadence: every ${feed.cadenceMinutes} min • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
+    blockedDetail.className = "channel-operation-detail";
+    blockedDetail.textContent = feed.blockedReason
+      ? `Blocked: ${getFeedBlockedLabel(feed)} until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})`
+      : "Blocked: none";
     badges.className = "channel-operation-badges";
     badges.append(
       createStatusBadge(feed.enabled ? "enabled" : "disabled", feed.enabled ? "active" : "neutral"),
+      createStatusBadge(feed.contentType, "neutral"),
       createStatusBadge(feed.presetTopic ?? "custom", "neutral"),
     );
+    if (feed.blockedReason) {
+      badges.append(createStatusBadge(getFeedBlockedLabel(feed), "blocked"));
+    }
+    for (const warning of feed.overlapWarnings ?? []) {
+      badges.append(createStatusBadge(warning.code === "AGGRESSIVE_CADENCE" ? "fast cadence" : "overlap", "blocked"));
+    }
     actions.className = "channel-operation-actions";
     actions.append(
       createChannelActionButton("Edit", () => populateFeedForm(feed)),
@@ -455,7 +486,7 @@ function renderFeeds() {
       createChannelActionButton("Delete", () => void deleteFeed(feed.id)),
     );
 
-    main.append(title, badges, meta, detail);
+    main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, meta);
     row.append(main, actions);
     feedsList.append(row);
   }
