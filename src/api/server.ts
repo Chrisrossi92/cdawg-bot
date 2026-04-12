@@ -10,6 +10,7 @@ import {
   setChannelManualCooldown,
   setChannelSilenced,
 } from "../systems/channel-operations.js";
+import { getChannelAutomationStatuses } from "../systems/channel-automation-status.js";
 import { getBotMetrics } from "../systems/bot-metrics.js";
 import { getBotSettings, updateBotSettings } from "../systems/bot-settings.js";
 
@@ -401,6 +402,33 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           channelOperations,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-automation-status") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const channelIds = [
+          ...new Set([
+            ...dashboardChannelPresets.map((preset) => preset.channelId),
+            ...getChannelOperationalStates().map((status) => status.channelId),
+          ]),
+        ];
+        const channelAutomationStatuses = getChannelAutomationStatuses(channelIds).map((status) => {
+          const preset = dashboardChannelPresets.find((entry) => entry.channelId === status.channelId);
+          return {
+            ...status,
+            label: preset?.label ?? status.channelId,
+            defaultTopic: preset?.defaultTopic ?? null,
+          };
+        });
+
+        sendJson(response, 200, {
+          channelAutomationStatuses,
         });
         return;
       }

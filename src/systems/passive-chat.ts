@@ -7,6 +7,7 @@ import type { ContentType } from "../lib/content-provider.js";
 import { getMatchedPassiveReaction, getPassiveTopicSignalScores } from "../lib/passive-content.js";
 import { recordPassiveChatTrigger } from "./bot-metrics.js";
 import { getAutomatedContentBlock } from "./channel-operations.js";
+import { recordAutomatedContentSend } from "./channel-automation-status.js";
 
 type ChannelPassiveState = {
   lastUserMessageAt: number;
@@ -288,6 +289,7 @@ export async function handlePassiveChatMessage(message: Message) {
 
   recordPassiveChatTrigger(getPassiveTriggerType(candidate));
   markPassiveInteraction(message.channelId, reply);
+  recordAutomatedContentSend(message.channelId, "passive-chat");
 
   logPassiveDecision(message, "send", `topic=${candidate.topic} ${candidate.reason}`);
 

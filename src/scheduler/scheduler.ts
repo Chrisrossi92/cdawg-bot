@@ -2,6 +2,7 @@ import type { Client } from "discord.js";
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getContentMessage, resolveTopic } from "../lib/content.js";
 import { getAutomatedContentBlock } from "../systems/channel-operations.js";
+import { recordAutomatedContentSend } from "../systems/channel-automation-status.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
 
@@ -51,6 +52,7 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
   }
 
   await channel.send(message);
+  recordAutomatedContentSend(schedule.channelId, "scheduler", now.getTime());
   lastPostedMinuteBySchedule.set(scheduleKey, minuteWindowKey);
 }
 

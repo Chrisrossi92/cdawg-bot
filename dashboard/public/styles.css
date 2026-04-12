@@ -212,12 +212,14 @@ button.secondary:hover {
 
 .channel-operation-meta,
 .channel-operation-empty,
-.channel-operation-status {
+.channel-operation-status,
+.channel-operation-detail {
   margin: 0;
 }
 
 .channel-operation-meta,
-.channel-operation-empty {
+.channel-operation-empty,
+.channel-operation-detail {
   color: var(--muted);
 }
 

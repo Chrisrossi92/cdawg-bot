@@ -36,7 +36,7 @@ const autoRefreshIntervalMs = 15000;
 let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
-let channelOperations = [];
+let channelAutomationStatuses = [];
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -164,13 +164,42 @@ function formatTimestamp(timestamp) {
   return new Date(timestamp).toLocaleString();
 }
 
-function getChannelOperationStatusText(channelOperation) {
-  if (channelOperation.isSilenced) {
-    return `Silenced until ${formatTimestamp(channelOperation.silencedUntil)}`;
+function formatRelativeTime(timestamp) {
+  if (!timestamp) {
+    return "none";
   }
 
-  if (channelOperation.isCoolingDown) {
-    return `Cooling down until ${formatTimestamp(channelOperation.cooldownUntil)}`;
+  const deltaMs = timestamp - Date.now();
+  const absoluteDeltaMs = Math.abs(deltaMs);
+  const totalMinutes = Math.round(absoluteDeltaMs / 60000);
+
+  if (totalMinutes < 1) {
+    return deltaMs >= 0 ? "in less than a minute" : "less than a minute ago";
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  const parts = [];
+
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+
+  const joined = parts.join(" ");
+  return deltaMs >= 0 ? `in ${joined}` : `${joined} ago`;
+}
+
+function getChannelOperationStatusText(channelStatus) {
+  if (channelStatus.blockedReason === "silenced") {
+    return `Silenced until ${formatTimestamp(channelStatus.blockedUntil)}`;
+  }
+
+  if (channelStatus.blockedReason === "cooldown") {
+    return `Cooling down until ${formatTimestamp(channelStatus.blockedUntil)}`;
   }
 
   return "Active";
@@ -188,37 +217,52 @@ function createChannelActionButton(label, handler, disabled = false) {
 function renderChannelOperations() {
   channelOperationsGrid.replaceChildren();
 
-  if (channelOperations.length === 0) {
+  if (channelAutomationStatuses.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No channel controls available.";
+    emptyState.textContent = "No channel automation status available.";
     channelOperationsGrid.append(emptyState);
     return;
   }
 
-  for (const channelOperation of channelOperations) {
+  for (const channelStatus of channelAutomationStatuses) {
     const card = document.createElement("section");
     const title = document.createElement("h3");
     const meta = document.createElement("p");
     const status = document.createElement("p");
+    const automationMode = document.createElement("p");
+    const nextEligible = document.createElement("p");
+    const passiveEligible = document.createElement("p");
+    const scheduledEligible = document.createElement("p");
+    const lastSend = document.createElement("p");
     const actions = document.createElement("div");
 
     card.className = "channel-operation-card";
-    title.textContent = channelOperation.label;
+    title.textContent = channelStatus.label;
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ID: ${channelOperation.channelId}${channelOperation.defaultTopic ? ` • Topic: ${channelOperation.defaultTopic}` : ""}`;
-    status.className = `channel-operation-status ${channelOperation.isSilenced || channelOperation.isCoolingDown ? "blocked" : "active"}`;
-    status.textContent = getChannelOperationStatusText(channelOperation);
+    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""}`;
+    status.className = `channel-operation-status ${channelStatus.blockedReason ? "blocked" : "active"}`;
+    status.textContent = getChannelOperationStatusText(channelStatus);
+    automationMode.className = "channel-operation-detail";
+    automationMode.textContent = `Automation mode: ${channelStatus.automationMode}`;
+    nextEligible.className = "channel-operation-detail";
+    nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
+    passiveEligible.className = "channel-operation-detail";
+    passiveEligible.textContent = `Passive eligible: ${formatTimestamp(channelStatus.passiveEligibleAt)} (${formatRelativeTime(channelStatus.passiveEligibleAt)})`;
+    scheduledEligible.className = "channel-operation-detail";
+    scheduledEligible.textContent = `Scheduled eligible: ${formatTimestamp(channelStatus.scheduledEligibleAt)} (${formatRelativeTime(channelStatus.scheduledEligibleAt)})`;
+    lastSend.className = "channel-operation-detail";
+    lastSend.textContent = `Last automated send: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
     actions.className = "channel-operation-actions";
 
     actions.append(
-      createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelOperation.channelId, "silence", 60 * 60 * 1000)),
-      createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelOperation.channelId, "silence", 6 * 60 * 60 * 1000)),
-      createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelOperation.channelId, "cooldown", 30 * 60 * 1000)),
-      createChannelActionButton("Resume", () => void applyChannelOperation(channelOperation.channelId, "resume")),
+      createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000)),
+      createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
+      createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
+      createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
-    card.append(title, meta, status, actions);
+    card.append(title, meta, status, automationMode, nextEligible, passiveEligible, scheduledEligible, lastSend, actions);
     channelOperationsGrid.append(card);
   }
 }
@@ -319,14 +363,14 @@ async function loadChannelPresets() {
 
 async function loadChannelOperations() {
   try {
-    const data = await fetchJson("/api/channel-operations");
-    channelOperations = Array.isArray(data.channelOperations) ? data.channelOperations : [];
+    const data = await fetchJson("/api/channel-automation-status");
+    channelAutomationStatuses = Array.isArray(data.channelAutomationStatuses) ? data.channelAutomationStatuses : [];
     renderChannelOperations();
     setPrettyJson(channelOperationsOutput, data);
   } catch (error) {
-    channelOperations = [];
+    channelAutomationStatuses = [];
     renderChannelOperations();
-    channelOperationsOutput.textContent = `Failed to load channel operations.\n${error.message}`;
+    channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
   }
 }
 

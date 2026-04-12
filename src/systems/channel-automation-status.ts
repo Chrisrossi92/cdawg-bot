@@ -1,0 +1,175 @@
+import { schedules, type Schedule } from "../config/schedules.js";
+import { getPassiveChatSettings } from "../config/passive-chat.js";
+import type { AutomationBlockReason } from "./channel-operations.js";
+import { getChannelOperationalStatus } from "./channel-operations.js";
+
+export type AutomationOperationalStatus = "active" | "silenced" | "cooling-down";
+
+export type ChannelAutomationStatus = {
+  channelId: string;
+  operationalStatus: AutomationOperationalStatus;
+  blockedReason: AutomationBlockReason | null;
+  blockedUntil: number | null;
+  lastAutomatedSendAt: number | null;
+  nextEligibleSendAt: number | null;
+  passiveEligibleAt: number | null;
+  scheduledEligibleAt: number | null;
+  automationMode: "none" | "passive" | "scheduled" | "passive+scheduler";
+};
+
+const lastAutomatedSendAtByChannelId = new Map<string, number>();
+const lastPassiveSendAtByChannelId = new Map<string, number>();
+let lastPassiveSendAtGlobal = 0;
+
+function getSchedulesForChannel(channelId: string) {
+  return schedules.filter((schedule) => schedule.channelId === channelId);
+}
+
+function getAutomationMode(channelId: string) {
+  const passiveEnabled = getPassiveChatSettings().enabled && getPassiveChatSettings().eligibleChannelIds.has(channelId);
+  const hasScheduledContent = getSchedulesForChannel(channelId).length > 0;
+
+  if (passiveEnabled && hasScheduledContent) {
+    return "passive+scheduler" as const;
+  }
+
+  if (passiveEnabled) {
+    return "passive" as const;
+  }
+
+  if (hasScheduledContent) {
+    return "scheduled" as const;
+  }
+
+  return "none" as const;
+}
+
+function getNextDailyRunAt(schedule: Schedule & { hour: number; minute: number }, referenceTime: number) {
+  const nextRun = new Date(referenceTime);
+  nextRun.setSeconds(0, 0);
+  nextRun.setHours(schedule.hour, schedule.minute, 0, 0);
+
+  if (nextRun.getTime() <= referenceTime) {
+    nextRun.setDate(nextRun.getDate() + 1);
+  }
+
+  return nextRun.getTime();
+}
+
+function getNextIntervalRunAt(schedule: Schedule & { intervalMinutes: number }, channelId: string, referenceTime: number) {
+  const lastAutomatedSendAt = lastAutomatedSendAtByChannelId.get(channelId);
+
+  if (!lastAutomatedSendAt) {
+    return null;
+  }
+
+  return lastAutomatedSendAt + schedule.intervalMinutes * 60 * 1000 > referenceTime
+    ? lastAutomatedSendAt + schedule.intervalMinutes * 60 * 1000
+    : referenceTime;
+}
+
+function getScheduledEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  const schedulesForChannel = getSchedulesForChannel(channelId);
+
+  if (schedulesForChannel.length === 0) {
+    return null;
+  }
+
+  const referenceTime = Math.max(now, blockedUntil ?? 0);
+  const candidateTimes = schedulesForChannel
+    .map((schedule) => {
+      if (typeof schedule.hour === "number" && typeof schedule.minute === "number") {
+        return getNextDailyRunAt(schedule as Schedule & { hour: number; minute: number }, referenceTime);
+      }
+
+      if (typeof schedule.intervalMinutes === "number") {
+        return getNextIntervalRunAt(schedule as Schedule & { intervalMinutes: number }, channelId, referenceTime);
+      }
+
+      return null;
+    })
+    .filter((timestamp): timestamp is number => typeof timestamp === "number" && Number.isFinite(timestamp));
+
+  if (candidateTimes.length === 0) {
+    return null;
+  }
+
+  return Math.min(...candidateTimes);
+}
+
+function getPassiveEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  const passiveChatSettings = getPassiveChatSettings();
+
+  if (!passiveChatSettings.enabled || !passiveChatSettings.eligibleChannelIds.has(channelId)) {
+    return null;
+  }
+
+  const lastChannelPassiveSendAt = lastPassiveSendAtByChannelId.get(channelId) ?? 0;
+
+  return Math.max(
+    now,
+    blockedUntil ?? 0,
+    lastPassiveSendAtGlobal + passiveChatSettings.globalCooldownMs,
+    lastChannelPassiveSendAt + passiveChatSettings.channelCooldownMs,
+  );
+}
+
+function getBlockedState(channelId: string, now: number) {
+  const operationalStatus = getChannelOperationalStatus(channelId, now);
+
+  if (operationalStatus.isSilenced) {
+    return {
+      operationalStatus: "silenced" as const,
+      blockedReason: "silenced" as const,
+      blockedUntil: operationalStatus.silencedUntil,
+    };
+  }
+
+  if (operationalStatus.isCoolingDown) {
+    return {
+      operationalStatus: "cooling-down" as const,
+      blockedReason: "cooldown" as const,
+      blockedUntil: operationalStatus.cooldownUntil,
+    };
+  }
+
+  return {
+    operationalStatus: "active" as const,
+    blockedReason: null,
+    blockedUntil: null,
+  };
+}
+
+export function recordAutomatedContentSend(channelId: string, source: "passive-chat" | "scheduler", sentAt = Date.now()) {
+  lastAutomatedSendAtByChannelId.set(channelId, sentAt);
+
+  if (source === "passive-chat") {
+    lastPassiveSendAtGlobal = sentAt;
+    lastPassiveSendAtByChannelId.set(channelId, sentAt);
+  }
+}
+
+export function getChannelAutomationStatus(channelId: string, now = Date.now()): ChannelAutomationStatus {
+  const blockedState = getBlockedState(channelId, now);
+  const passiveEligibleAt = getPassiveEligibleAt(channelId, blockedState.blockedUntil, now);
+  const scheduledEligibleAt = getScheduledEligibleAt(channelId, blockedState.blockedUntil, now);
+  const nextEligibleCandidates = [passiveEligibleAt, scheduledEligibleAt].filter(
+    (timestamp): timestamp is number => typeof timestamp === "number" && Number.isFinite(timestamp),
+  );
+
+  return {
+    channelId,
+    operationalStatus: blockedState.operationalStatus,
+    blockedReason: blockedState.blockedReason,
+    blockedUntil: blockedState.blockedUntil,
+    lastAutomatedSendAt: lastAutomatedSendAtByChannelId.get(channelId) ?? null,
+    nextEligibleSendAt: nextEligibleCandidates.length > 0 ? Math.min(...nextEligibleCandidates) : null,
+    passiveEligibleAt,
+    scheduledEligibleAt,
+    automationMode: getAutomationMode(channelId),
+  };
+}
+
+export function getChannelAutomationStatuses(channelIds: readonly string[], now = Date.now()) {
+  return channelIds.map((channelId) => getChannelAutomationStatus(channelId, now));
+}
