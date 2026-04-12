@@ -1,10 +1,21 @@
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getPassiveChatSettings } from "../config/passive-chat.js";
 import type { ContentType } from "../lib/content-provider.js";
+import { getFeedConfigs, getFeedNextEligibleAt } from "./feed-configs.js";
 import type { AutomationBlockReason } from "./channel-operations.js";
 import { getChannelOperationalStatus } from "./channel-operations.js";
 
 export type AutomationOperationalStatus = "active" | "silenced" | "cooling-down";
+
+export type AutomationMode =
+  | "none"
+  | "passive"
+  | "scheduled"
+  | "feed"
+  | "passive+scheduler"
+  | "passive+feed"
+  | "scheduler+feed"
+  | "passive+scheduler+feed";
 
 export type ChannelAutomationStatus = {
   channelId: string;
@@ -16,12 +27,12 @@ export type ChannelAutomationStatus = {
   nextEligibleSendAt: number | null;
   passiveEligibleAt: number | null;
   scheduledEligibleAt: number | null;
-  automationMode: "none" | "passive" | "scheduled" | "passive+scheduler";
+  automationMode: AutomationMode;
 };
 
 export type NextAutomatedContentPlan = {
   channelId: string;
-  source: "scheduler" | "passive-chat";
+  source: "scheduler" | "passive-chat" | "feed";
   contentType: ContentType;
   eligibleAt: number | null;
 };
@@ -34,12 +45,29 @@ function getSchedulesForChannel(channelId: string) {
   return schedules.filter((schedule) => schedule.channelId === channelId);
 }
 
+function getFeedsForChannel(channelId: string) {
+  return getFeedConfigs().filter((feed) => feed.enabled && feed.channelId === channelId);
+}
+
 function getAutomationMode(channelId: string) {
   const passiveEnabled = getPassiveChatSettings().enabled && getPassiveChatSettings().eligibleChannelIds.has(channelId);
   const hasScheduledContent = getSchedulesForChannel(channelId).length > 0;
+  const hasManagedFeed = getFeedsForChannel(channelId).length > 0;
+
+  if (passiveEnabled && hasScheduledContent && hasManagedFeed) {
+    return "passive+scheduler+feed" as const;
+  }
 
   if (passiveEnabled && hasScheduledContent) {
     return "passive+scheduler" as const;
+  }
+
+  if (passiveEnabled && hasManagedFeed) {
+    return "passive+feed" as const;
+  }
+
+  if (hasScheduledContent && hasManagedFeed) {
+    return "scheduler+feed" as const;
   }
 
   if (passiveEnabled) {
@@ -48,6 +76,10 @@ function getAutomationMode(channelId: string) {
 
   if (hasScheduledContent) {
     return "scheduled" as const;
+  }
+
+  if (hasManagedFeed) {
+    return "feed" as const;
   }
 
   return "none" as const;
@@ -183,6 +215,33 @@ function getNextPassivePlan(channelId: string, blockedUntil: number | null, now:
   };
 }
 
+function getFeedEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  const candidateTimes = getFeedsForChannel(channelId)
+    .map((feed) => Math.max(getFeedNextEligibleAt(feed, now), blockedUntil ?? 0))
+    .filter((timestamp): timestamp is number => Number.isFinite(timestamp));
+
+  if (candidateTimes.length === 0) {
+    return null;
+  }
+
+  return Math.min(...candidateTimes);
+}
+
+function getNextFeedPlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  const candidatePlans = getFeedsForChannel(channelId).map((feed) => ({
+    channelId,
+    source: "feed" as const,
+    contentType: feed.contentType,
+    eligibleAt: Math.max(getFeedNextEligibleAt(feed, now), blockedUntil ?? 0),
+  }));
+
+  if (candidatePlans.length === 0) {
+    return null;
+  }
+
+  return candidatePlans.sort((left, right) => left.eligibleAt - right.eligibleAt)[0] ?? null;
+}
+
 function getBlockedState(channelId: string, now: number) {
   const operationalStatus = getChannelOperationalStatus(channelId, now);
 
@@ -209,7 +268,7 @@ function getBlockedState(channelId: string, now: number) {
   };
 }
 
-export function recordAutomatedContentSend(channelId: string, source: "passive-chat" | "scheduler", sentAt = Date.now()) {
+export function recordAutomatedContentSend(channelId: string, source: "passive-chat" | "scheduler" | "feed", sentAt = Date.now()) {
   lastAutomatedSendAtByChannelId.set(channelId, sentAt);
 
   if (source === "passive-chat") {
@@ -222,7 +281,8 @@ export function getChannelAutomationStatus(channelId: string, now = Date.now()):
   const blockedState = getBlockedState(channelId, now);
   const passiveEligibleAt = getPassiveEligibleAt(channelId, blockedState.blockedUntil, now);
   const scheduledEligibleAt = getScheduledEligibleAt(channelId, blockedState.blockedUntil, now);
-  const nextEligibleCandidates = [passiveEligibleAt, scheduledEligibleAt].filter(
+  const feedEligibleAt = getFeedEligibleAt(channelId, blockedState.blockedUntil, now);
+  const nextEligibleCandidates = [passiveEligibleAt, scheduledEligibleAt, feedEligibleAt].filter(
     (timestamp): timestamp is number => typeof timestamp === "number" && Number.isFinite(timestamp),
   );
 
@@ -248,7 +308,8 @@ export function getNextAutomatedContentPlan(channelId: string, now = Date.now())
   const blockedUntil = getChannelOperationalStatus(channelId, now).nextEligibleAt;
   const scheduledPlan = getNextScheduledPlan(channelId, blockedUntil, now);
   const passivePlan = getNextPassivePlan(channelId, blockedUntil, now);
-  const candidatePlans = [scheduledPlan, passivePlan].filter((plan): plan is NextAutomatedContentPlan => Boolean(plan));
+  const feedPlan = getNextFeedPlan(channelId, blockedUntil, now);
+  const candidatePlans = [scheduledPlan, passivePlan, feedPlan].filter((plan): plan is NextAutomatedContentPlan => Boolean(plan));
 
   if (candidatePlans.length === 0) {
     return null;

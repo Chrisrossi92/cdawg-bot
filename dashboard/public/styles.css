@@ -180,7 +180,8 @@ button.secondary:hover {
 }
 
 #settings-status,
-#manual-push-status {
+#manual-push-status,
+#feed-status {
   font-size: 14px;
   color: var(--muted);
 }
@@ -188,7 +189,8 @@ button.secondary:hover {
 .health-grid,
 .metrics-grid,
 .channel-operations-grid,
-.channel-operations-list {
+.channel-operations-list,
+.feed-list {
   display: grid;
   gap: 14px;
 }

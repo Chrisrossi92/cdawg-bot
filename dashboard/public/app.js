@@ -8,15 +8,19 @@ const healthOutput = document.querySelector("#health-output");
 const settingsOutput = document.querySelector("#settings-output");
 const manualPushOutput = document.querySelector("#manual-push-output");
 const channelOperationsOutput = document.querySelector("#channel-operations-output");
+const feedsOutput = document.querySelector("#feeds-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
+const feedForm = document.querySelector("#feed-form");
+const feedStatus = document.querySelector("#feed-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
 const channelOperationsGrid = document.querySelector("#channel-operations-grid");
 const channelOperationsFilter = document.querySelector("#channel-operations-filter");
 const channelOperationsSort = document.querySelector("#channel-operations-sort");
+const feedsList = document.querySelector("#feeds-list");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -29,7 +33,9 @@ const refreshHealthButton = document.querySelector("#refresh-health");
 const refreshSettingsButton = document.querySelector("#refresh-settings");
 const refreshMetricsButton = document.querySelector("#refresh-metrics");
 const refreshChannelOperationsButton = document.querySelector("#refresh-channel-operations");
+const refreshFeedsButton = document.querySelector("#refresh-feeds");
 const resetSettingsButton = document.querySelector("#reset-settings");
+const resetFeedFormButton = document.querySelector("#reset-feed-form");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
@@ -39,6 +45,7 @@ let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let channelAutomationStatuses = [];
+let feeds = [];
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -71,32 +78,41 @@ function setManualPushStatus(message, kind = "neutral") {
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
+function setFeedStatus(message, kind = "neutral") {
+  feedStatus.textContent = message;
+  feedStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
 function getSelectedChannelPreset() {
   const selectedChannelId = manualPushForm.elements.channelPreset.value;
   return channelPresets.find((preset) => preset.channelId === selectedChannelId) ?? null;
 }
 
-function renderChannelPresetOptions() {
-  const presetSelect = manualPushForm.elements.channelPreset;
-  const previousValue = presetSelect.value;
-  presetSelect.replaceChildren();
+function renderPresetOptions(targetSelect, previousValue) {
+  targetSelect.replaceChildren();
 
   for (const preset of channelPresets) {
     const option = document.createElement("option");
     option.value = preset.channelId;
     option.textContent = preset.label;
-    presetSelect.append(option);
+    targetSelect.append(option);
   }
 
   if (channelPresets.length === 0) {
     const option = document.createElement("option");
     option.value = "";
     option.textContent = "No channel presets available";
-    presetSelect.append(option);
+    targetSelect.append(option);
   }
 
   const hasPreviousValue = channelPresets.some((preset) => preset.channelId === previousValue);
-  presetSelect.value = hasPreviousValue ? previousValue : channelPresets[0]?.channelId ?? "";
+  targetSelect.value = hasPreviousValue ? previousValue : channelPresets[0]?.channelId ?? "";
+}
+
+function renderChannelPresetOptions() {
+  renderPresetOptions(manualPushForm.elements.channelPreset, manualPushForm.elements.channelPreset.value);
+  renderPresetOptions(feedForm.elements.channelPreset, feedForm.elements.channelPreset.value);
 }
 
 function syncManualPushPresetSelection(prefillTopic = true) {
@@ -286,6 +302,10 @@ function createStatusBadge(label, tone) {
   return badge;
 }
 
+function findPresetForChannel(channelId) {
+  return channelPresets.find((preset) => preset.channelId === channelId) ?? null;
+}
+
 function createChannelActionButton(label, handler, disabled = false) {
   const button = document.createElement("button");
   button.type = "button";
@@ -370,6 +390,74 @@ function renderChannelOperations() {
     times.append(lastSend);
     card.append(main, times, actions);
     channelOperationsGrid.append(card);
+  }
+}
+
+function resetFeedForm() {
+  feedForm.elements.feedId.value = "";
+  feedForm.elements.enabled.value = "true";
+  feedForm.elements.channelId.value = "";
+  feedForm.elements.contentType.value = "prompt";
+  feedForm.elements.cadenceMinutes.value = "60";
+  feedForm.elements.topicOverride.value = "";
+  feedForm.elements.channelPreset.value = channelPresets[0]?.channelId ?? "";
+  setFeedStatus("Feed form reset.");
+}
+
+function populateFeedForm(feed) {
+  const preset = findPresetForChannel(feed.channelId);
+  feedForm.elements.feedId.value = feed.id;
+  feedForm.elements.enabled.value = String(feed.enabled);
+  feedForm.elements.channelPreset.value = preset?.channelId ?? channelPresets[0]?.channelId ?? "";
+  feedForm.elements.channelId.value = preset ? "" : feed.channelId;
+  feedForm.elements.contentType.value = feed.contentType;
+  feedForm.elements.cadenceMinutes.value = String(feed.cadenceMinutes);
+  feedForm.elements.topicOverride.value = feed.topicOverride ?? "";
+  setFeedStatus(`Editing ${feed.id}.`);
+}
+
+function renderFeeds() {
+  feedsList.replaceChildren();
+
+  if (feeds.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No feeds configured.";
+    feedsList.append(emptyState);
+    return;
+  }
+
+  for (const feed of feeds) {
+    const row = document.createElement("section");
+    const main = document.createElement("div");
+    const title = document.createElement("h3");
+    const meta = document.createElement("p");
+    const detail = document.createElement("p");
+    const badges = document.createElement("div");
+    const actions = document.createElement("div");
+
+    row.className = "channel-operation-card compact";
+    main.className = "channel-operation-main";
+    title.textContent = `${feed.channelLabel} • ${feed.contentType}`;
+    meta.className = "channel-operation-meta";
+    meta.textContent = `Every ${feed.cadenceMinutes} min • Channel ${feed.channelId}${feed.topicOverride ? ` • Topic ${feed.topicOverride}` : ""}`;
+    detail.className = "channel-operation-detail";
+    detail.textContent = `Next run: ${formatTimestamp(feed.nextEligibleAt)} (${formatRelativeTime(feed.nextEligibleAt)}) • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
+    badges.className = "channel-operation-badges";
+    badges.append(
+      createStatusBadge(feed.enabled ? "enabled" : "disabled", feed.enabled ? "active" : "neutral"),
+      createStatusBadge(feed.presetTopic ?? "custom", "neutral"),
+    );
+    actions.className = "channel-operation-actions";
+    actions.append(
+      createChannelActionButton("Edit", () => populateFeedForm(feed)),
+      createChannelActionButton(feed.enabled ? "Disable" : "Enable", () => void setFeedEnabledState(feed.id, !feed.enabled)),
+      createChannelActionButton("Delete", () => void deleteFeed(feed.id)),
+    );
+
+    main.append(title, badges, meta, detail);
+    row.append(main, actions);
+    feedsList.append(row);
   }
 }
 
@@ -460,10 +548,32 @@ async function loadChannelPresets() {
     const previousSelection = manualPushForm.elements.channelPreset.value;
     renderChannelPresetOptions();
     syncManualPushPresetSelection(!previousSelection || previousSelection !== manualPushForm.elements.channelPreset.value);
+    if (!feedForm.elements.feedId.value) {
+      feedForm.elements.channelPreset.value = feedForm.elements.channelPreset.value || channelPresets[0]?.channelId || "";
+      if (!feedForm.elements.cadenceMinutes.value) {
+        feedForm.elements.cadenceMinutes.value = "60";
+      }
+      if (!feedForm.elements.contentType.value) {
+        feedForm.elements.contentType.value = "prompt";
+      }
+    }
   } catch (error) {
     channelPresets = [];
     renderChannelPresetOptions();
     manualPushChannelMeta.textContent = `Preset load failed: ${error.message}`;
+  }
+}
+
+async function loadFeeds() {
+  try {
+    const data = await fetchJson("/api/feeds");
+    feeds = Array.isArray(data.feeds) ? data.feeds : [];
+    renderFeeds();
+    setPrettyJson(feedsOutput, data);
+  } catch (error) {
+    feeds = [];
+    renderFeeds();
+    feedsOutput.textContent = `Failed to load feeds.\n${error.message}`;
   }
 }
 
@@ -555,6 +665,87 @@ async function submitManualPush(event) {
   }
 }
 
+function buildFeedPayload() {
+  const manualChannelId = feedForm.elements.channelId.value.trim();
+  const topicOverride = feedForm.elements.topicOverride.value.trim();
+
+  return {
+    enabled: feedForm.elements.enabled.value === "true",
+    channelId: manualChannelId || feedForm.elements.channelPreset.value,
+    contentType: feedForm.elements.contentType.value,
+    cadenceMinutes: Number(feedForm.elements.cadenceMinutes.value),
+    topicOverride: topicOverride || null,
+  };
+}
+
+async function saveFeed(event) {
+  event.preventDefault();
+  setFeedStatus("Saving...");
+
+  const feedId = feedForm.elements.feedId.value;
+  const payload = buildFeedPayload();
+  const requestPath = feedId ? "/api/feeds/update" : "/api/feeds/create";
+
+  try {
+    const data = await fetchJson(requestPath, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(feedId ? { id: feedId, ...payload } : payload),
+    });
+
+    setPrettyJson(feedsOutput, data);
+    setFeedStatus(feedId ? "Feed updated." : "Feed created.", "success");
+    resetFeedForm();
+    await Promise.all([loadFeeds(), loadChannelOperations()]);
+  } catch (error) {
+    setFeedStatus(`Feed save failed: ${error.message}`, "error");
+  }
+}
+
+async function setFeedEnabledState(feedId, enabled) {
+  try {
+    const data = await fetchJson("/api/feeds/set-enabled", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: feedId,
+        enabled,
+      }),
+    });
+
+    setPrettyJson(feedsOutput, data);
+    await Promise.all([loadFeeds(), loadChannelOperations()]);
+  } catch (error) {
+    feedsOutput.textContent = `Feed toggle failed.\n${error.message}`;
+  }
+}
+
+async function deleteFeed(feedId) {
+  try {
+    const data = await fetchJson("/api/feeds/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: feedId,
+      }),
+    });
+
+    setPrettyJson(feedsOutput, data);
+    if (feedForm.elements.feedId.value === feedId) {
+      resetFeedForm();
+    }
+    await Promise.all([loadFeeds(), loadChannelOperations()]);
+  } catch (error) {
+    feedsOutput.textContent = `Feed delete failed.\n${error.message}`;
+  }
+}
+
 async function applyChannelOperation(channelId, operation, durationMs) {
   const requestPath =
     operation === "silence"
@@ -596,7 +787,7 @@ async function applyChannelOperation(channelId, operation, durationMs) {
 }
 
 async function reloadAll() {
-  await Promise.all([loadHealth(), loadSettings(), loadMetrics(), loadChannelOperations(), loadChannelPresets()]);
+  await Promise.all([loadHealth(), loadSettings(), loadMetrics(), loadChannelOperations(), loadChannelPresets(), loadFeeds()]);
 }
 
 function configureAutoRefresh() {
@@ -623,13 +814,16 @@ apiConfigForm.addEventListener("submit", async (event) => {
 
 settingsForm.addEventListener("submit", saveSettings);
 manualPushForm.addEventListener("submit", submitManualPush);
+feedForm.addEventListener("submit", saveFeed);
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
 resetSettingsButton.addEventListener("click", resetSettingsForm);
+resetFeedFormButton.addEventListener("click", resetFeedForm);
 refreshAllButton.addEventListener("click", () => void reloadAll());
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
 refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
+refreshFeedsButton.addEventListener("click", loadFeeds);
 channelOperationsFilter.addEventListener("change", renderChannelOperations);
 channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);

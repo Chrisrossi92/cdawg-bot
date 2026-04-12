@@ -1,8 +1,10 @@
 import type { Client } from "discord.js";
 import { schedules, type Schedule } from "../config/schedules.js";
 import { getContentMessage, resolveTopic } from "../lib/content.js";
+import { pushManualContentToChannel } from "../lib/manual-content-push.js";
 import { getAutomatedContentBlock } from "../systems/channel-operations.js";
 import { recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import { getFeedConfigs, getFeedNextEligibleAt, recordFeedExecuted, type FeedConfig } from "../systems/feed-configs.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
 
@@ -56,6 +58,31 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
   lastPostedMinuteBySchedule.set(scheduleKey, minuteWindowKey);
 }
 
+async function postManagedFeed(client: Client, feed: FeedConfig, now: Date) {
+  if (!feed.enabled || getFeedNextEligibleAt(feed, now.getTime()) > now.getTime()) {
+    return;
+  }
+
+  const automationBlock = getAutomatedContentBlock(feed.channelId, "feed", now.getTime());
+
+  if (automationBlock.blocked) {
+    return;
+  }
+
+  const result = await pushManualContentToChannel(client, {
+    channelId: feed.channelId,
+    contentType: feed.contentType,
+    topicOverride: feed.topicOverride,
+  });
+
+  if (!result.ok) {
+    return;
+  }
+
+  recordFeedExecuted(feed.id, now.getTime());
+  recordAutomatedContentSend(feed.channelId, "feed", now.getTime());
+}
+
 export function startScheduler(client: Client) {
   for (const schedule of schedules) {
     if (hasDailyTime(schedule)) {
@@ -96,4 +123,19 @@ export function startScheduler(client: Client) {
       }
     }, intervalMs);
   }
+
+  setInterval(async () => {
+    const now = new Date();
+
+    for (const feed of getFeedConfigs()) {
+      try {
+        await postManagedFeed(client, feed, now);
+      } catch (error) {
+        console.error(
+          `Error posting managed feed ${feed.id} ${feed.contentType} to channel ${feed.channelId}:`,
+          error,
+        );
+      }
+    }
+  }, 30 * 1000);
 }

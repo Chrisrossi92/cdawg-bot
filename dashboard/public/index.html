@@ -208,6 +208,72 @@
       <section class="panel">
         <div class="panel-header">
           <div>
+            <h2>Feeds</h2>
+            <p>Manage recurring content feeds backed by the internal scheduler.</p>
+          </div>
+          <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
+        </div>
+
+        <form id="feed-form" class="settings-form">
+          <input name="feedId" type="hidden" />
+          <section class="form-group">
+            <h3>Feed Config</h3>
+            <label>
+              Enabled
+              <select name="enabled">
+                <option value="true">On</option>
+                <option value="false">Off</option>
+              </select>
+            </label>
+            <label>
+              Channel Preset
+              <select name="channelPreset">
+                <option value="">Loading presets...</option>
+              </select>
+            </label>
+            <label>
+              Manual Channel ID
+              <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
+              <small>Use this only when no preset applies.</small>
+            </label>
+            <label>
+              Content Type
+              <select name="contentType">
+                <option value="fact">fact</option>
+                <option value="joke">joke</option>
+                <option value="prompt">prompt</option>
+                <option value="trivia">trivia</option>
+                <option value="wyr">wyr</option>
+              </select>
+            </label>
+            <label>
+              Cadence Minutes
+              <input name="cadenceMinutes" type="number" min="1" step="1" />
+            </label>
+            <label>
+              Topic Override
+              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+            </label>
+          </section>
+
+          <div class="settings-actions">
+            <button type="submit">Save Feed</button>
+            <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
+            <span id="feed-status"></span>
+          </div>
+        </form>
+
+        <div id="feeds-list" class="feed-list"></div>
+
+        <details class="details-block">
+          <summary>Raw feeds payload</summary>
+          <pre id="feeds-output">Loading...</pre>
+        </details>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
             <h2>Metrics</h2>
             <p>Scan-friendly counters for command usage, passive activity, and provider behavior.</p>
           </div>

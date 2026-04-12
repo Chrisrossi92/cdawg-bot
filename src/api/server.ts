@@ -20,6 +20,15 @@ import {
 import { getChannelAutomationStatuses } from "../systems/channel-automation-status.js";
 import { getBotMetrics } from "../systems/bot-metrics.js";
 import { getBotSettings, updateBotSettings } from "../systems/bot-settings.js";
+import {
+  createFeedConfig,
+  deleteFeedConfig,
+  getFeedConfig,
+  getFeedConfigs,
+  getFeedNextEligibleAt,
+  setFeedEnabled,
+  updateFeedConfig,
+} from "../systems/feed-configs.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -80,6 +89,15 @@ type ManualPushValidationResult =
 type ChannelOperationRequestBody = {
   channelId: string;
   durationMs?: number;
+};
+
+type FeedRequestBody = {
+  id?: string;
+  enabled?: boolean;
+  channelId?: string;
+  contentType?: ContentType;
+  cadenceMinutes?: number;
+  topicOverride?: Topic | null;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -272,6 +290,111 @@ function sanitizeChannelOperationRequest(value: unknown, requireDuration: boolea
   };
 }
 
+function sanitizeFeedRequest(value: unknown, requireId: boolean, requireFullConfig: boolean) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Feed payload must be a JSON object.",
+    };
+  }
+
+  const nextValue: FeedRequestBody = {};
+
+  if (requireId || "id" in value) {
+    if (typeof value.id !== "string" || value.id.trim().length === 0) {
+      return {
+        ok: false as const,
+        error: "Invalid feed ID.",
+      };
+    }
+
+    nextValue.id = value.id.trim();
+  }
+
+  if (requireFullConfig || "enabled" in value) {
+    if (typeof value.enabled !== "boolean") {
+      return {
+        ok: false as const,
+        error: "Invalid enabled flag.",
+      };
+    }
+
+    nextValue.enabled = value.enabled;
+  }
+
+  if (requireFullConfig || "channelId" in value) {
+    if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+      return {
+        ok: false as const,
+        error: "Invalid channel ID. Expected a Discord snowflake string.",
+      };
+    }
+
+    nextValue.channelId = value.channelId;
+  }
+
+  if (requireFullConfig || "contentType" in value) {
+    if (typeof value.contentType !== "string" || !allowedContentTypes.includes(value.contentType as ContentType)) {
+      return {
+        ok: false as const,
+        error: `Unsupported content type. Allowed values: ${allowedContentTypes.join(", ")}.`,
+      };
+    }
+
+    nextValue.contentType = value.contentType as ContentType;
+  }
+
+  if (requireFullConfig || "cadenceMinutes" in value) {
+    if (typeof value.cadenceMinutes !== "number" || !Number.isFinite(value.cadenceMinutes) || value.cadenceMinutes < 1) {
+      return {
+        ok: false as const,
+        error: "Invalid cadence minutes. Expected a number of at least 1.",
+      };
+    }
+
+    nextValue.cadenceMinutes = Math.floor(value.cadenceMinutes);
+  }
+
+  if ("topicOverride" in value) {
+    if (value.topicOverride !== null && (typeof value.topicOverride !== "string" || !topics.includes(value.topicOverride as Topic))) {
+      return {
+        ok: false as const,
+        error: `Invalid topic override. Allowed values: ${topics.join(", ")}.`,
+      };
+    }
+
+    nextValue.topicOverride = value.topicOverride as Topic | null;
+  }
+
+  if (Object.keys(nextValue).length === 0) {
+    return {
+      ok: false as const,
+      error: "No feed fields were provided.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: nextValue,
+  };
+}
+
+function buildFeedResponse(feedId: string) {
+  const feed = getFeedConfig(feedId);
+
+  if (!feed) {
+    return null;
+  }
+
+  const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
+  return {
+    ...feed,
+    nextEligibleAt: getFeedNextEligibleAt(feed),
+    channelLabel: preset?.label ?? feed.channelId,
+    presetTopic: preset?.defaultTopic ?? null,
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -384,6 +507,149 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           channelPresets: dashboardChannelPresets,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/feeds") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          feeds: getFeedConfigs()
+            .map((feed) => buildFeedResponse(feed.id))
+            .filter((feed): feed is NonNullable<ReturnType<typeof buildFeedResponse>> => Boolean(feed)),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/feeds/create") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeFeedRequest(nextBody, false, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const feed = createFeedConfig({
+          enabled: validation.value.enabled ?? true,
+          channelId: validation.value.channelId ?? "",
+          contentType: validation.value.contentType ?? "prompt",
+          cadenceMinutes: validation.value.cadenceMinutes ?? 60,
+          topicOverride: validation.value.topicOverride ?? null,
+        });
+
+        sendJson(response, 200, {
+          feed: buildFeedResponse(feed.id),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/feeds/update") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeFeedRequest(nextBody, true, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const feed = updateFeedConfig(validation.value.id ?? "", {
+          ...(validation.value.enabled !== undefined ? { enabled: validation.value.enabled } : {}),
+          ...(validation.value.channelId ? { channelId: validation.value.channelId } : {}),
+          ...(validation.value.contentType ? { contentType: validation.value.contentType } : {}),
+          ...(validation.value.cadenceMinutes ? { cadenceMinutes: validation.value.cadenceMinutes } : {}),
+          ...("topicOverride" in validation.value ? { topicOverride: validation.value.topicOverride ?? null } : {}),
+        });
+
+        if (!feed) {
+          sendJson(response, 404, {
+            error: "Feed not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          feed: buildFeedResponse(feed.id),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/feeds/set-enabled") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeFeedRequest(nextBody, true, false);
+
+        if (!validation.ok || typeof validation.value.enabled !== "boolean") {
+          sendJson(response, 400, {
+            error: validation.ok ? "Enabled flag is required." : validation.error,
+          });
+          return;
+        }
+
+        const feed = setFeedEnabled(validation.value.id ?? "", validation.value.enabled);
+
+        if (!feed) {
+          sendJson(response, 404, {
+            error: "Feed not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          feed: buildFeedResponse(feed.id),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/feeds/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeFeedRequest(nextBody, true, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteFeedConfig(validation.value.id ?? "");
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Feed not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
         });
         return;
       }

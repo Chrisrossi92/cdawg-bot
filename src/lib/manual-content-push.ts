@@ -33,7 +33,7 @@ export type TriggerAutomatedContentNowResult =
       ok: true;
       channelId: string;
       contentType: ContentType;
-      source: "scheduler" | "passive-chat";
+      source: "scheduler" | "passive-chat" | "feed";
       resolvedTopic: Topic;
       messageId: string;
     }
