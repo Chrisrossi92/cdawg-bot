@@ -6,9 +6,12 @@ const refreshAllButton = document.querySelector("#refresh-all");
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
 const settingsOutput = document.querySelector("#settings-output");
+const manualPushOutput = document.querySelector("#manual-push-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
+const manualPushForm = document.querySelector("#manual-push-form");
+const manualPushStatus = document.querySelector("#manual-push-status");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -51,6 +54,12 @@ function setPrettyJson(target, value) {
 function setStatusMessage(message, kind = "neutral") {
   settingsStatus.textContent = message;
   settingsStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setManualPushStatus(message, kind = "neutral") {
+  manualPushStatus.textContent = message;
+  manualPushStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
@@ -217,6 +226,41 @@ async function saveSettings(event) {
   }
 }
 
+function buildManualPushPayload() {
+  const topicOverride = manualPushForm.elements.topicOverride.value.trim();
+
+  return {
+    channelId: manualPushForm.elements.channelId.value.trim(),
+    contentType: manualPushForm.elements.contentType.value,
+    ...(topicOverride ? { topicOverride } : {}),
+  };
+}
+
+async function submitManualPush(event) {
+  event.preventDefault();
+  setManualPushStatus("Sending...");
+
+  const payload = buildManualPushPayload();
+  setPrettyJson(manualPushOutput, payload);
+
+  try {
+    const data = await fetchJson("/api/actions/push-content", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setPrettyJson(manualPushOutput, data);
+    setManualPushStatus(`Sent ${data.contentType} to ${data.channelId}.`, "success");
+    await loadHealth();
+  } catch (error) {
+    manualPushOutput.textContent = `Manual push failed.\n${error.message}`;
+    setManualPushStatus(`Push failed: ${error.message}`, "error");
+  }
+}
+
 async function reloadAll() {
   await Promise.all([loadHealth(), loadSettings(), loadMetrics()]);
 }
@@ -244,6 +288,7 @@ apiConfigForm.addEventListener("submit", async (event) => {
 });
 
 settingsForm.addEventListener("submit", saveSettings);
+manualPushForm.addEventListener("submit", submitManualPush);
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 refreshAllButton.addEventListener("click", () => void reloadAll());
 refreshHealthButton.addEventListener("click", loadHealth);

@@ -176,7 +176,8 @@ button.secondary:hover {
   grid-column: 1 / -1;
 }
 
-#settings-status {
+#settings-status,
+#manual-push-status {
   font-size: 14px;
   color: var(--muted);
 }

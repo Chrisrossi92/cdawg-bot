@@ -118,6 +118,59 @@
       <section class="panel">
         <div class="panel-header">
           <div>
+            <h2>Manual Push</h2>
+            <p>Send provider-backed content into a Discord channel on demand.</p>
+          </div>
+        </div>
+        <form id="manual-push-form" class="settings-form">
+          <section class="form-group">
+            <h3>Push Content</h3>
+            <label>
+              Content Type
+              <select name="contentType">
+                <option value="joke">joke</option>
+                <option value="prompt">prompt</option>
+                <option value="fact">fact</option>
+                <option value="trivia">trivia</option>
+              </select>
+            </label>
+            <label>
+              Channel ID
+              <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel snowflake" />
+            </label>
+            <label>
+              Topic Override
+              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+              <small>Leave blank to use the channel topic mapping.</small>
+            </label>
+            <datalist id="topic-options">
+              <option value="general"></option>
+              <option value="palworld"></option>
+              <option value="history"></option>
+              <option value="genealogy"></option>
+              <option value="pokemon"></option>
+              <option value="harry-potter"></option>
+              <option value="true-crime"></option>
+              <option value="music"></option>
+              <option value="valheim"></option>
+            </datalist>
+          </section>
+
+          <div class="settings-actions">
+            <button type="submit">Push Content</button>
+            <span id="manual-push-status"></span>
+          </div>
+        </form>
+
+        <details class="details-block">
+          <summary>Raw manual push payload</summary>
+          <pre id="manual-push-output">Waiting for request...</pre>
+        </details>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
             <h2>Metrics</h2>
             <p>Scan-friendly counters for command usage, passive activity, and provider behavior.</p>
           </div>

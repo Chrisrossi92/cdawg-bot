@@ -1,6 +1,8 @@
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { apiConfig } from "../config/api.js";
 import type { ContentType } from "../lib/content-provider.js";
+import { manualPushContentTypes, type ManualPushContentType, type ManualContentPushResult } from "../lib/manual-content-push.js";
+import { topics, type Topic } from "../config/topics.js";
 import { getBotMetrics } from "../systems/bot-metrics.js";
 import { getBotSettings, updateBotSettings } from "../systems/bot-settings.js";
 
@@ -11,6 +13,7 @@ type ApiHealthSnapshot = {
 
 type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
+  pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
 };
 
 type SettingsPatchBody = {
@@ -40,6 +43,23 @@ const defaultHealthSnapshot: ApiHealthSnapshot = {
   botReady: true,
   botTag: null,
 };
+const discordSnowflakePattern = /^\d{17,20}$/;
+
+type ManualPushRequestBody = {
+  channelId: string;
+  contentType: ManualPushContentType;
+  topicOverride?: Topic;
+};
+
+type ManualPushValidationResult =
+  | {
+      ok: true;
+      value: ManualPushRequestBody;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -64,6 +84,12 @@ function sendMethodNotAllowed(response: ServerResponse) {
 function sendNotFound(response: ServerResponse) {
   sendJson(response, 404, {
     error: "Not found.",
+  });
+}
+
+function sendUnsupportedRoute(response: ServerResponse) {
+  sendJson(response, 503, {
+    error: "Manual push route is unavailable.",
   });
 }
 
@@ -144,6 +170,47 @@ function sanitizeSettingsPatch(value: unknown): SettingsPatchBody | null {
   return Object.keys(nextPatch).length > 0 ? nextPatch : null;
 }
 
+function sanitizeManualPushRequest(value: unknown): ManualPushValidationResult {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Manual push payload must be a JSON object.",
+    };
+  }
+
+  const { channelId, contentType, topicOverride } = value;
+
+  if (typeof channelId !== "string" || !discordSnowflakePattern.test(channelId)) {
+    return {
+      ok: false,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (typeof contentType !== "string" || !manualPushContentTypes.includes(contentType as ManualPushContentType)) {
+    return {
+      ok: false,
+      error: `Unsupported content type. Allowed values: ${manualPushContentTypes.join(", ")}.`,
+    };
+  }
+
+  if (topicOverride !== undefined && (typeof topicOverride !== "string" || !topics.includes(topicOverride as Topic))) {
+    return {
+      ok: false,
+      error: `Invalid topic override. Allowed values: ${topics.join(", ")}.`,
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      channelId,
+      contentType: contentType as ManualPushContentType,
+      ...(topicOverride ? { topicOverride: topicOverride as Topic } : {}),
+    },
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -174,6 +241,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
   }
 
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
+  const pushManualContent = dependencies?.pushManualContent;
 
   const server = http.createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -243,6 +311,39 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           metrics: getBotMetrics(),
         });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/actions/push-content") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!pushManualContent) {
+          sendUnsupportedRoute(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const manualPushValidation = sanitizeManualPushRequest(nextBody);
+
+        if (!manualPushValidation.ok) {
+          sendJson(response, 400, {
+            error: manualPushValidation.error,
+          });
+          return;
+        }
+
+        const result = await pushManualContent(manualPushValidation.value);
+
+        if (!result.ok) {
+          const statusCode = result.code === "CONTENT_UNAVAILABLE" ? 404 : result.code === "BOT_NOT_READY" ? 503 : 400;
+          sendJson(response, statusCode, result);
+          return;
+        }
+
+        sendJson(response, 200, result);
         return;
       }
 
