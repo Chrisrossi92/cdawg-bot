@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { AttachmentBuilder } from "discord.js";
 import type { DogAction, DogImageKey } from "../systems/cdawg-dog.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -7,11 +8,11 @@ const __dirname = path.dirname(__filename);
 const DOG_ASSET_DIR = path.resolve(__dirname, "../../assets/dog");
 
 const dogImageFileNamesByKey: Record<DogImageKey, string> = {
-  happy: "happy.svg",
-  hungry: "hungry.svg",
-  excited: "excited.svg",
-  sleepy: "sleepy.svg",
-  sad: "sad.svg",
+  happy: "happy.png",
+  hungry: "hungry.png",
+  excited: "excited.png",
+  sleepy: "sleepy.png",
+  sad: "sad.png",
 };
 
 const dogActionCopy: Record<DogAction, string> = {
@@ -22,6 +23,12 @@ const dogActionCopy: Record<DogAction, string> = {
 
 export function getDogImagePath(imageKey: DogImageKey) {
   return path.join(DOG_ASSET_DIR, dogImageFileNamesByKey[imageKey]);
+}
+
+export function buildDogImageAttachment(imageKey: DogImageKey) {
+  return new AttachmentBuilder(getDogImagePath(imageKey), {
+    name: dogImageFileNamesByKey[imageKey],
+  });
 }
 
 export function formatDogStatsLine(state: { hunger: number; mood: number; energy: number }) {
@@ -36,7 +43,7 @@ export function buildDogStatusMessage(input: {
 }) {
   return {
     content: [input.title ?? "**Cdawg Dog**", formatDogStatsLine(input.state), input.extraLine ?? null].filter(Boolean).join("\n"),
-    files: [getDogImagePath(input.imageKey)],
+    files: [buildDogImageAttachment(input.imageKey)],
   };
 }
 

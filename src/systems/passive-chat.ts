@@ -1,4 +1,4 @@
-import type { Message } from "discord.js";
+import type { AttachmentBuilder, Message } from "discord.js";
 import { getPassiveChatSettings } from "../config/passive-chat.js";
 import type { Topic } from "../config/topics.js";
 import { buildDogStatusMessage } from "../lib/cdawg-dog.js";
@@ -35,7 +35,7 @@ type PassiveReplyCandidate =
       topic: Topic;
       reply: {
         content: string;
-        files: string[];
+        files: AttachmentBuilder[];
       };
       reason: string;
     };
