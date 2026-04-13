@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 220" role="img" aria-label="Excited Cdawg Dog">
+  <rect width="320" height="220" fill="#dff6ff"/>
+  <circle cx="160" cy="118" r="70" fill="#d9a46b"/>
+  <ellipse cx="104" cy="74" rx="24" ry="38" fill="#8c5b33"/>
+  <ellipse cx="216" cy="74" rx="24" ry="38" fill="#8c5b33"/>
+  <ellipse cx="160" cy="136" rx="30" ry="24" fill="#f2d4b5"/>
+  <circle cx="132" cy="108" r="7" fill="#1d1d1d"/>
+  <circle cx="188" cy="108" r="7" fill="#1d1d1d"/>
+  <circle cx="160" cy="132" r="8" fill="#1d1d1d"/>
+  <path d="M134 149c10 18 42 18 52 0" fill="none" stroke="#1d1d1d" stroke-width="5" stroke-linecap="round"/>
+  <path d="M50 58l10 20 22 3-16 15 4 22-20-11-19 11 4-22-16-15 22-3z" fill="#ffd54f"/>
+  <path d="M272 52l8 16 18 3-13 12 3 18-16-8-16 8 3-18-13-12 18-3z" fill="#ffd54f"/>
+  <text x="160" y="198" text-anchor="middle" font-family="Verdana, sans-serif" font-size="18" fill="#24516b">Cdawg Dog is ready for nonsense.</text>
+</svg>

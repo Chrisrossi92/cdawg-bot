@@ -8,6 +8,7 @@ const healthOutput = document.querySelector("#health-output");
 const settingsOutput = document.querySelector("#settings-output");
 const manualPushOutput = document.querySelector("#manual-push-output");
 const channelOperationsOutput = document.querySelector("#channel-operations-output");
+const dogOutput = document.querySelector("#dog-output");
 const dailyTriviaOutput = document.querySelector("#daily-trivia-output");
 const feedsOutput = document.querySelector("#feeds-output");
 const metricsOutput = document.querySelector("#metrics-output");
@@ -18,6 +19,7 @@ const manualPushStatus = document.querySelector("#manual-push-status");
 const dailyTriviaForm = document.querySelector("#daily-trivia-form");
 const dailyTriviaStatus = document.querySelector("#daily-trivia-status");
 const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
+const dogSummary = document.querySelector("#dog-summary");
 const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
@@ -49,6 +51,7 @@ let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let channelAutomationStatuses = [];
+let dogState = null;
 let dailyTriviaChallenge = null;
 let feeds = [];
 
@@ -312,6 +315,18 @@ function createStatusBadge(label, tone) {
   badge.className = `status-badge ${tone}`;
   badge.textContent = label;
   return badge;
+}
+
+function getDogHealthLabel(value) {
+  if (value <= 30) {
+    return "low";
+  }
+
+  if (value >= 75) {
+    return "high";
+  }
+
+  return "ok";
 }
 
 function findPresetForChannel(channelId) {
@@ -594,7 +609,7 @@ function renderDailyTriviaChallenge() {
   secondaryDetail.textContent = `Daily time: ${dailyTriviaChallenge.dailyTime} • Last run: ${formatTimestamp(dailyTriviaChallenge.lastExecutedAt)} (${formatRelativeTime(dailyTriviaChallenge.lastExecutedAt)})`;
   sessionDetail.className = "channel-operation-detail";
   sessionDetail.textContent = dailyTriviaChallenge.latestSession
-    ? `Session: ${dailyTriviaChallenge.latestSession.active ? "active" : "closed"} • Answers: ${dailyTriviaChallenge.latestSession.answerCount} • Correct recorded: ${dailyTriviaChallenge.latestSession.hasCorrectAnswer ? "yes" : "no"}${dailyTriviaChallenge.latestSession.fastestCorrectUserId ? ` • Fastest correct: <@${dailyTriviaChallenge.latestSession.fastestCorrectUserId}>` : ""}`
+    ? `Session: ${dailyTriviaChallenge.latestSession.active ? "active" : "closed"} • Answers: ${dailyTriviaChallenge.latestSession.answerCount} • Correct recorded: ${dailyTriviaChallenge.latestSession.hasCorrectAnswer ? "yes" : "no"}${dailyTriviaChallenge.latestSession.winnerUserId ? ` • Winner: <@${dailyTriviaChallenge.latestSession.winnerUserId}>` : ""}${dailyTriviaChallenge.latestSession.dailyWinnerBonusXp > 0 ? ` • Bonus: ${dailyTriviaChallenge.latestSession.dailyWinnerBonusAwarded === true ? `+${dailyTriviaChallenge.latestSession.dailyWinnerBonusXp} XP awarded` : dailyTriviaChallenge.latestSession.dailyWinnerBonusAwarded === false ? `${dailyTriviaChallenge.latestSession.dailyWinnerBonusXp} XP blocked` : `${dailyTriviaChallenge.latestSession.dailyWinnerBonusXp} XP pending`}` : ""}`
     : "Session: none yet";
   meta.className = "channel-operation-meta";
   meta.textContent = `Channel ${dailyTriviaChallenge.channelId}${dailyTriviaChallenge.topicOverride ? ` • Topic override ${dailyTriviaChallenge.topicOverride}` : ` • Topic ${dailyTriviaChallenge.presetTopic ?? "none"}`}${dailyTriviaChallenge.allowedWindow ? ` • Window ${dailyTriviaChallenge.allowedWindow.startTime}-${dailyTriviaChallenge.allowedWindow.endTime}` : ""}${dailyTriviaChallenge.latestSession?.category ? ` • Category ${dailyTriviaChallenge.latestSession.category}` : ""}${dailyTriviaChallenge.latestSession?.difficulty ? ` • Difficulty ${dailyTriviaChallenge.latestSession.difficulty}` : ""}${dailyTriviaChallenge.triviaEligibility && !dailyTriviaChallenge.triviaEligibility.ok ? ` • ${dailyTriviaChallenge.triviaEligibility.error}` : ""}`;
@@ -603,6 +618,54 @@ function renderDailyTriviaChallenge() {
   row.append(main);
   dailyTriviaSummary.append(row);
   applyDailyTriviaToForm(dailyTriviaChallenge);
+}
+
+function renderDogSummary() {
+  dogSummary.replaceChildren();
+
+  if (!dogState) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "Dog state is unavailable.";
+    dogSummary.append(emptyState);
+    return;
+  }
+
+  const row = document.createElement("section");
+  const main = document.createElement("div");
+  const title = document.createElement("h3");
+  const badges = document.createElement("div");
+  const primaryDetail = document.createElement("p");
+  const secondaryDetail = document.createElement("p");
+  const meta = document.createElement("p");
+
+  row.className = "channel-operation-card compact";
+  main.className = "channel-operation-main";
+  title.textContent = "Cdawg Dog";
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(`hunger ${dogState.hunger}`, getDogHealthLabel(dogState.hunger) === "low" ? "blocked" : "neutral"),
+    createStatusBadge(`mood ${dogState.mood}`, getDogHealthLabel(dogState.mood) === "low" ? "blocked" : "neutral"),
+    createStatusBadge(`energy ${dogState.energy}`, getDogHealthLabel(dogState.energy) === "low" ? "blocked" : "neutral"),
+  );
+  primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
+  primaryDetail.textContent = `Updated: ${formatTimestamp(dogState.updatedAt)} (${formatRelativeTime(dogState.updatedAt)})`;
+  secondaryDetail.className = "channel-operation-detail";
+  secondaryDetail.textContent =
+    dogState.recentInteractions.length > 0
+      ? `Recent: ${dogState.recentInteractions[0].action} by ${dogState.recentInteractions[0].userId} at ${formatTimestamp(dogState.recentInteractions[0].timestamp)}`
+      : "Recent: no dog interactions yet";
+  meta.className = "channel-operation-meta";
+  meta.textContent = dogState.recentInteractions.length > 0
+    ? dogState.recentInteractions
+        .slice(0, 4)
+        .map((interaction) => `${interaction.action} • ${interaction.userId} • ${formatTimestamp(interaction.timestamp)} • ${interaction.xpAwarded ? `+${interaction.xpAmount} XP` : "XP blocked"}`)
+        .join(" | ")
+    : "Use /dog feed, /dog play, or /dog walk to interact.";
+
+  main.append(title, badges, primaryDetail, secondaryDetail, meta);
+  row.append(main);
+  dogSummary.append(row);
 }
 
 function sortCounterEntries(counterMap) {
@@ -735,6 +798,19 @@ async function loadDailyTriviaChallenge() {
     renderDailyTriviaChallenge();
     dailyTriviaOutput.textContent = `Failed to load daily trivia.\n${error.message}`;
     setDailyTriviaStatus(`Daily trivia load failed: ${error.message}`, "error");
+  }
+}
+
+async function loadDogState() {
+  try {
+    const data = await fetchJson("/api/dog");
+    dogState = data.dog ?? null;
+    renderDogSummary();
+    setPrettyJson(dogOutput, data);
+  } catch (error) {
+    dogState = null;
+    renderDogSummary();
+    dogOutput.textContent = `Failed to load dog state.\n${error.message}`;
   }
 }
 
@@ -996,6 +1072,7 @@ async function reloadAll() {
     loadMetrics(),
     loadChannelOperations(),
     loadChannelPresets(),
+    loadDogState(),
     loadDailyTriviaChallenge(),
     loadFeeds(),
   ]);

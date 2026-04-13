@@ -1,11 +1,13 @@
 import type { Message } from "discord.js";
 import { getPassiveChatSettings } from "../config/passive-chat.js";
 import type { Topic } from "../config/topics.js";
+import { buildDogStatusMessage } from "../lib/cdawg-dog.js";
 import { passesMessageQualityThresholds, isLikelyCommandMessage, normalizeChatMessage } from "../lib/chat-messages.js";
 import { getChannelTopic, getContentMessage, pickRandomItem } from "../lib/content.js";
 import type { ContentType } from "../lib/content-provider.js";
 import { getMatchedPassiveReaction, getPassiveTopicSignalScores } from "../lib/passive-content.js";
 import { recordPassiveChatTrigger } from "./bot-metrics.js";
+import { getDogPassivePrompt, getDogStatusSummary, recordDogPassivePrompt } from "./cdawg-dog.js";
 import { getAutomatedContentBlock } from "./channel-operations.js";
 import { recordAutomatedContentSend } from "./channel-automation-status.js";
 
@@ -26,6 +28,15 @@ type PassiveReplyCandidate =
       kind: "smart";
       topic: Topic;
       contentType: ContentType;
+      reason: string;
+    }
+  | {
+      kind: "dog";
+      topic: Topic;
+      reply: {
+        content: string;
+        files: string[];
+      };
       reason: string;
     };
 
@@ -141,6 +152,28 @@ function getSmartCandidate(
   };
 }
 
+function getDogCandidate(topic: Topic): PassiveReplyCandidate | undefined {
+  const dogPrompt = getDogPassivePrompt();
+
+  if (!dogPrompt) {
+    return undefined;
+  }
+
+  const dogState = getDogStatusSummary();
+
+  return {
+    kind: "dog",
+    topic,
+    reason: `dog ${dogPrompt.reason}`,
+    reply: buildDogStatusMessage({
+      title: "**Cdawg Dog**",
+      state: dogState,
+      imageKey: dogPrompt.imageKey,
+      extraLine: dogPrompt.content,
+    }),
+  };
+}
+
 function passesPassiveCooldowns(message: Message, candidate: PassiveReplyCandidate, now: number) {
   const settings = getPassiveChatSettings();
   const lastChannelReplyAt = lastPassiveReplyAtByChannelId.get(message.channelId) ?? 0;
@@ -253,6 +286,7 @@ export async function handlePassiveChatMessage(message: Message) {
 
   const candidate =
     getKeywordCandidate(message, normalizedContent, engagementTopic) ??
+    getDogCandidate(engagementTopic) ??
     getSmartCandidate(state, previousLastUserMessageAt, engagementTopic, now);
 
   if (!candidate) {
@@ -281,14 +315,22 @@ export async function handlePassiveChatMessage(message: Message) {
   }
 
   const reply =
-    candidate.kind === "keyword" ? candidate.reply : await resolveSmartReply(message, candidate);
+    candidate.kind === "keyword"
+      ? candidate.reply
+      : candidate.kind === "dog"
+        ? candidate.reply
+        : await resolveSmartReply(message, candidate);
 
   if (!reply) {
     return;
   }
 
-  recordPassiveChatTrigger(getPassiveTriggerType(candidate));
-  markPassiveInteraction(message.channelId, reply);
+  if (candidate.kind === "dog") {
+    recordDogPassivePrompt(candidate.reason.includes("hungry") ? "hungry" : candidate.reason.includes("tired") ? "tired" : "sad", now);
+  } else {
+    recordPassiveChatTrigger(getPassiveTriggerType(candidate));
+  }
+  markPassiveInteraction(message.channelId, typeof reply === "string" ? reply : reply.content);
   recordAutomatedContentSend(message.channelId, "passive-chat");
 
   logPassiveDecision(message, "send", `topic=${candidate.topic} ${candidate.reason}`);

@@ -17,6 +17,7 @@ import * as ping from "./commands/ping.js";
 import * as ranks from "./commands/ranks.js";
 import * as settings from "./commands/settings.js";
 import * as fact from "./commands/fact.js";
+import * as dog from "./commands/dog.js";
 import * as joke from "./commands/joke.js";
 import * as leaderboard from "./commands/leaderboard.js";
 import * as metrics from "./commands/metrics.js";
@@ -85,6 +86,7 @@ function rememberRecentChatMessage(userId: string, normalizedContent: string) {
 const commands = new Collection<string, CommandModule>([
   [announce.data.name, announce],
   [botHelp.data.name, botHelp],
+  [dog.data.name, dog],
   [ping.data.name, ping],
   [fact.data.name, fact],
   [joke.data.name, joke],

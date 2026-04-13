@@ -42,6 +42,7 @@ import {
   updateDailyTriviaChallengeConfig,
   upsertDailyTriviaChallengeConfig,
 } from "../systems/daily-trivia-challenge.js";
+import { getDogStatusSummary } from "../systems/cdawg-dog.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -589,6 +590,12 @@ function buildDailyTriviaChallengeResponse() {
   };
 }
 
+function buildDogResponse() {
+  return {
+    dog: getDogStatusSummary(),
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -702,6 +709,16 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           channelPresets: dashboardChannelPresets,
         });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/dog") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, buildDogResponse());
         return;
       }
 

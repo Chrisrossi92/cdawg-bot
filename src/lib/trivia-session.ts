@@ -16,6 +16,7 @@ import { recordCorrectTriviaAnswer, resetTriviaStreak } from "../systems/trivia-
 const TRIVIA_BONUS_XP = 15;
 const TRIVIA_CORRECT_XP = 8;
 const TRIVIA_TIMEOUT_MS = 10 * 60 * 1000;
+const DAILY_TRIVIA_WINNER_BONUS_XP = 5;
 
 type TriviaSessionSource = "command" | "manual" | "feed" | "scheduler" | "daily-challenge" | "passive-chat";
 
@@ -39,6 +40,7 @@ type ActiveTriviaQuestion = {
   postedAt: number;
   presentationVariant: TriviaSessionPresentation["variant"];
   item: TriviaItem;
+  dailyWinnerBonusXpAwarded: boolean | null;
 };
 
 const activeTriviaQuestions = new Map<string, ActiveTriviaQuestion>();
@@ -59,6 +61,9 @@ export type TriviaSessionSnapshot = {
   hasCorrectAnswer: boolean;
   correctAnswerCount: number;
   fastestCorrectUserId: string | null;
+  winnerUserId: string | null;
+  dailyWinnerBonusXp: number;
+  dailyWinnerBonusAwarded: boolean | null;
   presentationVariant: TriviaSessionPresentation["variant"];
 };
 
@@ -97,6 +102,9 @@ function buildTriviaSessionSnapshot(question: ActiveTriviaQuestion, closedAt: nu
     hasCorrectAnswer: question.correctUsers.size > 0,
     correctAnswerCount: question.correctUsers.size,
     fastestCorrectUserId: question.fastestCorrectUserId,
+    winnerUserId: question.fastestCorrectUserId,
+    dailyWinnerBonusXp: question.source === "daily-challenge" ? DAILY_TRIVIA_WINNER_BONUS_XP : 0,
+    dailyWinnerBonusAwarded: question.dailyWinnerBonusXpAwarded,
     presentationVariant: question.presentationVariant,
   };
 }
@@ -164,7 +172,9 @@ function formatClosedTriviaQuestion(activeQuestion: ActiveTriviaQuestion, presen
   const correctCount = activeQuestion.correctUsers.size;
   const wrongCount = totalAnswers - correctCount;
   const fastestLine = activeQuestion.fastestCorrectUserId
-    ? `🏆 Fastest correct: <@${activeQuestion.fastestCorrectUserId}>`
+    ? activeQuestion.source === "daily-challenge"
+      ? `👑 Daily winner: <@${activeQuestion.fastestCorrectUserId}>${activeQuestion.dailyWinnerBonusXpAwarded === true ? ` (+${DAILY_TRIVIA_WINNER_BONUS_XP} bonus XP)` : activeQuestion.dailyWinnerBonusXpAwarded === false ? " (bonus XP blocked by cooldown)" : ""}`
+      : `🏆 Fastest correct: <@${activeQuestion.fastestCorrectUserId}>`
     : "🏆 No correct answers this round.";
   const title =
     presentation?.variant === "daily-challenge" ? "**Daily Trivia Challenge Results**" : "**Cdawg Bot Trivia Results**";
@@ -213,10 +223,14 @@ async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, question
 
     activeQuestion.correctUsers.add(buttonInteraction.user.id);
 
+    const dailyWinnerBonusXp = activeQuestion.source === "daily-challenge" && isFirstCorrect ? DAILY_TRIVIA_WINNER_BONUS_XP : 0;
     const xpAmount = isFirstCorrect ? TRIVIA_BONUS_XP : TRIVIA_CORRECT_XP;
     const streakResult = recordCorrectTriviaAnswer(buttonInteraction.user.id);
-    const totalXp = xpAmount + streakResult.bonusXp;
+    const totalXp = xpAmount + streakResult.bonusXp + dailyWinnerBonusXp;
     const xpResult = addXp(buttonInteraction.user.id, totalXp);
+    if (activeQuestion.source === "daily-challenge" && isFirstCorrect) {
+      activeQuestion.dailyWinnerBonusXpAwarded = xpResult.awarded;
+    }
     const xpText = xpResult.awarded
       ? isFirstCorrect
         ? `🔥 First Correct! +${xpAmount} XP`
@@ -230,6 +244,12 @@ async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, question
         : ""
       : streakResult.bonusXp > 0
         ? `\n🔥 Trivia streak: ${streakResult.streak} in a row! Bonus XP is waiting once cooldown clears.`
+        : "";
+    const dailyWinnerMessage =
+      dailyWinnerBonusXp > 0
+        ? xpResult.awarded
+          ? `\n👑 Daily Trivia winner bonus: +${dailyWinnerBonusXp} XP`
+          : "\n👑 Daily Trivia winner bonus was blocked by cooldown."
         : "";
     const levelUpReply =
       xpResult.awarded && xpResult.leveledUp
@@ -257,10 +277,10 @@ async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, question
     const replyOptions = levelUpReply
       ? {
           ...levelUpReply,
-          content: `${xpText}${streakMessage}\n${levelUpReply.content}`,
+          content: `${xpText}${streakMessage}${dailyWinnerMessage}\n${levelUpReply.content}`,
         }
       : {
-          content: `${xpText}${streakMessage}`,
+          content: `${xpText}${streakMessage}${dailyWinnerMessage}`,
           ephemeral: true,
         };
 
@@ -269,6 +289,8 @@ async function handleTriviaAnswer(buttonInteraction: ButtonInteraction, question
       questionId,
       userId: buttonInteraction.user.id,
       result: isFirstCorrect ? "first-correct" : "correct",
+      dailyWinnerBonusXp: dailyWinnerBonusXp > 0 ? String(dailyWinnerBonusXp) : null,
+      dailyWinnerBonusAwarded: dailyWinnerBonusXp > 0 ? String(xpResult.awarded) : null,
     });
     await buttonInteraction.reply(replyOptions);
     return;
@@ -316,6 +338,7 @@ export async function postInteractiveTriviaSession(options: {
     postedAt: Date.now(),
     presentationVariant: options.presentation?.variant,
     item: options.item,
+    dailyWinnerBonusXpAwarded: null,
   });
 
   const message = await options.post({
