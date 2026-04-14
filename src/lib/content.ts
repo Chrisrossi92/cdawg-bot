@@ -415,8 +415,10 @@ export async function getContentMessage(
       return prompt ? formatPromptMessage(prompt) : undefined;
     }
     case "trivia": {
-      const item = await getContentItem(contentType, topic, channelId);
-      return item ? formatTriviaMessage(item) : undefined;
+      console.warn(
+        `[content] getContentMessage does not support trivia delivery. channel=${channelId ?? "unknown"} topic=${topic}`,
+      );
+      return undefined;
     }
   }
 }

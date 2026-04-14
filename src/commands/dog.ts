@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
+import { DOG_ENABLED } from "../config/dog.js";
 import { buildDogActionMessage, buildDogStatusMessage } from "../lib/cdawg-dog.js";
 import { getRankMilestoneMessage } from "../lib/rank-milestones.js";
 import { syncRankRoleForMember } from "../lib/rank-role-sync.js";
@@ -48,6 +49,14 @@ export const data = new SlashCommandBuilder()
   .addSubcommand((subcommand) => subcommand.setName("walk").setDescription("Walk Cdawg Dog once for today"));
 
 export async function execute(interaction: ChatInputCommandInteraction) {
+  if (!DOG_ENABLED) {
+    await interaction.reply({
+      content: "Cdawg Dog is currently disabled.",
+      ephemeral: true,
+    });
+    return;
+  }
+
   const subcommand = interaction.options.getSubcommand(true);
 
   if (subcommand === "status") {

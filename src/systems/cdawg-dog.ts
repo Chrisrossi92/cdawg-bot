@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { DOG_ENABLED } from "../config/dog.js";
 import { addXp } from "./xp.js";
 
 export type DogAction = "feed" | "play" | "walk";
@@ -263,6 +264,14 @@ export function getDogState(now = Date.now()) {
 }
 
 export function getDogActionAvailability(userId: string, now = Date.now()) {
+  if (!DOG_ENABLED) {
+    return {
+      feed: false,
+      play: false,
+      walk: false,
+    };
+  }
+
   const state = syncDogState(now);
 
   return {
@@ -293,6 +302,10 @@ export function getDogImageKeyFromState(state: Pick<DogState, "hunger" | "mood" 
 }
 
 export function getDogPassivePrompt(now = Date.now()): DogPassivePrompt | null {
+  if (!DOG_ENABLED) {
+    return null;
+  }
+
   const state = syncDogState(now);
 
   if (state.hunger <= 30) {
@@ -337,6 +350,14 @@ export function getDogStatusSummary(now = Date.now()) {
 }
 
 export function performDogAction(userId: string, action: DogAction, now = Date.now()) {
+  if (!DOG_ENABLED) {
+    return {
+      ok: false as const,
+      error: "Cdawg Dog is currently disabled.",
+      state: getDogStatusSummary(now),
+    };
+  }
+
   const state = syncDogState(now);
   const claimKey = getActionClaimKey(userId, action, now);
 
@@ -397,6 +418,10 @@ export function performDogAction(userId: string, action: DogAction, now = Date.n
 }
 
 export function recordDogPassivePrompt(reason: DogPassivePrompt["reason"], now = Date.now()) {
+  if (!DOG_ENABLED) {
+    return;
+  }
+
   const state = syncDogState(now);
   logDogEvent("passive-prompt", {
     reason,

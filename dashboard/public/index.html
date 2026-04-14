@@ -8,399 +8,417 @@
   </head>
   <body>
     <main class="page">
-      <header class="hero">
-        <div class="hero-copy">
-          <h1>Cdawg Bot Dashboard</h1>
-          <p>Local operations panel for health, runtime settings, and metrics.</p>
-        </div>
-        <form id="api-config-form" class="api-config">
-          <label>
-            API Base URL
-            <input id="api-base-url" name="apiBaseUrl" type="url" value="http://127.0.0.1:8787" />
-          </label>
-          <div class="toolbar">
-            <label class="checkbox">
-              <input id="auto-refresh-enabled" type="checkbox" />
-              Auto-refresh
-            </label>
-            <button type="submit">Connect</button>
-            <button id="refresh-all" type="button" class="secondary">Refresh All</button>
+      <header class="command-bar">
+        <div class="command-bar-top">
+          <div class="command-bar-main">
+            <div class="command-bar-brand">
+              <div class="brand-mark" aria-hidden="true">
+                <div class="brand-mark-placeholder">
+                  <span>CD</span>
+                </div>
+              </div>
+              <div class="brand-copy">
+                <h1>Cdawg Bot Dashboard</h1>
+                <p>Operational control center</p>
+              </div>
+            </div>
+            <div id="health-cards" class="health-strip"></div>
           </div>
-        </form>
+          <div class="command-bar-controls">
+            <form id="api-config-form" class="api-config compact">
+              <label>
+                API Base URL
+                <input id="api-base-url" name="apiBaseUrl" type="url" value="http://127.0.0.1:8787" />
+              </label>
+              <button type="submit" class="secondary">Connect</button>
+            </form>
+            <div class="toolbar compact">
+              <label class="checkbox">
+                <input id="auto-refresh-enabled" type="checkbox" />
+                Auto-refresh
+              </label>
+              <button id="refresh-all" type="button" class="secondary">Refresh All</button>
+            </div>
+          </div>
+        </div>
+        <div class="control-center-tabs command-bar-tabs" role="tablist" aria-label="Dashboard sections">
+          <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Overview</button>
+          <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Channels</button>
+          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Push</button>
+          <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
+          <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
+        </div>
       </header>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Health</h2>
-            <p>Current bot and API readiness snapshot.</p>
+      <section class="panel control-center">
+        <section class="control-tab-panel" data-tab-panel="overview">
+          <div class="overview-layout">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Overview</h3>
+                  <p>Live metrics and runtime status at a glance.</p>
+                </div>
+                <div class="toolbar">
+                  <button id="refresh-health" type="button" class="secondary">Refresh Health</button>
+                  <button id="refresh-metrics" type="button" class="secondary">Refresh Metrics</button>
+                </div>
+              </div>
+              <div class="overview-status-grid">
+                <section class="metric-card compact-status">
+                  <h3>Runtime Status</h3>
+                  <p class="overview-status-copy">Health stays compact in the command bar so metrics and intervention controls can stay above the fold.</p>
+                </section>
+                <section class="metric-card compact-status">
+                  <h3>Operator Flow</h3>
+                  <p class="overview-status-copy">Use Channels for intervention controls, Push for one-off sends, Trivia for daily operations, and Settings for runtime tuning.</p>
+                </section>
+              </div>
+
+              <div class="metrics-grid">
+                <section class="metric-card">
+                  <h3>Passive Chat</h3>
+                  <ul id="passive-metrics-list" class="metric-list"></ul>
+                </section>
+
+                <section class="metric-card">
+                  <h3>Slash Commands</h3>
+                  <ul id="command-metrics-list" class="metric-list"></ul>
+                </section>
+
+                <section class="metric-card">
+                  <h3>Provider Usage</h3>
+                  <ul id="provider-usage-list" class="metric-list"></ul>
+                </section>
+
+                <section class="metric-card">
+                  <h3>API Success</h3>
+                  <ul id="provider-success-list" class="metric-list"></ul>
+                </section>
+
+                <section class="metric-card">
+                  <h3>Fallback To Local</h3>
+                  <ul id="provider-fallback-list" class="metric-list"></ul>
+                </section>
+
+                <section class="metric-card">
+                  <h3>API Failure / Timeout</h3>
+                  <ul id="provider-failure-list" class="metric-list"></ul>
+                </section>
+              </div>
+
+              <details class="details-block control-debug-details">
+                <summary>Raw health payload</summary>
+                <pre id="health-output">Loading...</pre>
+              </details>
+              <details class="details-block control-debug-details">
+                <summary>Raw metrics payload</summary>
+                <pre id="metrics-output">Loading...</pre>
+              </details>
+            </section>
+
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Feeds</h3>
+                  <p>Recurring content configuration and current execution state.</p>
+                </div>
+                <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
+              </div>
+
+              <form id="feed-form" class="settings-form">
+                <input name="feedId" type="hidden" />
+                <section class="form-group">
+                  <h3>Feed Config</h3>
+                  <label>
+                    Enabled
+                    <select name="enabled">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                  </label>
+                  <label>
+                    Channel Preset
+                    <select name="channelPreset">
+                      <option value="">Loading presets...</option>
+                    </select>
+                  </label>
+                  <label>
+                    Manual Channel ID
+                    <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
+                    <small>Use this only when no preset applies.</small>
+                  </label>
+                  <label>
+                    Content Type
+                    <select name="contentType">
+                      <option value="fact">fact</option>
+                      <option value="joke">joke</option>
+                      <option value="prompt">prompt</option>
+                      <option value="trivia">trivia</option>
+                      <option value="wyr">wyr</option>
+                    </select>
+                  </label>
+                  <label>
+                    Cadence Minutes
+                    <input name="cadenceMinutes" type="number" min="1" step="1" />
+                  </label>
+                  <label>
+                    Topic Override
+                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                  </label>
+                  <label>
+                    Allowed Start Time
+                    <input name="allowedStartTime" type="time" />
+                    <small>Optional daily local start time.</small>
+                  </label>
+                  <label>
+                    Allowed End Time
+                    <input name="allowedEndTime" type="time" />
+                    <small>Optional daily local end time.</small>
+                  </label>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Save Feed</button>
+                  <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
+                  <span id="feed-status"></span>
+                </div>
+              </form>
+
+              <div id="feeds-list" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw feeds payload</summary>
+                <pre id="feeds-output">Loading...</pre>
+              </details>
+            </section>
           </div>
-          <button id="refresh-health" type="button" class="secondary">Refresh</button>
-        </div>
-        <div id="health-cards" class="health-grid"></div>
-        <details class="details-block">
-          <summary>Raw health payload</summary>
-          <pre id="health-output">Loading...</pre>
-        </details>
-      </section>
+        </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Settings</h2>
-            <p>Safe runtime tuning controls backed by the internal API.</p>
+        <section class="control-tab-panel" data-tab-panel="channels" hidden>
+          <div class="subpanel-header">
+            <div>
+              <h3>Channel Controls</h3>
+              <p>Temporarily silence or cool down automated content per channel, with next-eligible visibility.</p>
+            </div>
+            <div class="toolbar">
+              <label>
+                Filter
+                <select id="channel-operations-filter">
+                  <option value="all">All</option>
+                  <option value="active">Active Only</option>
+                  <option value="blocked">Blocked Only</option>
+                </select>
+              </label>
+              <label>
+                Sort
+                <select id="channel-operations-sort">
+                  <option value="status">By Status</option>
+                  <option value="next-eligible">By Next Eligible</option>
+                  <option value="name">By Name</option>
+                </select>
+              </label>
+              <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
+            </div>
           </div>
-          <button id="refresh-settings" type="button" class="secondary">Refresh</button>
-        </div>
-        <form id="settings-form" class="settings-form">
-          <section class="form-group">
-            <h3>Passive Chat</h3>
-            <label>
-              Enabled
-              <select name="passiveEnabled">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </label>
-            <label>
-              Trigger Chance
-              <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
-              <small>Probability from 0 to 1.</small>
-            </label>
-            <label>
-              Global Cooldown (ms)
-              <input name="globalCooldownMs" type="number" min="1000" step="1000" />
-            </label>
-            <label>
-              Channel Cooldown (ms)
-              <input name="channelCooldownMs" type="number" min="1000" step="1000" />
-            </label>
-          </section>
+          <div id="channel-operations-grid" class="channel-operations-grid"></div>
+          <details class="details-block control-debug-details">
+            <summary>Raw channel operations payload</summary>
+            <pre id="channel-operations-output">Loading...</pre>
+          </details>
+        </section>
 
-          <section class="form-group">
-            <h3>Smart Engagement</h3>
-            <label>
-              Quiet Gap (ms)
-              <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
-              <small>Idle time before a low-activity nudge is considered.</small>
-            </label>
-            <label>
-              Conversation Threshold
-              <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
-              <small>Messages required before conversation nudges are considered.</small>
-            </label>
-          </section>
-
-          <section class="form-group">
-            <h3>Provider Logging</h3>
-            <label>
-              Enabled
-              <select name="providerLoggingEnabled">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </label>
-          </section>
-
-          <div class="settings-actions">
-            <button type="submit">Save Settings</button>
-            <button id="reset-settings" type="button" class="secondary">Reset Form</button>
-            <span id="settings-status"></span>
+        <section class="control-tab-panel" data-tab-panel="push" hidden>
+          <div class="subpanel-header">
+            <div>
+              <h3>Manual Push</h3>
+              <p>Send provider-backed content into a Discord channel on demand.</p>
+            </div>
           </div>
-        </form>
+          <form id="manual-push-form" class="settings-form">
+            <section class="form-group">
+              <h3>Push Content</h3>
+              <label>
+                Content Type
+                <select name="contentType">
+                  <option value="joke">joke</option>
+                  <option value="prompt">prompt</option>
+                  <option value="fact">fact</option>
+                  <option value="trivia">trivia</option>
+                </select>
+              </label>
+              <label>
+                Channel Preset
+                <select name="channelPreset">
+                  <option value="">Loading presets...</option>
+                </select>
+                <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
+              </label>
+              <label>
+                Topic Override
+                <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                <small>Leave blank to use the channel topic mapping.</small>
+              </label>
+            </section>
 
-        <details class="details-block">
-          <summary>Raw settings payload</summary>
-          <pre id="settings-output">Loading...</pre>
-        </details>
-      </section>
+            <div class="settings-actions">
+              <button type="submit">Push Content</button>
+              <span id="manual-push-status"></span>
+            </div>
+          </form>
+          <details class="details-block control-debug-details">
+            <summary>Raw manual push payload</summary>
+            <pre id="manual-push-output">Waiting for request...</pre>
+          </details>
+        </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Manual Push</h2>
-            <p>Send provider-backed content into a Discord channel on demand.</p>
+        <section class="control-tab-panel" data-tab-panel="trivia" hidden>
+          <div class="tab-stack">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Daily Trivia Challenge</h3>
+                  <p>Configure one recognizable daily trivia drop using the shared interactive session flow.</p>
+                </div>
+              </div>
+
+              <form id="daily-trivia-form" class="settings-form">
+                <section class="form-group">
+                  <h3>Daily Challenge Config</h3>
+                  <label>
+                    Enabled
+                    <select name="enabled">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                  </label>
+                  <label>
+                    Channel Preset
+                    <select name="channelPreset">
+                      <option value="">Loading presets...</option>
+                    </select>
+                  </label>
+                  <label>
+                    Daily Time
+                    <input name="dailyTime" type="time" required />
+                    <small>Local daily post time.</small>
+                  </label>
+                  <label>
+                    Topic Override
+                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                    <small>Leave blank to use the channel preset topic.</small>
+                  </label>
+                  <label>
+                    Allowed Start Time
+                    <input name="allowedStartTime" type="time" />
+                    <small>Optional daily local start time.</small>
+                  </label>
+                  <label>
+                    Allowed End Time
+                    <input name="allowedEndTime" type="time" />
+                    <small>Optional daily local end time.</small>
+                  </label>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Save Daily Trivia</button>
+                  <span id="daily-trivia-status"></span>
+                </div>
+              </form>
+
+              <div id="daily-trivia-summary" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw daily trivia payload</summary>
+                <pre id="daily-trivia-output">Loading...</pre>
+              </details>
+            </section>
+
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Cdawg Dog</h3>
+                  <p>Feature-gated dog system status.</p>
+                </div>
+              </div>
+              <div id="dog-summary" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw dog payload</summary>
+                <pre id="dog-output">Loading...</pre>
+              </details>
+            </section>
           </div>
-        </div>
-        <form id="manual-push-form" class="settings-form">
-          <section class="form-group">
-            <h3>Push Content</h3>
-            <label>
-              Content Type
-              <select name="contentType">
-                <option value="joke">joke</option>
-                <option value="prompt">prompt</option>
-                <option value="fact">fact</option>
-                <option value="trivia">trivia</option>
-              </select>
-            </label>
-            <label>
-              Channel Preset
-              <select name="channelPreset">
-                <option value="">Loading presets...</option>
-              </select>
-              <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
-            </label>
-            <label>
-              Topic Override
-              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-              <small>Leave blank to use the channel topic mapping.</small>
-            </label>
-            <datalist id="topic-options">
-              <option value="general"></option>
-              <option value="palworld"></option>
-              <option value="history"></option>
-              <option value="genealogy"></option>
-              <option value="pokemon"></option>
-              <option value="harry-potter"></option>
-              <option value="true-crime"></option>
-              <option value="music"></option>
-              <option value="valheim"></option>
-            </datalist>
-          </section>
+        </section>
 
-          <div class="settings-actions">
-            <button type="submit">Push Content</button>
-            <span id="manual-push-status"></span>
+        <section class="control-tab-panel" data-tab-panel="settings" hidden>
+          <div class="subpanel-header">
+            <div>
+              <h3>Settings</h3>
+              <p>Safe runtime tuning controls backed by the internal API.</p>
+            </div>
+            <button id="refresh-settings" type="button" class="secondary">Refresh</button>
           </div>
-        </form>
 
-        <details class="details-block">
-          <summary>Raw manual push payload</summary>
-          <pre id="manual-push-output">Waiting for request...</pre>
-        </details>
-      </section>
+          <form id="settings-form" class="settings-form">
+            <section class="form-group">
+              <h3>Passive Chat</h3>
+              <label>
+                Enabled
+                <select name="passiveEnabled">
+                  <option value="true">On</option>
+                  <option value="false">Off</option>
+                </select>
+              </label>
+              <label>
+                Trigger Chance
+                <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
+                <small>Probability from 0 to 1.</small>
+              </label>
+              <label>
+                Global Cooldown (ms)
+                <input name="globalCooldownMs" type="number" min="1000" step="1000" />
+              </label>
+              <label>
+                Channel Cooldown (ms)
+                <input name="channelCooldownMs" type="number" min="1000" step="1000" />
+              </label>
+            </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Channel Controls</h2>
-            <p>Temporarily silence or cool down automated content per channel, with next-eligible visibility.</p>
-          </div>
-          <div class="toolbar">
-            <label>
-              Filter
-              <select id="channel-operations-filter">
-                <option value="all">All</option>
-                <option value="active">Active Only</option>
-                <option value="blocked">Blocked Only</option>
-              </select>
-            </label>
-            <label>
-              Sort
-              <select id="channel-operations-sort">
-                <option value="status">By Status</option>
-                <option value="next-eligible">By Next Eligible</option>
-                <option value="name">By Name</option>
-              </select>
-            </label>
-            <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
-          </div>
-        </div>
-        <div id="channel-operations-grid" class="channel-operations-list"></div>
+            <section class="form-group">
+              <h3>Smart Engagement</h3>
+              <label>
+                Quiet Gap (ms)
+                <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
+                <small>Idle time before a low-activity nudge is considered.</small>
+              </label>
+              <label>
+                Conversation Threshold
+                <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
+                <small>Messages required before conversation nudges are considered.</small>
+              </label>
+            </section>
 
-        <details class="details-block">
-          <summary>Raw channel operations payload</summary>
-          <pre id="channel-operations-output">Loading...</pre>
-        </details>
-      </section>
+            <section class="form-group">
+              <h3>Provider Logging</h3>
+              <label>
+                Enabled
+                <select name="providerLoggingEnabled">
+                  <option value="true">On</option>
+                  <option value="false">Off</option>
+                </select>
+              </label>
+            </section>
 
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Cdawg Dog</h2>
-            <p>Current dog state and recent server interactions.</p>
-          </div>
-        </div>
-        <div id="dog-summary" class="feed-list"></div>
+            <div class="settings-actions">
+              <button type="submit">Save Settings</button>
+              <button id="reset-settings" type="button" class="secondary">Reset Form</button>
+              <span id="settings-status"></span>
+            </div>
+          </form>
 
-        <details class="details-block">
-          <summary>Raw dog payload</summary>
-          <pre id="dog-output">Loading...</pre>
-        </details>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Daily Trivia Challenge</h2>
-            <p>Configure one recognizable daily trivia drop using the shared interactive session flow.</p>
-          </div>
-        </div>
-
-        <form id="daily-trivia-form" class="settings-form">
-          <section class="form-group">
-            <h3>Daily Challenge Config</h3>
-            <label>
-              Enabled
-              <select name="enabled">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </label>
-            <label>
-              Channel Preset
-              <select name="channelPreset">
-                <option value="">Loading presets...</option>
-              </select>
-            </label>
-            <label>
-              Daily Time
-              <input name="dailyTime" type="time" required />
-              <small>Local daily post time.</small>
-            </label>
-            <label>
-              Topic Override
-              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-              <small>Leave blank to use the channel preset topic.</small>
-            </label>
-            <label>
-              Allowed Start Time
-              <input name="allowedStartTime" type="time" />
-              <small>Optional daily local start time.</small>
-            </label>
-            <label>
-              Allowed End Time
-              <input name="allowedEndTime" type="time" />
-              <small>Optional daily local end time.</small>
-            </label>
-          </section>
-
-          <div class="settings-actions">
-            <button type="submit">Save Daily Trivia</button>
-            <span id="daily-trivia-status"></span>
-          </div>
-        </form>
-
-        <div id="daily-trivia-summary" class="feed-list"></div>
-
-        <details class="details-block">
-          <summary>Raw daily trivia payload</summary>
-          <pre id="daily-trivia-output">Loading...</pre>
-        </details>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Feeds</h2>
-            <p>Manage recurring content feeds backed by the internal scheduler.</p>
-          </div>
-          <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
-        </div>
-
-        <form id="feed-form" class="settings-form">
-          <input name="feedId" type="hidden" />
-          <section class="form-group">
-            <h3>Feed Config</h3>
-            <label>
-              Enabled
-              <select name="enabled">
-                <option value="true">On</option>
-                <option value="false">Off</option>
-              </select>
-            </label>
-            <label>
-              Channel Preset
-              <select name="channelPreset">
-                <option value="">Loading presets...</option>
-              </select>
-            </label>
-            <label>
-              Manual Channel ID
-              <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
-              <small>Use this only when no preset applies.</small>
-            </label>
-            <label>
-              Content Type
-              <select name="contentType">
-                <option value="fact">fact</option>
-                <option value="joke">joke</option>
-                <option value="prompt">prompt</option>
-                <option value="trivia">trivia</option>
-                <option value="wyr">wyr</option>
-              </select>
-            </label>
-            <label>
-              Cadence Minutes
-              <input name="cadenceMinutes" type="number" min="1" step="1" />
-            </label>
-            <label>
-              Topic Override
-              <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-            </label>
-            <label>
-              Allowed Start Time
-              <input name="allowedStartTime" type="time" />
-              <small>Optional daily local start time.</small>
-            </label>
-            <label>
-              Allowed End Time
-              <input name="allowedEndTime" type="time" />
-              <small>Optional daily local end time.</small>
-            </label>
-          </section>
-
-          <div class="settings-actions">
-            <button type="submit">Save Feed</button>
-            <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
-            <span id="feed-status"></span>
-          </div>
-        </form>
-
-        <div id="feeds-list" class="feed-list"></div>
-
-        <details class="details-block">
-          <summary>Raw feeds payload</summary>
-          <pre id="feeds-output">Loading...</pre>
-        </details>
-      </section>
-
-      <section class="panel">
-        <div class="panel-header">
-          <div>
-            <h2>Metrics</h2>
-            <p>Scan-friendly counters for command usage, passive activity, and provider behavior.</p>
-          </div>
-          <button id="refresh-metrics" type="button" class="secondary">Refresh</button>
-        </div>
-
-        <div class="metrics-grid">
-          <section class="metric-card">
-            <h3>Passive Chat</h3>
-            <ul id="passive-metrics-list" class="metric-list"></ul>
-          </section>
-
-          <section class="metric-card">
-            <h3>Slash Commands</h3>
-            <ul id="command-metrics-list" class="metric-list"></ul>
-          </section>
-
-          <section class="metric-card">
-            <h3>Provider Usage</h3>
-            <ul id="provider-usage-list" class="metric-list"></ul>
-          </section>
-
-          <section class="metric-card">
-            <h3>API Success</h3>
-            <ul id="provider-success-list" class="metric-list"></ul>
-          </section>
-
-          <section class="metric-card">
-            <h3>Fallback To Local</h3>
-            <ul id="provider-fallback-list" class="metric-list"></ul>
-          </section>
-
-          <section class="metric-card">
-            <h3>API Failure / Timeout</h3>
-            <ul id="provider-failure-list" class="metric-list"></ul>
-          </section>
-        </div>
-
-        <details class="details-block">
-          <summary>Raw metrics payload</summary>
-          <pre id="metrics-output">Loading...</pre>
-        </details>
+          <details class="details-block control-debug-details">
+            <summary>Raw settings payload</summary>
+            <pre id="settings-output">Loading...</pre>
+          </details>
+        </section>
       </section>
     </main>
 

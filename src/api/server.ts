@@ -1,5 +1,6 @@
 import http, { type IncomingMessage, type ServerResponse } from "node:http";
 import { apiConfig } from "../config/api.js";
+import { DOG_ENABLED } from "../config/dog.js";
 import { dashboardChannelPresets } from "../config/dashboard-channel-presets.js";
 import type { DailyAllowedWindow } from "../lib/allowed-window.js";
 import type { ContentType } from "../lib/content-provider.js";
@@ -592,7 +593,8 @@ function buildDailyTriviaChallengeResponse() {
 
 function buildDogResponse() {
   return {
-    dog: getDogStatusSummary(),
+    enabled: DOG_ENABLED,
+    dog: DOG_ENABLED ? getDogStatusSummary() : null,
   };
 }
 

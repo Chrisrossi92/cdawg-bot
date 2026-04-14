@@ -1,5 +1,6 @@
 import { REST, Routes } from "discord.js";
 import * as dotenv from "dotenv";
+import { DOG_ENABLED } from "./config/dog.js";
 import { data as announce } from "./commands/announce.js";
 import { data as botHelp } from "./commands/bot-help.js";
 import { data as dog } from "./commands/dog.js";
@@ -38,7 +39,7 @@ const appGuildId = guildId;
 const commands = [
   announce.toJSON(),
   botHelp.toJSON(),
-  dog.toJSON(),
+  ...(DOG_ENABLED ? [dog.toJSON()] : []),
   ping.toJSON(),
   fact.toJSON(),
   joke.toJSON(),

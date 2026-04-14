@@ -2,6 +2,7 @@ import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
 import * as dotenv from "dotenv";
 import { apiConfig } from "./config/api.js";
+import { DOG_ENABLED } from "./config/dog.js";
 import {
   CHAT_XP_AMOUNT,
   CHAT_XP_COOLDOWN_MS,
@@ -86,7 +87,7 @@ function rememberRecentChatMessage(userId: string, normalizedContent: string) {
 const commands = new Collection<string, CommandModule>([
   [announce.data.name, announce],
   [botHelp.data.name, botHelp],
-  [dog.data.name, dog],
+  ...(DOG_ENABLED ? [[dog.data.name, dog] as const] : []),
   [ping.data.name, ping],
   [fact.data.name, fact],
   [joke.data.name, joke],

@@ -27,6 +27,8 @@ const channelOperationsGrid = document.querySelector("#channel-operations-grid")
 const channelOperationsFilter = document.querySelector("#channel-operations-filter");
 const channelOperationsSort = document.querySelector("#channel-operations-sort");
 const feedsList = document.querySelector("#feeds-list");
+const controlTabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
+const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -52,8 +54,10 @@ let autoRefreshTimer = null;
 let channelPresets = [];
 let channelAutomationStatuses = [];
 let dogState = null;
+let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
 let feeds = [];
+let activeControlTab = "overview";
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -147,7 +151,7 @@ function syncManualPushPresetSelection(prefillTopic = true) {
 
 function createHealthCard(label, value, statusClass = "") {
   const wrapper = document.createElement("article");
-  wrapper.className = "health-card";
+  wrapper.className = `health-card ${statusClass ? `health-card-${statusClass}` : ""}`.trim();
 
   const title = document.createElement("strong");
   title.textContent = label;
@@ -390,6 +394,38 @@ function createChannelActionButton(label, handler, disabled = false) {
   return button;
 }
 
+function createChannelInlineActionButton(label, handler, options = {}) {
+  const button = createChannelActionButton(label, (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handler();
+  }, options.disabled);
+
+  if (options.variant === "secondary") {
+    button.classList.add("secondary");
+  }
+
+  if (options.variant === "ghost") {
+    button.classList.add("ghost");
+  }
+
+  return button;
+}
+
+function setActiveControlTab(tabName) {
+  activeControlTab = tabName;
+
+  for (const button of controlTabButtons) {
+    const isActive = button.dataset.tabTarget === tabName;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-selected", String(isActive));
+  }
+
+  for (const panel of controlTabPanels) {
+    panel.hidden = panel.dataset.tabPanel !== tabName;
+  }
+}
+
 function renderChannelOperations() {
   channelOperationsGrid.replaceChildren();
   const visibleChannelStatuses = getFilteredAndSortedChannelStatuses();
@@ -404,67 +440,106 @@ function renderChannelOperations() {
   }
 
   for (const channelStatus of visibleChannelStatuses) {
-    const card = document.createElement("section");
-    const main = document.createElement("div");
-    const times = document.createElement("div");
-    const identity = document.createElement("div");
+    const row = document.createElement("details");
+    const summary = document.createElement("summary");
+    const summaryMain = document.createElement("div");
+    const summaryIdentity = document.createElement("div");
+    const summaryTitleBlock = document.createElement("div");
     const title = document.createElement("h3");
+    const blockedSummary = document.createElement("p");
+    const summaryActions = document.createElement("div");
+    const expandButton = document.createElement("button");
+    const expanded = document.createElement("div");
+    const expandedMeta = document.createElement("div");
+    const expandedActions = document.createElement("div");
+    const expandedPrimaryActions = document.createElement("div");
+    const expandedSecondaryActions = document.createElement("div");
     const meta = document.createElement("p");
-    const status = document.createElement("p");
     const badges = document.createElement("div");
     const nextEligible = document.createElement("p");
     const blockedUntil = document.createElement("p");
     const lastSend = document.createElement("p");
-    const actions = document.createElement("div");
-    const primaryActions = document.createElement("div");
-    const secondaryActions = document.createElement("div");
 
-    card.className = "channel-operation-card compact";
-    main.className = "channel-operation-main";
-    times.className = "channel-operation-times";
-    identity.className = "channel-operation-identity";
+    row.className = "channel-row";
+    row.classList.add(channelStatus.blockedReason ? `state-${channelStatus.blockedReason}` : "state-active");
+    summary.className = "channel-row-summary";
+    summaryMain.className = "channel-row-summary-main";
+    summaryIdentity.className = "channel-row-identity";
+    summaryTitleBlock.className = "channel-row-title-block";
     title.textContent = channelStatus.label;
-    meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""}`;
-    status.className = `channel-operation-status ${channelStatus.blockedReason ? "blocked" : "active"}`;
-    status.textContent = getChannelOperationStatusText(channelStatus);
     badges.className = "channel-operation-badges";
     badges.append(
       createStatusBadge(getChannelStatusLabel(channelStatus), channelStatus.blockedReason ? "blocked" : "active"),
       createStatusBadge(channelStatus.defaultTopic ?? "no-topic", "neutral"),
-      createStatusBadge(channelStatus.automationMode, "neutral"),
     );
     if (channelStatus.skipNextSendPending) {
       badges.append(createStatusBadge("skip-next pending", "blocked"));
     }
-    nextEligible.className = "channel-operation-detail channel-operation-detail-strong";
-    nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
+    nextEligible.className = "channel-row-summary-detail channel-operation-detail-strong";
+    nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)}`;
+    blockedSummary.className = `channel-row-summary-detail${channelStatus.blockedReason ? " blocked" : ""}`;
+    blockedSummary.textContent = channelStatus.blockedReason ? getChannelOperationStatusText(channelStatus) : "Active";
+    summaryActions.className = "channel-row-summary-actions";
+    const triggerNowButton = createChannelInlineActionButton(
+      "Trigger Next Now",
+      () => void applyChannelOperation(channelStatus.channelId, "trigger-now"),
+    );
+    triggerNowButton.classList.add("primary-action");
+    const skipNextButton = createChannelInlineActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next"), {
+        variant: "secondary",
+      });
+    const silenceOneHourButton = createChannelInlineActionButton(
+      "Silence 1 Hour",
+      () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000),
+      {
+        variant: "secondary",
+      },
+    );
+    summaryActions.append(triggerNowButton, skipNextButton, silenceOneHourButton);
+    expandButton.type = "button";
+    expandButton.className = "channel-row-expand";
+    expandButton.textContent = "More";
+    expandButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      row.open = !row.open;
+      expandButton.textContent = row.open ? "Less" : "More";
+    });
+    row.addEventListener("toggle", () => {
+      expandButton.textContent = row.open ? "Less" : "More";
+    });
+    summaryActions.append(expandButton);
+
+    expanded.className = "channel-row-expanded";
+    expandedMeta.className = "channel-row-expanded-meta";
+    expandedActions.className = "channel-row-expanded-actions";
+    expandedPrimaryActions.className = "channel-operation-action-group";
+    expandedSecondaryActions.className = "channel-operation-action-group secondary";
+    meta.className = "channel-operation-meta";
+    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}`;
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
     lastSend.textContent = `Last automated send: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
-    actions.className = "channel-operation-actions";
-    primaryActions.className = "channel-operation-action-group";
-    secondaryActions.className = "channel-operation-action-group secondary";
 
-    primaryActions.append(
-      createChannelActionButton("Trigger Next Now", () => void applyChannelOperation(channelStatus.channelId, "trigger-now")),
-      createChannelActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next")),
-      createChannelActionButton("Silence 1 Hour", () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000)),
+    expandedPrimaryActions.append(
       createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
       createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
     );
-    secondaryActions.append(
+    expandedSecondaryActions.append(
       createChannelActionButton("Clear Skip", () => void applyChannelOperation(channelStatus.channelId, "clear-skip-next")),
       createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
-    actions.append(primaryActions, secondaryActions);
-    identity.append(title, badges);
-    main.append(identity, status, nextEligible, blockedUntil, meta);
-    times.append(lastSend);
-    card.append(main, times, actions);
-    channelOperationsGrid.append(card);
+    summaryTitleBlock.append(title, badges);
+    summaryIdentity.append(summaryTitleBlock, nextEligible, blockedSummary);
+    summaryMain.append(summaryIdentity, summaryActions);
+    summary.append(summaryMain);
+    expandedMeta.append(meta, lastSend, blockedUntil);
+    expandedActions.append(expandedPrimaryActions, expandedSecondaryActions);
+    expanded.append(expandedMeta, expandedActions);
+    row.append(summary, expanded);
+    channelOperationsGrid.append(row);
   }
 }
 
@@ -622,6 +697,14 @@ function renderDailyTriviaChallenge() {
 
 function renderDogSummary() {
   dogSummary.replaceChildren();
+
+  if (!dogSystemEnabled) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "Dog system is disabled.";
+    dogSummary.append(emptyState);
+    return;
+  }
 
   if (!dogState) {
     const emptyState = document.createElement("p");
@@ -804,10 +887,12 @@ async function loadDailyTriviaChallenge() {
 async function loadDogState() {
   try {
     const data = await fetchJson("/api/dog");
-    dogState = data.dog ?? null;
+    dogSystemEnabled = data.enabled === true;
+    dogState = dogSystemEnabled ? data.dog ?? null : null;
     renderDogSummary();
     setPrettyJson(dogOutput, data);
   } catch (error) {
+    dogSystemEnabled = false;
     dogState = null;
     renderDogSummary();
     dogOutput.textContent = `Failed to load dog state.\n${error.message}`;
@@ -1093,6 +1178,10 @@ function configureAutoRefresh() {
   }
 }
 
+for (const button of controlTabButtons) {
+  button.addEventListener("click", () => setActiveControlTab(button.dataset.tabTarget || "overview"));
+}
+
 apiConfigForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   window.localStorage.setItem(apiBaseUrlStorageKey, getApiBaseUrl());
@@ -1118,4 +1207,5 @@ channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 configureAutoRefresh();
+setActiveControlTab(activeControlTab);
 void reloadAll();

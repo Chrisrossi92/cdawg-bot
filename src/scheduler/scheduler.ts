@@ -1,10 +1,10 @@
 import type { Client } from "discord.js";
 import { schedules, type Schedule } from "../config/schedules.js";
-import { getContentMessage, resolveTopic } from "../lib/content.js";
 import { pushManualContentToChannel } from "../lib/manual-content-push.js";
 import { isWithinDailyAllowedWindow } from "../lib/allowed-window.js";
 import { getAutomatedContentBlock } from "../systems/channel-operations.js";
 import { recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import { evaluatePassiveChatChannels } from "../systems/passive-chat.js";
 import {
   getDailyTriviaChallengeConfig,
   logDailyTriviaChallengeWindowBlocked,
@@ -53,20 +53,16 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
     return;
   }
 
-  const topic = resolveTopic(null, schedule.channelId);
-  const message = await getContentMessage(schedule.contentType, topic, schedule.channelId);
+  const result = await pushManualContentToChannel(client, {
+    channelId: schedule.channelId,
+    contentType: schedule.contentType,
+    source: "scheduler",
+  });
 
-  if (!message) {
+  if (!result.ok) {
     return;
   }
 
-  const channel = await client.channels.fetch(schedule.channelId);
-
-  if (!channel || !channel.isTextBased() || !("send" in channel)) {
-    return;
-  }
-
-  await channel.send(message);
   recordAutomatedContentSend(schedule.channelId, "scheduler", now.getTime());
   lastPostedMinuteBySchedule.set(scheduleKey, minuteWindowKey);
 }
@@ -90,6 +86,7 @@ async function postManagedFeed(client: Client, feed: FeedConfig, now: Date) {
     channelId: feed.channelId,
     contentType: feed.contentType,
     topicOverride: feed.topicOverride,
+    source: "feed",
   });
 
   if (!result.ok) {
@@ -195,6 +192,12 @@ export function startScheduler(client: Client) {
       await postDailyTriviaChallenge(client, now);
     } catch (error) {
       console.error("Error posting Daily Trivia Challenge:", error);
+    }
+
+    try {
+      await evaluatePassiveChatChannels(client, now.getTime());
+    } catch (error) {
+      console.error("Error evaluating passive chat automation:", error);
     }
   }, 30 * 1000);
 }

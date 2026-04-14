@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from "discord.js";
-import { getResolvedContentItem } from "../lib/content.js";
+import type { Topic } from "../config/topics.js";
+import { getEligibleTriviaItem } from "../lib/trivia-topic-eligibility.js";
 import { postInteractiveTriviaSession } from "../lib/trivia-session.js";
 const TRIVIA_SELECTABLE_TOPICS = ["general", "history", "pokemon", "palworld", "valheim"] as const;
 
@@ -14,15 +15,16 @@ export const data = new SlashCommandBuilder()
   );
 
 export async function execute(interaction: ChatInputCommandInteraction) {
-  const item = await getResolvedContentItem("trivia", interaction.options.getString("topic"), interaction.channelId);
+  const topic = interaction.options.getString("topic") as Topic | null;
+  const triviaResult = await getEligibleTriviaItem(interaction.channelId, topic);
 
-  if (!item) {
-    await interaction.reply("No trivia questions are available right now.");
+  if (!triviaResult.ok) {
+    await interaction.reply(triviaResult.error);
     return;
   }
 
   await postInteractiveTriviaSession({
-    item,
+    item: triviaResult.item,
     source: "command",
     post: (payload) => interaction.reply(payload),
   });
