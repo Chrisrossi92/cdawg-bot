@@ -236,6 +236,10 @@ function formatRelativeTime(timestamp) {
 }
 
 function getChannelOperationStatusText(channelStatus) {
+  if (channelStatus.blockedReason === "disabled") {
+    return "Automation is off for this channel";
+  }
+
   if (channelStatus.blockedReason === "silenced") {
     return `Silenced until ${formatTimestamp(channelStatus.blockedUntil)}`;
   }
@@ -252,6 +256,10 @@ function getChannelOperationStatusText(channelStatus) {
 }
 
 function getChannelStatusLabel(channelStatus) {
+  if (channelStatus.blockedReason === "disabled") {
+    return "Automation Off";
+  }
+
   if (channelStatus.blockedReason === "silenced") {
     return "Silenced";
   }
@@ -268,19 +276,23 @@ function getChannelStatusLabel(channelStatus) {
 }
 
 function getChannelStatusRank(channelStatus) {
-  if (channelStatus.blockedReason === "silenced") {
+  if (channelStatus.blockedReason === "disabled") {
     return 0;
   }
 
-  if (channelStatus.blockedReason === "cooldown") {
+  if (channelStatus.blockedReason === "silenced") {
     return 1;
   }
 
-  if (channelStatus.blockedReason === "skip-next") {
+  if (channelStatus.blockedReason === "cooldown") {
     return 2;
   }
 
-  return 3;
+  if (channelStatus.blockedReason === "skip-next") {
+    return 3;
+  }
+
+  return 4;
 }
 
 function getFilteredAndSortedChannelStatuses() {
@@ -448,6 +460,7 @@ function renderChannelOperations() {
     const title = document.createElement("h3");
     const blockedSummary = document.createElement("p");
     const summaryActions = document.createElement("div");
+    const toggleAutomationButton = document.createElement("button");
     const expandButton = document.createElement("button");
     const expanded = document.createElement("div");
     const expandedMeta = document.createElement("div");
@@ -480,6 +493,14 @@ function renderChannelOperations() {
     blockedSummary.className = `channel-row-summary-detail${channelStatus.blockedReason ? " blocked" : ""}`;
     blockedSummary.textContent = channelStatus.blockedReason ? getChannelOperationStatusText(channelStatus) : "Active";
     summaryActions.className = "channel-row-summary-actions";
+    toggleAutomationButton.type = "button";
+    toggleAutomationButton.className = "ghost";
+    toggleAutomationButton.textContent = channelStatus.automationEnabled ? "Automation: ON" : "Automation: OFF";
+    toggleAutomationButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void applyChannelAutomationEnabled(channelStatus.channelId, !channelStatus.automationEnabled);
+    });
     const triggerNowButton = createChannelInlineActionButton(
       "Trigger Next Now",
       () => void applyChannelOperation(channelStatus.channelId, "trigger-now"),
@@ -495,7 +516,7 @@ function renderChannelOperations() {
         variant: "secondary",
       },
     );
-    summaryActions.append(triggerNowButton, skipNextButton, silenceOneHourButton);
+    summaryActions.append(toggleAutomationButton, triggerNowButton, skipNextButton, silenceOneHourButton);
     expandButton.type = "button";
     expandButton.className = "channel-row-expand";
     expandButton.textContent = "More";
@@ -516,7 +537,7 @@ function renderChannelOperations() {
     expandedPrimaryActions.className = "channel-operation-action-group";
     expandedSecondaryActions.className = "channel-operation-action-group secondary";
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}`;
+    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}${channelStatus.automationEnabled ? "" : " • Automation disabled"}`;
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
@@ -1147,6 +1168,36 @@ async function applyChannelOperation(channelId, operation, durationMs) {
     await loadChannelOperations();
   } catch (error) {
     channelOperationsOutput.textContent = `Channel operation failed.\n${error.message}`;
+  }
+}
+
+async function applyChannelAutomationEnabled(channelId, automationEnabled) {
+  channelOperationsOutput.textContent = JSON.stringify(
+    {
+      requestPath: "/api/channel-operations/set-enabled",
+      channelId,
+      automationEnabled,
+    },
+    null,
+    2,
+  );
+
+  try {
+    const data = await fetchJson("/api/channel-operations/set-enabled", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channelId,
+        automationEnabled,
+      }),
+    });
+
+    setPrettyJson(channelOperationsOutput, data);
+    await loadChannelOperations();
+  } catch (error) {
+    channelOperationsOutput.textContent = `Channel automation toggle failed.\n${error.message}`;
   }
 }
 

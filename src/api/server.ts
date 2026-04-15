@@ -16,6 +16,7 @@ import {
   clearChannelSkipNextSend,
   getChannelOperationalStates,
   resumeChannelAutomation,
+  setChannelAutomationEnabled,
   setChannelSkipNextSend,
   setChannelManualCooldown,
   setChannelSilenced,
@@ -104,6 +105,7 @@ type ManualPushValidationResult =
 type ChannelOperationRequestBody = {
   channelId: string;
   durationMs?: number;
+  automationEnabled?: boolean;
 };
 
 type FeedRequestBody = {
@@ -310,6 +312,37 @@ function sanitizeChannelOperationRequest(value: unknown, requireDuration: boolea
     value: {
       channelId: value.channelId,
       durationMs: Math.floor(value.durationMs),
+    } satisfies ChannelOperationRequestBody,
+  };
+}
+
+function sanitizeChannelAutomationEnabledRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Channel operation payload must be a JSON object.",
+    };
+  }
+
+  if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (typeof value.automationEnabled !== "boolean") {
+    return {
+      ok: false as const,
+      error: "Invalid automationEnabled flag.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId: value.channelId,
+      automationEnabled: value.automationEnabled,
     } satisfies ChannelOperationRequestBody,
   };
 }
@@ -538,7 +571,9 @@ function buildFeedResponse(feedId: string) {
   const allowedWindowBlockedUntil = outsideAllowedWindow ? getFeedWindowBlockedUntil(feed) : null;
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
   const triviaEligibility = feed.contentType === "trivia" ? getTriviaTopicEligibility(feed.channelId, feed.topicOverride) : null;
-  const blockedReason = operationalStatus.isSilenced
+  const blockedReason = !operationalStatus.isAutomationEnabled
+    ? "disabled"
+    : operationalStatus.isSilenced
     ? "silenced"
     : operationalStatus.isCoolingDown
       ? "cooldown"
@@ -1043,6 +1078,32 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         }
 
         const channelOperation = setChannelSkipNextSend(validation.value.channelId);
+        sendJson(response, 200, {
+          channelOperation,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-operations/set-enabled") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelAutomationEnabledRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelOperation = setChannelAutomationEnabled(
+          validation.value.channelId,
+          validation.value.automationEnabled ?? true,
+        );
         sendJson(response, 200, {
           channelOperation,
         });

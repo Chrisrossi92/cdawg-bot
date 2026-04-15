@@ -231,7 +231,7 @@ export async function triggerAutomatedContentNow(
 ): Promise<TriggerAutomatedContentNowResult> {
   const automationStatus = getChannelAutomationStatus(request.channelId);
 
-  if (automationStatus.blockedReason) {
+  if (automationStatus.blockedReason && automationStatus.blockedReason !== "disabled") {
     logAutomatedTrigger("error", {
       channelId: request.channelId,
       reason: automationStatus.blockedReason,
@@ -246,7 +246,9 @@ export async function triggerAutomatedContentNow(
     };
   }
 
-  const nextPlan = getNextAutomatedContentPlan(request.channelId);
+  const nextPlan = getNextAutomatedContentPlan(request.channelId, Date.now(), {
+    includeDisabled: true,
+  });
 
   if (!nextPlan) {
     logAutomatedTrigger("error", {

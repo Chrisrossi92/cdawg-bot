@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 export type ChannelOperationalState = {
+  automationEnabled: boolean;
   silencedUntil: number | null;
   cooldownUntil: number | null;
   skipNextSend: boolean;
@@ -10,15 +11,17 @@ export type ChannelOperationalState = {
 
 export type ChannelOperationalStatus = {
   channelId: string;
+  automationEnabled: boolean;
   silencedUntil: number | null;
   cooldownUntil: number | null;
   skipNextSend: boolean;
+  isAutomationEnabled: boolean;
   isSilenced: boolean;
   isCoolingDown: boolean;
   nextEligibleAt: number | null;
 };
 
-export type AutomationBlockReason = "silenced" | "cooldown" | "skip-next";
+export type AutomationBlockReason = "disabled" | "silenced" | "cooldown" | "skip-next";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -40,6 +43,7 @@ function sanitizeTimestamp(value: unknown): number | null {
 function sanitizeChannelOperationalState(value: unknown): ChannelOperationalState {
   if (!isRecord(value)) {
     return {
+      automationEnabled: true,
       silencedUntil: null,
       cooldownUntil: null,
       skipNextSend: false,
@@ -47,6 +51,7 @@ function sanitizeChannelOperationalState(value: unknown): ChannelOperationalStat
   }
 
   return {
+    automationEnabled: value.automationEnabled !== false,
     silencedUntil: sanitizeTimestamp(value.silencedUntil),
     cooldownUntil: sanitizeTimestamp(value.cooldownUntil),
     skipNextSend: value.skipNextSend === true,
@@ -112,6 +117,7 @@ function logChannelOperation(
 
 function getEmptyChannelOperationalState(): ChannelOperationalState {
   return {
+    automationEnabled: true,
     silencedUntil: null,
     cooldownUntil: null,
     skipNextSend: false,
@@ -126,12 +132,13 @@ function pruneExpiredState(channelId: string, now: number) {
   }
 
   const nextState: ChannelOperationalState = {
+    automationEnabled: currentState.automationEnabled !== false,
     silencedUntil: currentState.silencedUntil && currentState.silencedUntil > now ? currentState.silencedUntil : null,
     cooldownUntil: currentState.cooldownUntil && currentState.cooldownUntil > now ? currentState.cooldownUntil : null,
     skipNextSend: currentState.skipNextSend === true,
   };
 
-  if (!nextState.silencedUntil && !nextState.cooldownUntil && !nextState.skipNextSend) {
+  if (nextState.automationEnabled && !nextState.silencedUntil && !nextState.cooldownUntil && !nextState.skipNextSend) {
     delete activeChannelOperations[channelId];
     saveChannelOperationsToDisk(activeChannelOperations);
     return;
@@ -158,9 +165,11 @@ function buildChannelOperationalStatus(channelId: string, state: ChannelOperatio
 
   return {
     channelId,
+    automationEnabled: state.automationEnabled !== false,
     silencedUntil: isSilenced ? state.silencedUntil : null,
     cooldownUntil: isCoolingDown ? state.cooldownUntil : null,
     skipNextSend: state.skipNextSend,
+    isAutomationEnabled: state.automationEnabled !== false,
     isSilenced,
     isCoolingDown,
     nextEligibleAt,
@@ -227,7 +236,7 @@ export function clearChannelSkipNextSend(channelId: string) {
     skipNextSend: false,
   };
 
-  if (!nextState.silencedUntil && !nextState.cooldownUntil) {
+  if (nextState.automationEnabled && !nextState.silencedUntil && !nextState.cooldownUntil) {
     delete activeChannelOperations[channelId];
   } else {
     activeChannelOperations[channelId] = nextState;
@@ -249,8 +258,43 @@ export function resumeChannelAutomation(channelId: string) {
   return getChannelOperationalStatus(channelId);
 }
 
+export function setChannelAutomationEnabled(channelId: string, automationEnabled: boolean) {
+  const currentState = getChannelOperationalStateInternal(channelId);
+  const nextState: ChannelOperationalState = {
+    ...currentState,
+    automationEnabled,
+  };
+
+  if (automationEnabled && !nextState.silencedUntil && !nextState.cooldownUntil && !nextState.skipNextSend) {
+    delete activeChannelOperations[channelId];
+  } else {
+    activeChannelOperations[channelId] = nextState;
+  }
+
+  saveChannelOperationsToDisk(activeChannelOperations);
+  logChannelOperation(automationEnabled ? "resumed" : "blocked-send", {
+    channelId,
+    reason: automationEnabled ? "enabled" : "disabled",
+  });
+  return getChannelOperationalStatus(channelId);
+}
+
 export function getAutomatedContentBlock(channelId: string, source: string, now = Date.now()) {
   const status = getChannelOperationalStatus(channelId, now);
+
+  if (!status.isAutomationEnabled) {
+    logChannelOperation("blocked-send", {
+      channelId,
+      source,
+      reason: "disabled",
+    });
+    return {
+      blocked: true as const,
+      reason: "disabled" as AutomationBlockReason,
+      blockedUntil: null,
+      status,
+    };
+  }
 
   if (status.isSilenced) {
     logChannelOperation("blocked-send", {

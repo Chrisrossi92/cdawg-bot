@@ -524,10 +524,18 @@ small {
   background: linear-gradient(180deg, rgba(19, 115, 51, 0.42), rgba(19, 115, 51, 0.1));
 }
 
+.channel-row.state-disabled::before {
+  background: linear-gradient(180deg, rgba(116, 133, 154, 0.52), rgba(116, 133, 154, 0.12));
+}
+
 .channel-row.state-silenced::before,
 .channel-row.state-cooldown::before,
 .channel-row.state-skip-next::before {
   background: linear-gradient(180deg, rgba(180, 35, 24, 0.42), rgba(180, 35, 24, 0.1));
+}
+
+.channel-row.state-disabled {
+  background: linear-gradient(180deg, rgba(250, 252, 255, 0.98) 0%, rgba(243, 247, 252, 0.98) 100%);
 }
 
 .channel-row-summary {

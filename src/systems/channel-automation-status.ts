@@ -5,7 +5,7 @@ import { getFeedConfigs, getFeedNextEligibleAt } from "./feed-configs.js";
 import type { AutomationBlockReason } from "./channel-operations.js";
 import { getChannelOperationalStatus } from "./channel-operations.js";
 
-export type AutomationOperationalStatus = "active" | "silenced" | "cooling-down";
+export type AutomationOperationalStatus = "active" | "disabled" | "silenced" | "cooling-down";
 
 export type AutomationMode =
   | "none"
@@ -19,6 +19,7 @@ export type AutomationMode =
 
 export type ChannelAutomationStatus = {
   channelId: string;
+  automationEnabled: boolean;
   operationalStatus: AutomationOperationalStatus;
   blockedReason: AutomationBlockReason | null;
   blockedUntil: number | null;
@@ -50,6 +51,10 @@ function getFeedsForChannel(channelId: string) {
 }
 
 function getAutomationMode(channelId: string) {
+  if (!getChannelOperationalStatus(channelId).isAutomationEnabled) {
+    return "none" as const;
+  }
+
   const passiveEnabled = getPassiveChatSettings().enabled && getPassiveChatSettings().eligibleChannelIds.has(channelId);
   const hasScheduledContent = getSchedulesForChannel(channelId).length > 0;
   const hasManagedFeed = getFeedsForChannel(channelId).length > 0;
@@ -110,6 +115,10 @@ function getNextIntervalRunAt(schedule: Schedule & { intervalMinutes: number }, 
 }
 
 function getScheduledEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const schedulesForChannel = getSchedulesForChannel(channelId);
 
   if (schedulesForChannel.length === 0) {
@@ -139,6 +148,10 @@ function getScheduledEligibleAt(channelId: string, blockedUntil: number | null, 
 }
 
 function getNextScheduledPlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const schedulesForChannel = getSchedulesForChannel(channelId);
 
   if (schedulesForChannel.length === 0) {
@@ -184,6 +197,10 @@ function getNextScheduledPlan(channelId: string, blockedUntil: number | null, no
 }
 
 function getPassiveEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const passiveChatSettings = getPassiveChatSettings();
 
   if (!passiveChatSettings.enabled || !passiveChatSettings.eligibleChannelIds.has(channelId)) {
@@ -201,6 +218,10 @@ function getPassiveEligibleAt(channelId: string, blockedUntil: number | null, no
 }
 
 function getNextPassivePlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const passiveChatSettings = getPassiveChatSettings();
 
   if (!passiveChatSettings.enabled || !passiveChatSettings.eligibleChannelIds.has(channelId)) {
@@ -216,6 +237,10 @@ function getNextPassivePlan(channelId: string, blockedUntil: number | null, now:
 }
 
 function getFeedEligibleAt(channelId: string, blockedUntil: number | null, now: number) {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const candidateTimes = getFeedsForChannel(channelId)
     .map((feed) => Math.max(getFeedNextEligibleAt(feed, now), blockedUntil ?? 0))
     .filter((timestamp): timestamp is number => Number.isFinite(timestamp));
@@ -228,6 +253,10 @@ function getFeedEligibleAt(channelId: string, blockedUntil: number | null, now: 
 }
 
 function getNextFeedPlan(channelId: string, blockedUntil: number | null, now: number): NextAutomatedContentPlan | null {
+  if (!getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const candidatePlans = getFeedsForChannel(channelId).map((feed) => ({
     channelId,
     source: "feed" as const,
@@ -245,8 +274,18 @@ function getNextFeedPlan(channelId: string, blockedUntil: number | null, now: nu
 function getBlockedState(channelId: string, now: number) {
   const operationalStatus = getChannelOperationalStatus(channelId, now);
 
+  if (!operationalStatus.isAutomationEnabled) {
+    return {
+      automationEnabled: false,
+      operationalStatus: "disabled" as const,
+      blockedReason: "disabled" as const,
+      blockedUntil: null,
+    };
+  }
+
   if (operationalStatus.isSilenced) {
     return {
+      automationEnabled: true,
       operationalStatus: "silenced" as const,
       blockedReason: "silenced" as const,
       blockedUntil: operationalStatus.silencedUntil,
@@ -255,6 +294,7 @@ function getBlockedState(channelId: string, now: number) {
 
   if (operationalStatus.isCoolingDown) {
     return {
+      automationEnabled: true,
       operationalStatus: "cooling-down" as const,
       blockedReason: "cooldown" as const,
       blockedUntil: operationalStatus.cooldownUntil,
@@ -262,6 +302,7 @@ function getBlockedState(channelId: string, now: number) {
   }
 
   return {
+    automationEnabled: true,
     operationalStatus: "active" as const,
     blockedReason: null,
     blockedUntil: null,
@@ -292,6 +333,7 @@ export function getChannelAutomationStatus(channelId: string, now = Date.now()):
 
   return {
     channelId,
+    automationEnabled: blockedState.automationEnabled,
     operationalStatus: blockedState.operationalStatus,
     blockedReason: blockedState.blockedReason ?? (getChannelOperationalStatus(channelId, now).skipNextSend ? "skip-next" : null),
     blockedUntil: blockedState.blockedUntil,
@@ -308,7 +350,15 @@ export function getChannelAutomationStatuses(channelIds: readonly string[], now 
   return channelIds.map((channelId) => getChannelAutomationStatus(channelId, now));
 }
 
-export function getNextAutomatedContentPlan(channelId: string, now = Date.now()): NextAutomatedContentPlan | null {
+export function getNextAutomatedContentPlan(
+  channelId: string,
+  now = Date.now(),
+  options?: { includeDisabled?: boolean },
+): NextAutomatedContentPlan | null {
+  if (!options?.includeDisabled && !getChannelOperationalStatus(channelId, now).isAutomationEnabled) {
+    return null;
+  }
+
   const blockedUntil = getChannelOperationalStatus(channelId, now).nextEligibleAt;
   const scheduledPlan = getNextScheduledPlan(channelId, blockedUntil, now);
   const passivePlan = getNextPassivePlan(channelId, blockedUntil, now);
