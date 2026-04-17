@@ -58,6 +58,7 @@ type ApiServerDependencies = {
 };
 
 type SettingsPatchBody = {
+  globalAutomationEnabled?: boolean;
   passiveChat?: {
     enabled?: boolean;
     debugLogging?: boolean;
@@ -165,6 +166,10 @@ function sanitizeSettingsPatch(value: unknown): SettingsPatchBody | null {
 
   const nextPatch: SettingsPatchBody = {};
 
+  if ("globalAutomationEnabled" in value && typeof value.globalAutomationEnabled === "boolean") {
+    nextPatch.globalAutomationEnabled = value.globalAutomationEnabled;
+  }
+
   if (isRecord(value.passiveChat)) {
     const passiveChatPatch: NonNullable<SettingsPatchBody["passiveChat"]> = {};
 
@@ -233,6 +238,15 @@ function sanitizeSettingsPatch(value: unknown): SettingsPatchBody | null {
   }
 
   return Object.keys(nextPatch).length > 0 ? nextPatch : null;
+}
+
+function buildAutomationMasterResponse() {
+  const settings = getBotSettings();
+
+  return {
+    globalAutomationEnabled: settings.globalAutomationEnabled,
+    status: settings.globalAutomationEnabled ? "on" : "off",
+  };
 }
 
 function sanitizeManualPushRequest(value: unknown): ManualPushValidationResult {
@@ -571,19 +585,21 @@ function buildFeedResponse(feedId: string) {
   const allowedWindowBlockedUntil = outsideAllowedWindow ? getFeedWindowBlockedUntil(feed) : null;
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === feed.channelId);
   const triviaEligibility = feed.contentType === "trivia" ? getTriviaTopicEligibility(feed.channelId, feed.topicOverride) : null;
-  const blockedReason = !operationalStatus.isAutomationEnabled
-    ? "disabled"
-    : operationalStatus.isSilenced
-    ? "silenced"
-    : operationalStatus.isCoolingDown
-      ? "cooldown"
-      : operationalStatus.skipNextSend
-        ? "skip-next"
-        : outsideAllowedWindow
-          ? "outside-window"
-          : triviaEligibility && !triviaEligibility.ok
-            ? "trivia-ineligible"
-        : null;
+  const blockedReason = !operationalStatus.globalAutomationEnabled
+    ? "global-disabled"
+    : !operationalStatus.channelAutomationEnabled
+      ? "disabled"
+      : operationalStatus.isSilenced
+        ? "silenced"
+        : operationalStatus.isCoolingDown
+          ? "cooldown"
+          : operationalStatus.skipNextSend
+            ? "skip-next"
+            : outsideAllowedWindow
+              ? "outside-window"
+              : triviaEligibility && !triviaEligibility.ok
+                ? "trivia-ineligible"
+                : null;
   const blockedUntil = operationalStatus.isSilenced
     ? operationalStatus.silencedUntil
     : operationalStatus.isCoolingDown
@@ -597,6 +613,9 @@ function buildFeedResponse(feedId: string) {
     ...feed,
     nextEligibleAt: getFeedNextEligibleAt(feed),
     nextRunAt,
+    globalAutomationEnabled: operationalStatus.globalAutomationEnabled,
+    channelAutomationEnabled: operationalStatus.channelAutomationEnabled,
+    effectiveAutomationEnabled: operationalStatus.isAutomationEnabled,
     blockedReason,
     blockedUntil,
     triviaEligibility,
@@ -616,9 +635,13 @@ function buildDailyTriviaChallengeResponse() {
 
   const preset = dashboardChannelPresets.find((entry) => entry.channelId === config.channelId);
   const triviaEligibility = getTriviaTopicEligibility(config.channelId, config.topicOverride);
+  const operationalStatus = getChannelOperationalStatus(config.channelId);
 
   return {
     ...status,
+    globalAutomationEnabled: operationalStatus.globalAutomationEnabled,
+    channelAutomationEnabled: operationalStatus.channelAutomationEnabled,
+    effectiveAutomationEnabled: operationalStatus.isAutomationEnabled,
     blockedReason: status.blockedReason ?? (!triviaEligibility.ok ? "trivia-ineligible" : null),
     triviaEligibility,
     channelLabel: preset?.label ?? config.channelId,
@@ -699,6 +722,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         if (method === "GET") {
           sendJson(response, 200, {
             settings: getBotSettings(),
+            automationMaster: buildAutomationMasterResponse(),
           });
           return;
         }
@@ -717,6 +741,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
           const settings = updateBotSettings(patch);
           sendJson(response, 200, {
             settings,
+            automationMaster: buildAutomationMasterResponse(),
           });
           return;
         }
@@ -766,6 +791,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         }
 
         sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
           dailyTriviaChallenge: buildDailyTriviaChallengeResponse(),
         });
         return;
@@ -805,6 +831,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
             });
 
         sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
           dailyTriviaChallenge: config ? buildDailyTriviaChallengeResponse() : null,
         });
         return;
@@ -817,6 +844,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         }
 
         sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
           feeds: getFeedConfigs()
             .map((feed) => buildFeedResponse(feed.id))
             .filter((feed): feed is NonNullable<ReturnType<typeof buildFeedResponse>> => Boolean(feed)),
@@ -1004,6 +1032,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         });
 
         sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
           channelAutomationStatuses,
         });
         return;

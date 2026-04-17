@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { getBotSettings } from "./bot-settings.js";
 
 export type ChannelOperationalState = {
   automationEnabled: boolean;
@@ -12,16 +13,19 @@ export type ChannelOperationalState = {
 export type ChannelOperationalStatus = {
   channelId: string;
   automationEnabled: boolean;
+  channelAutomationEnabled: boolean;
+  globalAutomationEnabled: boolean;
   silencedUntil: number | null;
   cooldownUntil: number | null;
   skipNextSend: boolean;
   isAutomationEnabled: boolean;
+  isGlobalAutomationEnabled: boolean;
   isSilenced: boolean;
   isCoolingDown: boolean;
   nextEligibleAt: number | null;
 };
 
-export type AutomationBlockReason = "disabled" | "silenced" | "cooldown" | "skip-next";
+export type AutomationBlockReason = "global-disabled" | "disabled" | "silenced" | "cooldown" | "skip-next";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -159,17 +163,22 @@ function getChannelOperationalStateInternal(channelId: string, now = Date.now())
 }
 
 function buildChannelOperationalStatus(channelId: string, state: ChannelOperationalState, now = Date.now()): ChannelOperationalStatus {
+  const channelAutomationEnabled = state.automationEnabled !== false;
+  const globalAutomationEnabled = getBotSettings().globalAutomationEnabled !== false;
   const isSilenced = typeof state.silencedUntil === "number" && state.silencedUntil > now;
   const isCoolingDown = typeof state.cooldownUntil === "number" && state.cooldownUntil > now;
   const nextEligibleAt = Math.max(state.silencedUntil ?? 0, state.cooldownUntil ?? 0) || null;
 
   return {
     channelId,
-    automationEnabled: state.automationEnabled !== false,
+    automationEnabled: channelAutomationEnabled,
+    channelAutomationEnabled,
+    globalAutomationEnabled,
     silencedUntil: isSilenced ? state.silencedUntil : null,
     cooldownUntil: isCoolingDown ? state.cooldownUntil : null,
     skipNextSend: state.skipNextSend,
-    isAutomationEnabled: state.automationEnabled !== false,
+    isAutomationEnabled: globalAutomationEnabled && channelAutomationEnabled,
+    isGlobalAutomationEnabled: globalAutomationEnabled,
     isSilenced,
     isCoolingDown,
     nextEligibleAt,
@@ -283,14 +292,15 @@ export function getAutomatedContentBlock(channelId: string, source: string, now 
   const status = getChannelOperationalStatus(channelId, now);
 
   if (!status.isAutomationEnabled) {
+    const reason = !status.globalAutomationEnabled ? "global-disabled" : "disabled";
     logChannelOperation("blocked-send", {
       channelId,
       source,
-      reason: "disabled",
+      reason,
     });
     return {
       blocked: true as const,
-      reason: "disabled" as AutomationBlockReason,
+      reason: reason as AutomationBlockReason,
       blockedUntil: null,
       status,
     };

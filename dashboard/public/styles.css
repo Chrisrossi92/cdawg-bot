@@ -380,6 +380,39 @@ small {
   align-self: start;
 }
 
+.automation-master-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-card);
+  border: 1px solid rgba(199, 212, 227, 0.82);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, #f3f8ff 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.automation-master-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.automation-master-copy p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.automation-master-banner {
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(180, 35, 24, 0.22);
+  background: rgba(180, 35, 24, 0.08);
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .api-config.compact {
   grid-template-columns: minmax(220px, 1fr) auto;
   align-items: end;
@@ -731,6 +764,11 @@ small {
   text-transform: lowercase;
 }
 
+.automation-master-badge {
+  font-size: 12px;
+  padding: 5px 10px;
+}
+
 .status-badge.active {
   background: rgba(19, 115, 51, 0.1);
   color: var(--success);
@@ -879,6 +917,11 @@ pre {
 
   .overview-status-grid {
     grid-template-columns: 1fr;
+  }
+
+  .automation-master-panel {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

@@ -30,6 +30,7 @@ export type ContentProviderSettings = {
 };
 
 export type BotSettings = {
+  globalAutomationEnabled: boolean;
   passiveChat: PassiveChatSettings;
   contentProviders: ContentProviderSettings;
 };
@@ -39,6 +40,7 @@ type DeepPartial<T> = {
 };
 
 export const defaultBotSettings: BotSettings = {
+  globalAutomationEnabled: true,
   passiveChat: {
     enabled: true,
     debugLogging: true,
@@ -109,6 +111,10 @@ function mergeBotSettings(partialSettings: unknown): BotSettings {
   const contentProviders = isRecord(settings.contentProviders) ? settings.contentProviders : {};
 
   return {
+    globalAutomationEnabled: sanitizeBoolean(
+      settings.globalAutomationEnabled,
+      defaultBotSettings.globalAutomationEnabled,
+    ),
     passiveChat: {
       enabled: sanitizeBoolean(passiveChat.enabled, defaultBotSettings.passiveChat.enabled),
       debugLogging: sanitizeBoolean(passiveChat.debugLogging, defaultBotSettings.passiveChat.debugLogging),

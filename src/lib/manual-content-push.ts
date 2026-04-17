@@ -231,7 +231,11 @@ export async function triggerAutomatedContentNow(
 ): Promise<TriggerAutomatedContentNowResult> {
   const automationStatus = getChannelAutomationStatus(request.channelId);
 
-  if (automationStatus.blockedReason && automationStatus.blockedReason !== "disabled") {
+  if (
+    automationStatus.blockedReason &&
+    automationStatus.blockedReason !== "disabled" &&
+    automationStatus.blockedReason !== "global-disabled"
+  ) {
     logAutomatedTrigger("error", {
       channelId: request.channelId,
       reason: automationStatus.blockedReason,

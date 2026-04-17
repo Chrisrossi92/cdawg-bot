@@ -2,6 +2,10 @@ const apiConfigForm = document.querySelector("#api-config-form");
 const apiBaseUrlInput = document.querySelector("#api-base-url");
 const autoRefreshEnabledInput = document.querySelector("#auto-refresh-enabled");
 const refreshAllButton = document.querySelector("#refresh-all");
+const automationMasterBadge = document.querySelector("#automation-master-badge");
+const automationMasterButton = document.querySelector("#automation-master-button");
+const automationMasterDetail = document.querySelector("#automation-master-detail");
+const automationMasterBanner = document.querySelector("#automation-master-banner");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -53,6 +57,7 @@ let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let channelAutomationStatuses = [];
+let automationMaster = { globalAutomationEnabled: true, status: "on" };
 let dogState = null;
 let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
@@ -100,6 +105,31 @@ function setDailyTriviaStatus(message, kind = "neutral") {
   dailyTriviaStatus.textContent = message;
   dailyTriviaStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function applyAutomationMasterState(nextState) {
+  if (!nextState || typeof nextState.globalAutomationEnabled !== "boolean") {
+    return;
+  }
+
+  automationMaster = {
+    globalAutomationEnabled: nextState.globalAutomationEnabled,
+    status: nextState.status === "off" ? "off" : "on",
+  };
+}
+
+function renderAutomationMaster() {
+  const enabled = automationMaster.globalAutomationEnabled;
+
+  automationMasterBadge.textContent = `Automation Master: ${enabled ? "ON" : "OFF"}`;
+  automationMasterBadge.className = `status-badge ${enabled ? "active" : "blocked"} automation-master-badge`;
+  automationMasterButton.textContent = enabled ? "Turn Master OFF" : "Turn Master ON";
+  automationMasterButton.className = enabled ? "secondary" : "";
+  automationMasterDetail.textContent = enabled
+    ? "Automatic posting is allowed globally. Channel-level controls still apply."
+    : "All automatic posting is disabled globally. Manual triggers remain available for testing.";
+
+  automationMasterBanner.hidden = enabled;
 }
 
 function getSelectedChannelPreset() {
@@ -236,6 +266,10 @@ function formatRelativeTime(timestamp) {
 }
 
 function getChannelOperationStatusText(channelStatus) {
+  if (channelStatus.blockedReason === "global-disabled") {
+    return "Automation master is off for all channels";
+  }
+
   if (channelStatus.blockedReason === "disabled") {
     return "Automation is off for this channel";
   }
@@ -256,6 +290,10 @@ function getChannelOperationStatusText(channelStatus) {
 }
 
 function getChannelStatusLabel(channelStatus) {
+  if (channelStatus.blockedReason === "global-disabled") {
+    return "Master Off";
+  }
+
   if (channelStatus.blockedReason === "disabled") {
     return "Automation Off";
   }
@@ -276,23 +314,27 @@ function getChannelStatusLabel(channelStatus) {
 }
 
 function getChannelStatusRank(channelStatus) {
-  if (channelStatus.blockedReason === "disabled") {
+  if (channelStatus.blockedReason === "global-disabled") {
     return 0;
   }
 
-  if (channelStatus.blockedReason === "silenced") {
+  if (channelStatus.blockedReason === "disabled") {
     return 1;
   }
 
-  if (channelStatus.blockedReason === "cooldown") {
+  if (channelStatus.blockedReason === "silenced") {
     return 2;
   }
 
-  if (channelStatus.blockedReason === "skip-next") {
+  if (channelStatus.blockedReason === "cooldown") {
     return 3;
   }
 
-  return 4;
+  if (channelStatus.blockedReason === "skip-next") {
+    return 4;
+  }
+
+  return 5;
 }
 
 function getFilteredAndSortedChannelStatuses() {
@@ -350,6 +392,10 @@ function findPresetForChannel(channelId) {
 }
 
 function getFeedBlockedLabel(feed) {
+  if (feed.blockedReason === "global-disabled") {
+    return "global-disabled";
+  }
+
   if (feed.blockedReason === "silenced") {
     return "silenced";
   }
@@ -374,6 +420,10 @@ function getFeedBlockedLabel(feed) {
 }
 
 function getDailyTriviaBlockedLabel(challenge) {
+  if (challenge.blockedReason === "global-disabled") {
+    return "global-disabled";
+  }
+
   if (challenge.blockedReason === "silenced") {
     return "silenced";
   }
@@ -483,6 +533,14 @@ function renderChannelOperations() {
     badges.className = "channel-operation-badges";
     badges.append(
       createStatusBadge(getChannelStatusLabel(channelStatus), channelStatus.blockedReason ? "blocked" : "active"),
+      createStatusBadge(
+        channelStatus.globalAutomationEnabled ? "master on" : "master off",
+        channelStatus.globalAutomationEnabled ? "neutral" : "blocked",
+      ),
+      createStatusBadge(
+        channelStatus.channelAutomationEnabled ? "channel on" : "channel off",
+        channelStatus.channelAutomationEnabled ? "neutral" : "blocked",
+      ),
       createStatusBadge(channelStatus.defaultTopic ?? "no-topic", "neutral"),
     );
     if (channelStatus.skipNextSendPending) {
@@ -495,11 +553,11 @@ function renderChannelOperations() {
     summaryActions.className = "channel-row-summary-actions";
     toggleAutomationButton.type = "button";
     toggleAutomationButton.className = "ghost";
-    toggleAutomationButton.textContent = channelStatus.automationEnabled ? "Automation: ON" : "Automation: OFF";
+    toggleAutomationButton.textContent = channelStatus.channelAutomationEnabled ? "Channel: ON" : "Channel: OFF";
     toggleAutomationButton.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
-      void applyChannelAutomationEnabled(channelStatus.channelId, !channelStatus.automationEnabled);
+      void applyChannelAutomationEnabled(channelStatus.channelId, !channelStatus.channelAutomationEnabled);
     });
     const triggerNowButton = createChannelInlineActionButton(
       "Trigger Next Now",
@@ -537,7 +595,7 @@ function renderChannelOperations() {
     expandedPrimaryActions.className = "channel-operation-action-group";
     expandedSecondaryActions.className = "channel-operation-action-group secondary";
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}${channelStatus.automationEnabled ? "" : " • Automation disabled"}`;
+    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}${channelStatus.globalAutomationEnabled ? "" : " • Master OFF"}${channelStatus.channelAutomationEnabled ? "" : " • Channel automation OFF"}`;
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
@@ -823,7 +881,9 @@ async function loadSettings() {
   try {
     const data = await fetchJson("/api/settings");
     lastSettingsSnapshot = data.settings;
+    applyAutomationMasterState(data.automationMaster);
     applySettingsToForm(data.settings);
+    renderAutomationMaster();
     setPrettyJson(settingsOutput, data);
   } catch (error) {
     settingsOutput.textContent = `Failed to load settings.\n${error.message}`;
@@ -881,7 +941,9 @@ async function loadChannelPresets() {
 async function loadFeeds() {
   try {
     const data = await fetchJson("/api/feeds");
+    applyAutomationMasterState(data.automationMaster);
     feeds = Array.isArray(data.feeds) ? data.feeds : [];
+    renderAutomationMaster();
     renderFeeds();
     setPrettyJson(feedsOutput, data);
   } catch (error) {
@@ -894,7 +956,9 @@ async function loadFeeds() {
 async function loadDailyTriviaChallenge() {
   try {
     const data = await fetchJson("/api/daily-trivia");
+    applyAutomationMasterState(data.automationMaster);
     dailyTriviaChallenge = data.dailyTriviaChallenge ?? null;
+    renderAutomationMaster();
     renderDailyTriviaChallenge();
     setPrettyJson(dailyTriviaOutput, data);
   } catch (error) {
@@ -923,7 +987,9 @@ async function loadDogState() {
 async function loadChannelOperations() {
   try {
     const data = await fetchJson("/api/channel-automation-status");
+    applyAutomationMasterState(data.automationMaster);
     channelAutomationStatuses = Array.isArray(data.channelAutomationStatuses) ? data.channelAutomationStatuses : [];
+    renderAutomationMaster();
     renderChannelOperations();
     setPrettyJson(channelOperationsOutput, data);
   } catch (error) {
@@ -963,7 +1029,9 @@ async function saveSettings(event) {
     });
 
     lastSettingsSnapshot = data.settings;
+    applyAutomationMasterState(data.automationMaster);
     applySettingsToForm(data.settings);
+    renderAutomationMaster();
     setPrettyJson(settingsOutput, data);
     setStatusMessage("Settings saved.", "success");
     await loadHealth();
@@ -1201,6 +1269,31 @@ async function applyChannelAutomationEnabled(channelId, automationEnabled) {
   }
 }
 
+async function toggleAutomationMaster() {
+  automationMasterDetail.textContent = "Updating automation master...";
+
+  try {
+    const data = await fetchJson("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        globalAutomationEnabled: !automationMaster.globalAutomationEnabled,
+      }),
+    });
+
+    lastSettingsSnapshot = data.settings;
+    applyAutomationMasterState(data.automationMaster);
+    applySettingsToForm(data.settings);
+    renderAutomationMaster();
+    setPrettyJson(settingsOutput, data);
+    await Promise.all([loadChannelOperations(), loadFeeds(), loadDailyTriviaChallenge()]);
+  } catch (error) {
+    automationMasterDetail.textContent = `Automation master update failed: ${error.message}`;
+  }
+}
+
 async function reloadAll() {
   await Promise.all([
     loadHealth(),
@@ -1248,6 +1341,7 @@ manualPushForm.elements.channelPreset.addEventListener("change", () => syncManua
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
 refreshAllButton.addEventListener("click", () => void reloadAll());
+automationMasterButton.addEventListener("click", () => void toggleAutomationMaster());
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
@@ -1259,4 +1353,5 @@ autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 configureAutoRefresh();
 setActiveControlTab(activeControlTab);
+renderAutomationMaster();
 void reloadAll();

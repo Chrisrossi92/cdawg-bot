@@ -236,6 +236,14 @@ export function getDailyTriviaChallengeBlockedReason(config: DailyTriviaChalleng
 
   const operationalStatus = getChannelOperationalStatus(config.channelId, now);
 
+  if (!operationalStatus.globalAutomationEnabled) {
+    return "global-disabled" as const;
+  }
+
+  if (!operationalStatus.channelAutomationEnabled) {
+    return "disabled" as const;
+  }
+
   if (operationalStatus.isSilenced) {
     return "silenced" as const;
   }
@@ -261,6 +269,10 @@ export function getDailyTriviaChallengeBlockedUntil(config: DailyTriviaChallenge
   }
 
   const operationalStatus = getChannelOperationalStatus(config.channelId, now);
+
+  if (!operationalStatus.isAutomationEnabled) {
+    return null;
+  }
 
   if (operationalStatus.isSilenced) {
     return operationalStatus.silencedUntil;

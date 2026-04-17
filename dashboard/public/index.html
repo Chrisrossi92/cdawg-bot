@@ -48,6 +48,16 @@
           <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
         </div>
+        <div class="automation-master-panel">
+          <div class="automation-master-copy">
+            <span id="automation-master-badge" class="status-badge neutral automation-master-badge">Automation Master: ON</span>
+            <p id="automation-master-detail">Automatic posting is allowed globally. Channel-level controls still apply.</p>
+          </div>
+          <button id="automation-master-button" type="button" class="secondary">Turn Master OFF</button>
+        </div>
+        <div id="automation-master-banner" class="automation-master-banner" hidden>
+          Automation Master is OFF. All automatic posting is disabled until it is turned back on.
+        </div>
       </header>
 
       <section class="panel control-center">
