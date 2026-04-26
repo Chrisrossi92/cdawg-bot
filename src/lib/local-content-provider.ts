@@ -1,6 +1,7 @@
 import type { Topic } from "../config/topics.js";
 import { facts as generalFacts } from "../content/facts/general.js";
 import { facts as historyFacts } from "../content/facts/history.js";
+import { getThisDayInHistoryEvents } from "./history-content.js";
 import { facts as palworldFacts } from "../content/facts/palworld.js";
 import { facts as pokemonFacts } from "../content/facts/pokemon.js";
 import { facts as valheimFacts } from "../content/facts/valheim.js";
@@ -37,6 +38,9 @@ const localContentPools: ContentPoolsByType = {
     palworld: palworldFacts,
     pokemon: pokemonFacts,
     valheim: valheimFacts,
+  },
+  history: {
+    history: [],
   },
   joke: {
     general: generalJokes,
@@ -103,6 +107,24 @@ function getLocalItemsForTopic<T extends ContentType>(
 export const localContentProvider: ContentProvider = {
   name: "local",
   async getItems({ contentType, topic }) {
+    if (contentType === "history") {
+      if (topic !== "history") {
+        return undefined;
+      }
+
+      const items = getThisDayInHistoryEvents();
+
+      if (items.length === 0) {
+        return undefined;
+      }
+
+      return {
+        items: items as readonly ContentItem<typeof contentType>[],
+        sourceTopic: "history",
+        providerName: "local",
+      };
+    }
+
     const result = getLocalItemsForTopic(contentType, topic);
 
     if (!result) {

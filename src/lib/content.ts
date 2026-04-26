@@ -1,16 +1,19 @@
 import { DEFAULT_TOPIC, channelTopics } from "../config/channel-topics.js";
 import { topics, type Topic } from "../config/topics.js";
+import type { ThisDayInHistoryEvent } from "../content/history/this-day.js";
 import type { TriviaItem } from "../content/trivia/general.js";
 import { apiFactProvider } from "./api-fact-provider.js";
 import { apiTriviaProvider } from "./api-trivia-provider.js";
 import type { ContentItem, ContentProvider, ContentType } from "./content-provider.js";
 import { logContentProviderEvent } from "./content-provider-logging.js";
 import { apiJokeProvider } from "./api-joke-provider.js";
+import { formatThisDayInHistoryMessage } from "./history-content.js";
 import { localContentProvider } from "./local-content-provider.js";
 import { recordContentProviderFallbackToLocal, recordContentProviderUsage } from "../systems/bot-metrics.js";
 
 const RECENT_ITEMS_TO_REMEMBER = 3;
 const recentItemKeysByScopeContent = new Map<string, string[]>();
+const lastHistoryItemByScopeContent = new Map<string, ThisDayInHistoryEvent>();
 
 export type { ContentType } from "./content-provider.js";
 
@@ -53,6 +56,10 @@ function getRecentItemKeys(contentType: ContentType, channelId?: string) {
   return recentItemKeysByScopeContent.get(getScopeContentKey(contentType, channelId)) ?? [];
 }
 
+function rememberLastHistoryItem(item: ThisDayInHistoryEvent, channelId?: string) {
+  lastHistoryItemByScopeContent.set(getScopeContentKey("history", channelId), item);
+}
+
 function buildProviderRequest<T extends ContentType>(
   contentType: T,
   topic: Topic,
@@ -70,6 +77,10 @@ function buildProviderRequest<T extends ContentType>(
 function getItemKey<T extends ContentType>(contentType: T, item: ContentItem<T>) {
   if (contentType === "trivia") {
     return (item as TriviaItem).question;
+  }
+
+  if (contentType === "history") {
+    return (item as ThisDayInHistoryEvent).id;
   }
 
   return item as string;
@@ -286,6 +297,9 @@ export async function getContentItem<T extends ContentType>(
 
   const itemKey = getItemKey(contentType, item);
   rememberRecentItem(contentType, itemKey, channelId);
+  if (contentType === "history") {
+    rememberLastHistoryItem(item as ThisDayInHistoryEvent, channelId);
+  }
   recordContentProviderUsage(contentType, providerResult.providerName);
   logContentProviderEvent(contentType, "item-selected", {
     provider: providerResult.providerName,
@@ -330,6 +344,9 @@ export async function getStrictContentItem<T extends ContentType>(
 
   const itemKey = getItemKey(contentType, item);
   rememberRecentItem(contentType, itemKey, channelId);
+  if (contentType === "history") {
+    rememberLastHistoryItem(item as ThisDayInHistoryEvent, channelId);
+  }
   recordContentProviderUsage(contentType, providerResult.providerName);
   logContentProviderEvent(contentType, "item-selected", {
     provider: providerResult.providerName,
@@ -364,6 +381,32 @@ export function getJokeText(topic: Topic, channelId?: string): Promise<string | 
 
 export function formatJokeMessage(joke: string): string {
   return `**Cdawg Bot Joke Drop**\n${joke}`;
+}
+
+export function getHistoryEvent(topic: Topic, channelId?: string): Promise<ThisDayInHistoryEvent | undefined> {
+  return getContentItem("history", topic, channelId);
+}
+
+export function getRecentContentItemKeys(contentType: ContentType, channelId?: string) {
+  return [...getRecentItemKeys(contentType, channelId)];
+}
+
+export function getRecentHistoryItemIds(channelId?: string) {
+  return getRecentContentItemKeys("history", channelId);
+}
+
+export function isHistoryItemRecentlyUsed(itemId: string, channelId?: string) {
+  return getRecentHistoryItemIds(channelId).includes(itemId);
+}
+
+export function getLastHistoryItem(channelId?: string) {
+  return lastHistoryItemByScopeContent.get(getScopeContentKey("history", channelId)) ?? null;
+}
+
+export function markHistoryItemUsed(item: ThisDayInHistoryEvent, channelId?: string) {
+  rememberRecentItem("history", item.id, channelId);
+  rememberLastHistoryItem(item, channelId);
+  recordContentProviderUsage("history", "local");
 }
 
 export function getWyrText(topic: Topic, channelId?: string): Promise<string | undefined> {
@@ -406,11 +449,20 @@ export async function getContentMessage(
       const joke = await getContentItem(contentType, topic, channelId);
       return joke ? formatJokeMessage(joke) : undefined;
     }
+    case "history": {
+      const historyEvent = await getContentItem(contentType, topic, channelId);
+      return historyEvent ? formatThisDayInHistoryMessage(historyEvent) : undefined;
+    }
     case "wyr": {
       const prompt = await getContentItem(contentType, topic, channelId);
       return prompt ? formatWyrMessage(prompt) : undefined;
     }
     case "prompt": {
+      if (topic === "history") {
+        const historyEvent = await getContentItem("history", topic, channelId);
+        return historyEvent ? formatThisDayInHistoryMessage(historyEvent) : undefined;
+      }
+
       const prompt = await getContentItem(contentType, topic, channelId);
       return prompt ? formatPromptMessage(prompt) : undefined;
     }

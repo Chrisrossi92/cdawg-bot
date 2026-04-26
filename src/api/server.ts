@@ -12,6 +12,7 @@ import {
 } from "../lib/manual-content-push.js";
 import { getTriviaTopicEligibility } from "../lib/trivia-topic-eligibility.js";
 import { topics, type Topic } from "../config/topics.js";
+import { getHistoryEventById, getHistoryPreviewEvent, getHistoryReviewSnapshot } from "../lib/history-content.js";
 import {
   clearChannelSkipNextSend,
   getChannelOperationalStates,
@@ -55,6 +56,7 @@ type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
   pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
   triggerAutomatedContentNow: (request: { channelId: string }) => Promise<TriggerAutomatedContentNowResult>;
+  pushHistoryPreview: (request: { channelId: string; eventId: string }) => Promise<ManualContentPushResult>;
 };
 
 type SettingsPatchBody = {
@@ -80,7 +82,7 @@ type SettingsPatchBody = {
   };
 };
 
-const allowedContentTypes: readonly ContentType[] = ["fact", "joke", "wyr", "prompt", "trivia"];
+const allowedContentTypes: readonly ContentType[] = ["fact", "history", "joke", "wyr", "prompt", "trivia"];
 const defaultHealthSnapshot: ApiHealthSnapshot = {
   botReady: true,
   botTag: null,
@@ -125,6 +127,11 @@ type DailyTriviaChallengeRequestBody = {
   dailyTime?: string;
   topicOverride?: Topic | null;
   allowedWindow?: DailyAllowedWindow | null;
+};
+
+type HistoryReviewRequestBody = {
+  channelId?: string;
+  eventId?: string;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -358,6 +365,65 @@ function sanitizeChannelAutomationEnabledRequest(value: unknown) {
       channelId: value.channelId,
       automationEnabled: value.automationEnabled,
     } satisfies ChannelOperationRequestBody,
+  };
+}
+
+function getDefaultHistoryReviewChannelId() {
+  return dashboardChannelPresets.find((preset) => preset.defaultTopic === "history")?.channelId ?? null;
+}
+
+function sanitizeHistoryReviewRequest(value: unknown, requireEventId = false) {
+  const fallbackChannelId = getDefaultHistoryReviewChannelId();
+
+  if (!isRecord(value)) {
+    if (!fallbackChannelId) {
+      return {
+        ok: false as const,
+        error: "No default history channel preset is configured.",
+      };
+    }
+
+    return {
+      ok: true as const,
+      value: {
+        channelId: fallbackChannelId,
+      } satisfies HistoryReviewRequestBody,
+    };
+  }
+
+  const channelId = typeof value.channelId === "string" && discordSnowflakePattern.test(value.channelId)
+    ? value.channelId
+    : fallbackChannelId;
+
+  if (!channelId) {
+    return {
+      ok: false as const,
+      error: "Invalid or missing history channel ID.",
+    };
+  }
+
+  if (requireEventId) {
+    if (typeof value.eventId !== "string" || value.eventId.trim().length === 0) {
+      return {
+        ok: false as const,
+        error: "A history event ID is required.",
+      };
+    }
+
+    return {
+      ok: true as const,
+      value: {
+        channelId,
+        eventId: value.eventId.trim(),
+      } satisfies HistoryReviewRequestBody,
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId,
+    } satisfies HistoryReviewRequestBody,
   };
 }
 
@@ -656,6 +722,27 @@ function buildDogResponse() {
   };
 }
 
+function buildHistoryReviewResponse(channelId?: string, options?: { reroll?: boolean }) {
+  const resolvedChannelId = channelId ?? getDefaultHistoryReviewChannelId();
+
+  if (!resolvedChannelId) {
+    return null;
+  }
+
+  if (options?.reroll) {
+    getHistoryPreviewEvent(resolvedChannelId, new Date(), { reroll: true });
+  }
+
+  const preset = dashboardChannelPresets.find((entry) => entry.channelId === resolvedChannelId);
+  const review = getHistoryReviewSnapshot(resolvedChannelId);
+
+  return {
+    ...review,
+    channelLabel: preset?.label ?? resolvedChannelId,
+    defaultTopic: preset?.defaultTopic ?? null,
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -688,6 +775,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
   const pushManualContent = dependencies?.pushManualContent;
   const triggerAutomatedContentNow = dependencies?.triggerAutomatedContentNow;
+  const pushHistoryPreview = dependencies?.pushHistoryPreview;
 
   const server = http.createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -781,6 +869,117 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         }
 
         sendJson(response, 200, buildDogResponse());
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/history-review") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const channelId = requestUrl.searchParams.get("channelId") ?? undefined;
+        const historyReview = buildHistoryReviewResponse(channelId ?? undefined);
+
+        if (!historyReview) {
+          sendJson(response, 404, {
+            error: "History review channel is not configured.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
+          historyReview,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/history-review/reroll") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeHistoryReviewRequest(nextBody, false);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const historyReview = buildHistoryReviewResponse(validation.value.channelId, {
+          reroll: true,
+        });
+
+        if (!historyReview) {
+          sendJson(response, 404, {
+            error: "History review channel is not configured.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
+          historyReview,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/history-review/push") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!pushHistoryPreview) {
+          sendUnsupportedRoute(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeHistoryReviewRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const event = getHistoryEventById(validation.value.eventId ?? "");
+
+        if (!event) {
+          sendJson(response, 404, {
+            error: "History event was not found for today's date key.",
+          });
+          return;
+        }
+
+        const result = await pushHistoryPreview({
+          channelId: validation.value.channelId ?? "",
+          eventId: event.id,
+        });
+
+        if (!result.ok) {
+          const statusCode =
+            result.code === "BOT_NOT_READY"
+              ? 503
+              : result.code === "CONTENT_UNAVAILABLE"
+                ? 404
+                : 400;
+          sendJson(response, statusCode, result);
+          return;
+        }
+
+        sendJson(response, 200, {
+          result,
+          automationMaster: buildAutomationMasterResponse(),
+          historyReview: buildHistoryReviewResponse(validation.value.channelId),
+        });
         return;
       }
 

@@ -162,6 +162,7 @@
                     Content Type
                     <select name="contentType">
                       <option value="fact">fact</option>
+                      <option value="history">history</option>
                       <option value="joke">joke</option>
                       <option value="prompt">prompt</option>
                       <option value="trivia">trivia</option>
@@ -238,47 +239,74 @@
         </section>
 
         <section class="control-tab-panel" data-tab-panel="push" hidden>
-          <div class="subpanel-header">
-            <div>
-              <h3>Manual Push</h3>
-              <p>Send provider-backed content into a Discord channel on demand.</p>
-            </div>
-          </div>
-          <form id="manual-push-form" class="settings-form">
-            <section class="form-group">
-              <h3>Push Content</h3>
-              <label>
-                Content Type
-                <select name="contentType">
-                  <option value="joke">joke</option>
-                  <option value="prompt">prompt</option>
-                  <option value="fact">fact</option>
-                  <option value="trivia">trivia</option>
-                </select>
-              </label>
-              <label>
-                Channel Preset
-                <select name="channelPreset">
-                  <option value="">Loading presets...</option>
-                </select>
-                <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
-              </label>
-              <label>
-                Topic Override
-                <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                <small>Leave blank to use the channel topic mapping.</small>
-              </label>
+          <div class="tab-stack">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>History Review</h3>
+                  <p>Preview, reroll, and manually push today’s history content without enabling automation.</p>
+                </div>
+                <div class="toolbar">
+                  <button id="refresh-history-review" type="button" class="secondary">Refresh</button>
+                  <button id="reroll-history-review" type="button" class="secondary">Reroll</button>
+                  <button id="push-history-preview" type="button">Push Preview</button>
+                </div>
+              </div>
+              <div id="history-review-card" class="history-review-card">
+                <p class="channel-operation-empty">Loading history review...</p>
+              </div>
+              <div id="history-review-status" class="history-review-status"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw history review payload</summary>
+                <pre id="history-review-output">Loading...</pre>
+              </details>
             </section>
 
-            <div class="settings-actions">
-              <button type="submit">Push Content</button>
-              <span id="manual-push-status"></span>
-            </div>
-          </form>
-          <details class="details-block control-debug-details">
-            <summary>Raw manual push payload</summary>
-            <pre id="manual-push-output">Waiting for request...</pre>
-          </details>
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Manual Push</h3>
+                  <p>Send provider-backed content into a Discord channel on demand.</p>
+                </div>
+              </div>
+              <form id="manual-push-form" class="settings-form">
+                <section class="form-group">
+                  <h3>Push Content</h3>
+                  <label>
+                    Content Type
+                    <select name="contentType">
+                      <option value="history">history</option>
+                      <option value="joke">joke</option>
+                      <option value="prompt">prompt</option>
+                      <option value="fact">fact</option>
+                      <option value="trivia">trivia</option>
+                    </select>
+                  </label>
+                  <label>
+                    Channel Preset
+                    <select name="channelPreset">
+                      <option value="">Loading presets...</option>
+                    </select>
+                    <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
+                  </label>
+                  <label>
+                    Topic Override
+                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                    <small>Leave blank to use the channel topic mapping.</small>
+                  </label>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Push Content</button>
+                  <span id="manual-push-status"></span>
+                </div>
+              </form>
+              <details class="details-block control-debug-details">
+                <summary>Raw manual push payload</summary>
+                <pre id="manual-push-output">Waiting for request...</pre>
+              </details>
+            </section>
+          </div>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="trivia" hidden>

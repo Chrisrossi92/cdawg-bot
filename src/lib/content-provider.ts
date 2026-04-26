@@ -1,10 +1,12 @@
 import type { Topic } from "../config/topics.js";
+import type { ThisDayInHistoryEvent } from "../content/history/this-day.js";
 import type { TriviaItem } from "../content/trivia/general.js";
 
-export type ContentType = "fact" | "joke" | "wyr" | "prompt" | "trivia";
+export type ContentType = "fact" | "history" | "joke" | "wyr" | "prompt" | "trivia";
 
 export type ContentItemMap = {
   fact: string;
+  history: ThisDayInHistoryEvent;
   joke: string;
   wyr: string;
   prompt: string;

@@ -11,11 +11,13 @@ import { data as leaderboard } from "./commands/leaderboard.js";
 import { data as metrics } from "./commands/metrics.js";
 import { data as profile } from "./commands/profile.js";
 import { data as prompt } from "./commands/prompt.js";
+import { data as rolePanel } from "./commands/role-panel.js";
 import { data as ranks } from "./commands/ranks.js";
 import { data as settings } from "./commands/settings.js";
 import { data as trivia } from "./commands/trivia.js";
 import { data as triviaLeaderboard } from "./commands/trivia-leaderboard.js";
 import { data as triviaStats } from "./commands/trivia-stats.js";
+import { data as windrose } from "./commands/windrose.js";
 import { data as xpCheck } from "./commands/xp-check.js";
 import { data as xpGrant } from "./commands/xp-grant.js";
 import { data as xpInfo } from "./commands/xp-info.js";
@@ -47,11 +49,13 @@ const commands = [
   metrics.toJSON(),
   profile.toJSON(),
   prompt.toJSON(),
+  rolePanel.toJSON(),
   ranks.toJSON(),
   settings.toJSON(),
   trivia.toJSON(),
   triviaLeaderboard.toJSON(),
   triviaStats.toJSON(),
+  windrose.toJSON(),
   xpCheck.toJSON(),
   xpGrant.toJSON(),
   xpInfo.toJSON(),

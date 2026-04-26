@@ -1,12 +1,14 @@
 import type { Client } from "discord.js";
-import { resolveTopic, getContentMessage } from "./content.js";
+import { markHistoryItemUsed, resolveTopic, getContentMessage } from "./content.js";
+import type { ThisDayInHistoryEvent } from "../content/history/this-day.js";
 import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import { formatThisDayInHistoryMessage } from "./history-content.js";
 import { postInteractiveTriviaSession, type TriviaSessionPresentation } from "./trivia-session.js";
 import { getEligibleTriviaItem, type TriviaIneligibilityCode } from "./trivia-topic-eligibility.js";
 
-export const manualPushContentTypes = ["joke", "prompt", "fact", "trivia"] as const;
+export const manualPushContentTypes = ["joke", "prompt", "fact", "history", "trivia"] as const;
 
 export type ManualPushContentType = (typeof manualPushContentTypes)[number];
 
@@ -206,6 +208,59 @@ export async function pushManualContentToChannel(
     channelId: request.channelId,
     contentType: request.contentType,
     resolvedTopic,
+    messageId: sentMessage.id,
+  };
+}
+
+export async function pushHistoryEventToChannel(
+  client: Client,
+  request: {
+    channelId: string;
+    event: ThisDayInHistoryEvent;
+    source?: "manual" | "feed" | "scheduler";
+  },
+): Promise<ManualContentPushResult> {
+  if (!client.isReady()) {
+    return {
+      ok: false,
+      code: "BOT_NOT_READY",
+      error: "Bot is not ready.",
+    };
+  }
+
+  const channel = await client.channels.fetch(request.channelId);
+
+  if (!channel) {
+    return {
+      ok: false,
+      code: "CHANNEL_NOT_FOUND",
+      error: "Discord channel was not found.",
+    };
+  }
+
+  if (!channel.isTextBased() || !("send" in channel)) {
+    return {
+      ok: false,
+      code: "CHANNEL_NOT_SENDABLE",
+      error: "Discord channel is not sendable.",
+    };
+  }
+
+  const sentMessage = await channel.send(formatThisDayInHistoryMessage(request.event));
+  markHistoryItemUsed(request.event, request.channelId);
+  logManualPush("success", {
+    contentType: "history",
+    channelId: request.channelId,
+    source: request.source ?? "manual",
+    resolvedTopic: "history",
+    messageId: sentMessage.id,
+  });
+
+  return {
+    ok: true,
+    channelId: request.channelId,
+    contentType: "history",
+    resolvedTopic: "history",
     messageId: sentMessage.id,
   };
 }

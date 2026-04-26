@@ -1,0 +1,18 @@
+{
+  "panels": [
+    {
+      "id": "windrose",
+      "title": "Windrose Access",
+      "body": "Join the Windrose community game by requesting access below. The bot will add the Windrose role so you can see the game channels.",
+      "buttonLabel": "Request Windrose Access",
+      "roleId": "",
+      "targetChannelId": null,
+      "successMessage": "Windrose access granted. You now have the Windrose role.",
+      "alreadyHasRoleMessage": "You already have Windrose access.",
+      "active": true,
+      "createdAt": 1777233333717,
+      "updatedAt": 1777233333717,
+      "lastPostedAt": null
+    }
+  ]
+}

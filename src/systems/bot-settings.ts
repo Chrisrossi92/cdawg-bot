@@ -85,7 +85,7 @@ function sanitizeContentTypes(value: unknown, fallback: readonly ContentType[]) 
     return [...fallback];
   }
 
-  const allowedContentTypes: readonly ContentType[] = ["fact", "joke", "wyr", "prompt", "trivia"];
+  const allowedContentTypes: readonly ContentType[] = ["fact", "history", "joke", "wyr", "prompt", "trivia"];
   const validEntries = value.filter(
     (entry): entry is ContentType => typeof entry === "string" && allowedContentTypes.includes(entry as ContentType),
   );

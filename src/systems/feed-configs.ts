@@ -58,7 +58,7 @@ function sanitizeString(value: unknown) {
 }
 
 function sanitizeContentType(value: unknown): ContentType | null {
-  const allowedContentTypes: readonly ContentType[] = ["fact", "joke", "wyr", "prompt", "trivia"];
+  const allowedContentTypes: readonly ContentType[] = ["fact", "history", "joke", "wyr", "prompt", "trivia"];
   return typeof value === "string" && allowedContentTypes.includes(value as ContentType) ? (value as ContentType) : null;
 }
 

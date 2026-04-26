@@ -24,9 +24,11 @@ import * as leaderboard from "./commands/leaderboard.js";
 import * as metrics from "./commands/metrics.js";
 import * as profile from "./commands/profile.js";
 import * as prompt from "./commands/prompt.js";
+import * as rolePanel from "./commands/role-panel.js";
 import * as trivia from "./commands/trivia.js";
 import * as triviaLeaderboard from "./commands/trivia-leaderboard.js";
 import * as triviaStats from "./commands/trivia-stats.js";
+import * as windrose from "./commands/windrose.js";
 import * as xpCheck from "./commands/xp-check.js";
 import * as xpGrant from "./commands/xp-grant.js";
 import * as xpInfo from "./commands/xp-info.js";
@@ -36,13 +38,15 @@ import * as wyr from "./commands/wyr.js";
 import { getRankMilestoneMessage } from "./lib/rank-milestones.js";
 import { startScheduler } from "./scheduler/scheduler.js";
 import { handleLevelShareInteraction } from "./systems/level-share.js";
+import { handleRoleAccessPanelInteraction } from "./systems/role-access-panels.js";
 import { addXp } from "./systems/xp.js";
 import { buildWelcomeMessage } from "./lib/welcome.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
 import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
 import { startApiServer } from "./api/server.js";
-import { pushManualContentToChannel, triggerAutomatedContentNow } from "./lib/manual-content-push.js";
+import { pushManualContentToChannel, pushHistoryEventToChannel, triggerAutomatedContentNow } from "./lib/manual-content-push.js";
+import { getHistoryEventById } from "./lib/history-content.js";
 
 dotenv.config();
 
@@ -95,11 +99,13 @@ const commands = new Collection<string, CommandModule>([
   [metrics.data.name, metrics],
   [profile.data.name, profile],
   [prompt.data.name, prompt],
+  [rolePanel.data.name, rolePanel],
   [ranks.data.name, ranks],
   [settings.data.name, settings],
   [trivia.data.name, trivia],
   [triviaLeaderboard.data.name, triviaLeaderboard],
   [triviaStats.data.name, triviaStats],
+  [windrose.data.name, windrose],
   [xpCheck.data.name, xpCheck],
   [xpGrant.data.name, xpGrant],
   [xpInfo.data.name, xpInfo],
@@ -120,6 +126,23 @@ client.once(Events.ClientReady, (readyClient) => {
         botTag: client.isReady() ? client.user.tag : null,
       }),
       pushManualContent: (request) => pushManualContentToChannel(client, request),
+      pushHistoryPreview: async (request) => {
+        const event = getHistoryEventById(request.eventId);
+
+        if (!event) {
+          return {
+            ok: false,
+            code: "CONTENT_UNAVAILABLE",
+            error: "History event was not found for today's date key.",
+          };
+        }
+
+        return pushHistoryEventToChannel(client, {
+          channelId: request.channelId,
+          event,
+          source: "manual",
+        });
+      },
       triggerAutomatedContentNow: (request) => triggerAutomatedContentNow(client, request),
     });
     console.log(
@@ -277,6 +300,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const handled = await handleLevelShareInteraction(interaction);
 
     if (handled) {
+      return;
+    }
+
+    const rolePanelHandled = await handleRoleAccessPanelInteraction(interaction);
+
+    if (rolePanelHandled) {
       return;
     }
   }

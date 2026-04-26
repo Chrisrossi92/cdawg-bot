@@ -11,7 +11,7 @@ export type Schedule = {
 export const schedules: Schedule[] = [
   {
     channelId: "1480394568917585990",
-    contentType: "fact",
+    contentType: "history",
     hour: 10,
     minute: 0,
   },

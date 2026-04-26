@@ -14,6 +14,7 @@ const manualPushOutput = document.querySelector("#manual-push-output");
 const channelOperationsOutput = document.querySelector("#channel-operations-output");
 const dogOutput = document.querySelector("#dog-output");
 const dailyTriviaOutput = document.querySelector("#daily-trivia-output");
+const historyReviewOutput = document.querySelector("#history-review-output");
 const feedsOutput = document.querySelector("#feeds-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
@@ -26,7 +27,9 @@ const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
 const dogSummary = document.querySelector("#dog-summary");
 const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
+const historyReviewStatus = document.querySelector("#history-review-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
+const historyReviewCard = document.querySelector("#history-review-card");
 const channelOperationsGrid = document.querySelector("#channel-operations-grid");
 const channelOperationsFilter = document.querySelector("#channel-operations-filter");
 const channelOperationsSort = document.querySelector("#channel-operations-sort");
@@ -46,6 +49,9 @@ const refreshSettingsButton = document.querySelector("#refresh-settings");
 const refreshMetricsButton = document.querySelector("#refresh-metrics");
 const refreshChannelOperationsButton = document.querySelector("#refresh-channel-operations");
 const refreshFeedsButton = document.querySelector("#refresh-feeds");
+const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
+const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
+const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
 const resetSettingsButton = document.querySelector("#reset-settings");
 const resetFeedFormButton = document.querySelector("#reset-feed-form");
 
@@ -61,6 +67,7 @@ let automationMaster = { globalAutomationEnabled: true, status: "on" };
 let dogState = null;
 let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
+let historyReview = null;
 let feeds = [];
 let activeControlTab = "overview";
 
@@ -104,6 +111,12 @@ function setFeedStatus(message, kind = "neutral") {
 function setDailyTriviaStatus(message, kind = "neutral") {
   dailyTriviaStatus.textContent = message;
   dailyTriviaStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setHistoryReviewStatus(message, kind = "neutral") {
+  historyReviewStatus.textContent = message;
+  historyReviewStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
@@ -774,6 +787,103 @@ function renderDailyTriviaChallenge() {
   applyDailyTriviaToForm(dailyTriviaChallenge);
 }
 
+function renderHistoryEventSection(titleText, event, isRecentlyUsed, emptyCopy) {
+  const section = document.createElement("section");
+  section.className = "history-review-event-block";
+
+  const title = document.createElement("h4");
+  title.textContent = titleText;
+  section.append(title);
+
+  if (!event) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = emptyCopy;
+    section.append(emptyState);
+    return section;
+  }
+
+  const badges = document.createElement("div");
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(`year ${event.year < 0 ? `${Math.abs(event.year)} bce` : event.year}`, "neutral"),
+    createStatusBadge(isRecentlyUsed ? "recently used" : "fresh", isRecentlyUsed ? "blocked" : "active"),
+  );
+
+  const eventTitle = document.createElement("p");
+  eventTitle.className = "history-review-title";
+  eventTitle.textContent = event.title;
+
+  const summary = document.createElement("p");
+  summary.className = "channel-operation-detail";
+  summary.textContent = event.summary;
+
+  const impact = document.createElement("p");
+  impact.className = "channel-operation-detail";
+  impact.textContent = `Why it matters: ${event.impact}`;
+
+  const link = document.createElement("a");
+  link.className = "history-review-link";
+  link.href = event.link;
+  link.target = "_blank";
+  link.rel = "noreferrer noopener";
+  link.textContent = "Open source link";
+
+  section.append(badges, eventTitle, summary, impact, link);
+  return section;
+}
+
+function renderHistoryReview() {
+  historyReviewCard.replaceChildren();
+
+  if (!historyReview) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "History review is unavailable.";
+    historyReviewCard.append(emptyState);
+    return;
+  }
+
+  const card = document.createElement("section");
+  const header = document.createElement("div");
+  const title = document.createElement("h3");
+  const meta = document.createElement("p");
+  const badges = document.createElement("div");
+
+  card.className = "channel-operation-card compact";
+  header.className = "channel-operation-main";
+  title.textContent = `${historyReview.channelLabel} • This Day in History`;
+  meta.className = "channel-operation-meta";
+  meta.textContent = `Date key ${historyReview.dateKey} • ${historyReview.dateLabel} • Pool size ${historyReview.totalEventsForDate} • Channel ${historyReview.channelId}`;
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(`date ${historyReview.dateKey}`, "neutral"),
+    createStatusBadge(`pool ${historyReview.totalEventsForDate}`, "neutral"),
+    createStatusBadge(
+      historyReview.previewEventRecentlyUsed ? "preview is recent" : "preview is fresh",
+      historyReview.previewEventRecentlyUsed ? "blocked" : "active",
+    ),
+  );
+
+  header.append(title, badges, meta);
+  card.append(
+    header,
+    renderHistoryEventSection(
+      "Previewed Event",
+      historyReview.previewEvent,
+      historyReview.previewEventRecentlyUsed,
+      "No history event is available for today.",
+    ),
+    renderHistoryEventSection(
+      "Last Posted",
+      historyReview.lastPostedEvent,
+      historyReview.lastPostedEventRecentlyUsed,
+      "No history event has been posted in this runtime yet.",
+    ),
+  );
+  historyReviewCard.append(card);
+}
+
 function renderDogSummary() {
   dogSummary.replaceChildren();
 
@@ -969,6 +1079,22 @@ async function loadDailyTriviaChallenge() {
   }
 }
 
+async function loadHistoryReview() {
+  try {
+    const data = await fetchJson("/api/history-review");
+    applyAutomationMasterState(data.automationMaster);
+    historyReview = data.historyReview ?? null;
+    renderAutomationMaster();
+    renderHistoryReview();
+    setPrettyJson(historyReviewOutput, data);
+  } catch (error) {
+    historyReview = null;
+    renderHistoryReview();
+    historyReviewOutput.textContent = `Failed to load history review.\n${error.message}`;
+    setHistoryReviewStatus(`History review load failed: ${error.message}`, "error");
+  }
+}
+
 async function loadDogState() {
   try {
     const data = await fetchJson("/api/dog");
@@ -996,6 +1122,62 @@ async function loadChannelOperations() {
     channelAutomationStatuses = [];
     renderChannelOperations();
     channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
+  }
+}
+
+async function rerollHistoryReview() {
+  setHistoryReviewStatus("Rerolling...");
+
+  try {
+    const data = await fetchJson("/api/history-review/reroll", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channelId: historyReview?.channelId ?? channelPresets.find((preset) => preset.defaultTopic === "history")?.channelId ?? "",
+      }),
+    });
+
+    applyAutomationMasterState(data.automationMaster);
+    historyReview = data.historyReview ?? null;
+    renderAutomationMaster();
+    renderHistoryReview();
+    setPrettyJson(historyReviewOutput, data);
+    setHistoryReviewStatus("Preview rerolled.", "success");
+  } catch (error) {
+    setHistoryReviewStatus(`Reroll failed: ${error.message}`, "error");
+  }
+}
+
+async function pushHistoryReviewPreview() {
+  if (!historyReview?.previewEvent) {
+    setHistoryReviewStatus("No previewed history event is available to push.", "error");
+    return;
+  }
+
+  setHistoryReviewStatus("Pushing preview...");
+
+  try {
+    const data = await fetchJson("/api/history-review/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channelId: historyReview.channelId,
+        eventId: historyReview.previewEvent.id,
+      }),
+    });
+
+    applyAutomationMasterState(data.automationMaster);
+    historyReview = data.historyReview ?? null;
+    renderAutomationMaster();
+    renderHistoryReview();
+    setPrettyJson(historyReviewOutput, data);
+    setHistoryReviewStatus("History preview pushed.", "success");
+  } catch (error) {
+    setHistoryReviewStatus(`Push failed: ${error.message}`, "error");
   }
 }
 
@@ -1301,6 +1483,7 @@ async function reloadAll() {
     loadMetrics(),
     loadChannelOperations(),
     loadChannelPresets(),
+    loadHistoryReview(),
     loadDogState(),
     loadDailyTriviaChallenge(),
     loadFeeds(),
@@ -1347,6 +1530,9 @@ refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
 refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
 refreshFeedsButton.addEventListener("click", loadFeeds);
+refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
+rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
+pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
 channelOperationsFilter.addEventListener("change", renderChannelOperations);
 channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
