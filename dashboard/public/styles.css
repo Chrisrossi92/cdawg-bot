@@ -123,6 +123,7 @@ label {
 
 input,
 select,
+textarea,
 button {
   font: inherit;
   transition:
@@ -134,7 +135,8 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
@@ -144,10 +146,17 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: rgba(21, 101, 216, 0.45);
   box-shadow: 0 0 0 4px rgba(21, 101, 216, 0.12);
+}
+
+textarea {
+  min-height: 92px;
+  line-height: 1.4;
+  resize: vertical;
 }
 
 button {
@@ -263,6 +272,8 @@ small {
 #manual-push-status,
 #daily-trivia-status,
 #feed-status,
+#role-access-panel-status,
+#role-followup-status,
 #history-review-status {
   font-size: 14px;
   color: var(--muted);
@@ -287,9 +298,143 @@ small {
 }
 
 .history-review-card,
-.history-review-event-block {
+.history-review-event-block,
+.discord-panel-preview {
   display: grid;
   gap: 12px;
+}
+
+.discord-panel-preview {
+  align-content: start;
+  padding: 18px;
+  border-radius: 12px;
+  border: 1px solid rgba(17, 32, 51, 0.12);
+  background: #f2f4f7;
+  min-height: 280px;
+}
+
+.discord-panel-preview-embed {
+  display: grid;
+  gap: 12px;
+  padding: 18px 20px;
+  border-left: 4px solid var(--success);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.discord-panel-preview-header {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.discord-panel-preview-embed h4 {
+  margin: 0;
+  font-size: 20px;
+  line-height: 1.25;
+}
+
+.discord-panel-preview-embed p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.discord-panel-preview button {
+  justify-self: start;
+  padding: 11px 16px;
+  box-shadow: none;
+}
+
+.discord-panel-preview-context {
+  display: grid;
+  gap: 5px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(17, 32, 51, 0.08);
+}
+
+.discord-panel-preview-context p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.role-followup-preview-flow {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(17, 32, 51, 0.05);
+}
+
+.role-followup-preview-flow p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.message-builder {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  background: rgba(17, 32, 51, 0.04);
+  border: 1px solid rgba(17, 32, 51, 0.08);
+}
+
+.message-builder-header {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.message-builder p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.message-builder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pill-button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.pill-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+  transform: none;
+}
+
+.role-access-advanced {
+  align-content: start;
+}
+
+.role-access-advanced summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.role-access-advanced[open] {
+  gap: 12px;
+}
+
+.role-access-empty-callout {
+  border-color: rgba(21, 101, 216, 0.18);
+  background: linear-gradient(180deg, #ffffff 0%, #f3f8ff 100%);
 }
 
 .history-review-event-block {
@@ -447,6 +592,16 @@ small {
   border: 1px solid rgba(180, 35, 24, 0.22);
   background: rgba(180, 35, 24, 0.08);
   color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.metadata-warning {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(154, 103, 0, 0.22);
+  background: rgba(154, 103, 0, 0.08);
+  color: var(--warning);
   font-size: 13px;
   font-weight: 700;
 }

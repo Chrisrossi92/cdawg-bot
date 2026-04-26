@@ -6,6 +6,7 @@ const automationMasterBadge = document.querySelector("#automation-master-badge")
 const automationMasterButton = document.querySelector("#automation-master-button");
 const automationMasterDetail = document.querySelector("#automation-master-detail");
 const automationMasterBanner = document.querySelector("#automation-master-banner");
+const discordMetadataWarning = document.querySelector("#discord-metadata-warning");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -16,6 +17,8 @@ const dogOutput = document.querySelector("#dog-output");
 const dailyTriviaOutput = document.querySelector("#daily-trivia-output");
 const historyReviewOutput = document.querySelector("#history-review-output");
 const feedsOutput = document.querySelector("#feeds-output");
+const roleAccessPanelsOutput = document.querySelector("#role-access-panels-output");
+const roleFollowupsOutput = document.querySelector("#role-followups-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
@@ -27,6 +30,10 @@ const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
 const dogSummary = document.querySelector("#dog-summary");
 const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
+const roleAccessPanelForm = document.querySelector("#role-access-panel-form");
+const roleAccessPanelStatus = document.querySelector("#role-access-panel-status");
+const roleFollowupForm = document.querySelector("#role-followup-form");
+const roleFollowupStatus = document.querySelector("#role-followup-status");
 const historyReviewStatus = document.querySelector("#history-review-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
 const historyReviewCard = document.querySelector("#history-review-card");
@@ -34,6 +41,12 @@ const channelOperationsGrid = document.querySelector("#channel-operations-grid")
 const channelOperationsFilter = document.querySelector("#channel-operations-filter");
 const channelOperationsSort = document.querySelector("#channel-operations-sort");
 const feedsList = document.querySelector("#feeds-list");
+const roleAccessPanelsList = document.querySelector("#role-access-panels-list");
+const roleAccessPreview = document.querySelector("#role-access-preview");
+const roleFollowupsList = document.querySelector("#role-followups-list");
+const roleFollowupPreview = document.querySelector("#role-followup-preview");
+const followupInsertChannelButton = document.querySelector("[data-followup-insert-channel]");
+const followupInsertRoleButton = document.querySelector("[data-followup-insert-role]");
 const controlTabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
 const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 
@@ -49,11 +62,17 @@ const refreshSettingsButton = document.querySelector("#refresh-settings");
 const refreshMetricsButton = document.querySelector("#refresh-metrics");
 const refreshChannelOperationsButton = document.querySelector("#refresh-channel-operations");
 const refreshFeedsButton = document.querySelector("#refresh-feeds");
+const refreshRoleAccessPanelsButton = document.querySelector("#refresh-role-access-panels");
+const refreshRoleFollowupsButton = document.querySelector("#refresh-role-followups");
 const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
 const resetSettingsButton = document.querySelector("#reset-settings");
 const resetFeedFormButton = document.querySelector("#reset-feed-form");
+const resetRoleAccessPanelFormButton = document.querySelector("#reset-role-access-panel-form");
+const postRoleAccessPanelFormButton = document.querySelector("#post-role-access-panel-form");
+const resetRoleFollowupFormButton = document.querySelector("#reset-role-followup-form");
+const deleteRoleFollowupFormButton = document.querySelector("#delete-role-followup-form");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
@@ -62,6 +81,8 @@ const autoRefreshIntervalMs = 15000;
 let lastSettingsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
+let guildRoles = [];
+let guildChannels = [];
 let channelAutomationStatuses = [];
 let automationMaster = { globalAutomationEnabled: true, status: "on" };
 let dogState = null;
@@ -69,6 +90,8 @@ let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
 let historyReview = null;
 let feeds = [];
+let roleAccessPanels = [];
+let roleFollowups = [];
 let activeControlTab = "overview";
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
@@ -105,6 +128,18 @@ function setManualPushStatus(message, kind = "neutral") {
 function setFeedStatus(message, kind = "neutral") {
   feedStatus.textContent = message;
   feedStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setRoleAccessPanelStatus(message, kind = "neutral") {
+  roleAccessPanelStatus.textContent = message;
+  roleAccessPanelStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setRoleFollowupStatus(message, kind = "neutral") {
+  roleFollowupStatus.textContent = message;
+  roleFollowupStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
@@ -169,6 +204,131 @@ function renderPresetOptions(targetSelect, previousValue) {
 
   const hasPreviousValue = channelPresets.some((preset) => preset.channelId === previousValue);
   targetSelect.value = hasPreviousValue ? previousValue : channelPresets[0]?.channelId ?? "";
+}
+
+function getRoleLabel(roleId) {
+  const role = guildRoles.find((entry) => entry.id === roleId);
+  return role ? role.name : roleId || "not set";
+}
+
+function getChannelLabel(channelId) {
+  const channel = guildChannels.find((entry) => entry.id === channelId);
+  return channel ? `#${channel.name}` : channelId || "not set";
+}
+
+function getDetailedRoleLabel(roleId) {
+  const role = guildRoles.find((entry) => entry.id === roleId);
+  return role ? `${role.name} (${role.id})` : roleId || "not set";
+}
+
+function getDetailedChannelLabel(channelId, emptyLabel = "choose when posting") {
+  if (!channelId) {
+    return emptyLabel;
+  }
+
+  const channel = guildChannels.find((entry) => entry.id === channelId);
+  return channel ? `#${channel.name} (${channel.id})` : channelId;
+}
+
+function renderDiscordMetadataOptions() {
+  for (const select of document.querySelectorAll("[data-discord-role-select]")) {
+    const previousValue = select.value;
+    select.replaceChildren();
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = guildRoles.length > 0 ? "Select role..." : "Paste role ID below";
+    select.append(placeholder);
+
+    for (const role of guildRoles) {
+      const option = document.createElement("option");
+      option.value = role.id;
+      option.textContent = role.name;
+      select.append(option);
+    }
+
+    select.value = guildRoles.some((role) => role.id === previousValue) ? previousValue : "";
+  }
+
+  for (const select of document.querySelectorAll("[data-discord-channel-select]")) {
+    const previousValue = select.value;
+    select.replaceChildren();
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = guildChannels.length > 0 ? "Select channel..." : "Paste channel ID below";
+    select.append(placeholder);
+
+    for (const channel of guildChannels) {
+      const option = document.createElement("option");
+      option.value = channel.id;
+      option.textContent = `#${channel.name}`;
+      select.append(option);
+    }
+
+    select.value = guildChannels.some((channel) => channel.id === previousValue) ? previousValue : "";
+  }
+
+  syncDiscordMetadataSelections();
+}
+
+function syncDiscordMetadataSelections() {
+  for (const select of document.querySelectorAll("[data-discord-role-select], [data-discord-channel-select]")) {
+    const targetInput = getDiscordMetadataTargetInput(select);
+    const currentValue = targetInput?.value?.trim() ?? "";
+
+    if ([...select.options].some((option) => option.value === currentValue)) {
+      select.value = currentValue;
+    } else {
+      select.value = "";
+    }
+  }
+}
+
+function getDiscordMetadataTargetInput(select) {
+  const targetInputName = select.dataset.targetInput;
+
+  if (!targetInputName || !select.form) {
+    return null;
+  }
+
+  const targetInput = select.form.querySelector(`[name="${targetInputName}"]`);
+  return targetInput instanceof HTMLInputElement ? targetInput : null;
+}
+
+function updateDiscordMetadataSelection(select) {
+  const targetInput = getDiscordMetadataTargetInput(select);
+
+  console.debug("[discord-metadata] select changed", {
+    selectName: select.name,
+    selectedValue: select.value,
+    targetInputName: select.dataset.targetInput,
+    targetInputFound: Boolean(targetInput),
+    formId: select.form?.id ?? null,
+  });
+
+  if (!targetInput) {
+    return;
+  }
+
+  targetInput.value = select.value;
+  console.debug("[discord-metadata] raw input updated", {
+    inputName: targetInput.name,
+    inputValue: targetInput.value,
+  });
+
+  if (select.form === roleAccessPanelForm) {
+    syncDiscordMetadataSelections();
+    renderRoleAccessPreview();
+    console.debug("[discord-metadata] access preview rendered");
+    return;
+  }
+
+  if (select.form === roleFollowupForm) {
+    syncDiscordMetadataSelections();
+    renderRoleFollowupPreview();
+    console.debug("[discord-metadata] follow-up preview rendered");
+  }
 }
 
 function renderChannelPresetOptions() {
@@ -732,6 +892,367 @@ function renderFeeds() {
   }
 }
 
+function getRoleAccessPanelFormValue() {
+  const title = roleAccessPanelForm.elements.title.value.trim();
+  const id = roleAccessPanelForm.elements.id.value.trim() || slugifyPanelId(title);
+
+  return {
+    id,
+    active: roleAccessPanelForm.elements.active.value === "true",
+    title,
+    body: roleAccessPanelForm.elements.body.value.trim(),
+    buttonLabel: roleAccessPanelForm.elements.buttonLabel.value.trim(),
+    roleId: roleAccessPanelForm.elements.roleId.value.trim(),
+    targetChannelId: roleAccessPanelForm.elements.targetChannelId.value.trim() || null,
+    successMessage: roleAccessPanelForm.elements.successMessage.value.trim() || null,
+    alreadyHasRoleMessage: roleAccessPanelForm.elements.alreadyHasRoleMessage.value.trim() || null,
+  };
+}
+
+function slugifyPanelId(value) {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 64);
+
+  return slug || "new-access";
+}
+
+function validateRoleAccessPanelPayload(payload) {
+  const requiredFields = ["id", "title", "body", "buttonLabel", "roleId"];
+  const missingField = requiredFields.find((field) => !payload[field]);
+
+  if (missingField) {
+    const fieldLabels = {
+      id: "internal ID",
+      title: "name",
+      body: "message",
+      buttonLabel: "button label",
+      roleId: "role to assign",
+    };
+    return `Missing required field: ${fieldLabels[missingField] ?? missingField}.`;
+  }
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(payload.id)) {
+    return "Panel ID must use lowercase letters, numbers, dashes, or underscores.";
+  }
+
+  return null;
+}
+
+function renderRoleAccessPreview() {
+  const panel = getRoleAccessPanelFormValue();
+  const title = panel.title || "Access message name";
+  const body = panel.body || "Your Discord message will appear here.";
+  const buttonLabel = panel.buttonLabel || "Request Access";
+
+  roleAccessPreview.replaceChildren();
+
+  const previewHeader = document.createElement("div");
+  const embed = document.createElement("div");
+  const embedTitle = document.createElement("h4");
+  const embedBody = document.createElement("p");
+  const previewButton = document.createElement("button");
+  const context = document.createElement("div");
+  const roleContext = document.createElement("p");
+  const channelContext = document.createElement("p");
+  const statusContext = document.createElement("p");
+
+  previewHeader.className = "discord-panel-preview-header";
+  previewHeader.textContent = "Discord preview";
+  embed.className = "discord-panel-preview-embed";
+  embedTitle.textContent = title;
+  embedBody.textContent = body;
+  previewButton.type = "button";
+  previewButton.disabled = true;
+  previewButton.textContent = buttonLabel;
+  context.className = "discord-panel-preview-context";
+  roleContext.textContent = `Role to assign: ${getDetailedRoleLabel(panel.roleId)}`;
+  channelContext.textContent = `Post to channel: ${getDetailedChannelLabel(panel.targetChannelId)}`;
+  statusContext.textContent = `Status: ${panel.active ? "active" : "inactive"}`;
+  context.append(roleContext, channelContext, statusContext);
+
+  embed.append(embedTitle, embedBody);
+  roleAccessPreview.append(previewHeader, embed, previewButton, context);
+}
+
+function resetRoleAccessPanelForm() {
+  roleAccessPanelForm.reset();
+  roleAccessPanelForm.elements.title.value = "New Access";
+  roleAccessPanelForm.elements.body.value = "Click the button below to get access.";
+  roleAccessPanelForm.elements.buttonLabel.value = "Request Access";
+  roleAccessPanelForm.elements.id.value = "";
+  roleAccessPanelForm.elements.active.value = "true";
+  setRoleAccessPanelStatus("New message ready.");
+  syncDiscordMetadataSelections();
+  renderRoleAccessPreview();
+}
+
+function populateRoleAccessPanelForm(panel) {
+  roleAccessPanelForm.elements.id.value = panel.id;
+  roleAccessPanelForm.elements.active.value = String(panel.active !== false);
+  roleAccessPanelForm.elements.title.value = panel.title;
+  roleAccessPanelForm.elements.body.value = panel.body;
+  roleAccessPanelForm.elements.buttonLabel.value = panel.buttonLabel;
+  roleAccessPanelForm.elements.roleId.value = panel.roleId;
+  roleAccessPanelForm.elements.targetChannelId.value = panel.targetChannelId ?? "";
+  roleAccessPanelForm.elements.successMessage.value = panel.successMessage ?? "";
+  roleAccessPanelForm.elements.alreadyHasRoleMessage.value = panel.alreadyHasRoleMessage ?? "";
+  setRoleAccessPanelStatus(`Editing ${panel.title}.`);
+  syncDiscordMetadataSelections();
+  renderRoleAccessPreview();
+}
+
+function renderRoleAccessPanels() {
+  roleAccessPanelsList.replaceChildren();
+
+  if (roleAccessPanels.length === 0) {
+    const emptyState = document.createElement("section");
+    const emptyTitle = document.createElement("h3");
+    const emptyCopy = document.createElement("p");
+
+    emptyState.className = "channel-operation-card role-access-empty-callout";
+    emptyTitle.textContent = "Start with the access";
+    emptyCopy.className = "channel-operation-detail";
+    emptyCopy.textContent = "Start by naming what this message gives access to (e.g. Windrose, Valheim, etc.)";
+    emptyState.append(emptyTitle, emptyCopy);
+    roleAccessPanelsList.append(emptyState);
+    return;
+  }
+
+  for (const panel of roleAccessPanels) {
+    const row = document.createElement("section");
+    const main = document.createElement("div");
+    const title = document.createElement("h3");
+    const badges = document.createElement("div");
+    const roleDetail = document.createElement("p");
+    const channelDetail = document.createElement("p");
+    const postedDetail = document.createElement("p");
+    const actions = document.createElement("div");
+
+    row.className = "channel-operation-card compact role-access-panel-card";
+    main.className = "channel-operation-main";
+    title.textContent = panel.title;
+    badges.className = "channel-operation-badges";
+    badges.append(
+      createStatusBadge(panel.active ? "active" : "inactive", panel.active ? "active" : "neutral"),
+    );
+    roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
+    roleDetail.textContent = `Role: ${getRoleLabel(panel.roleId)}`;
+    channelDetail.className = "channel-operation-detail";
+    channelDetail.textContent = `Channel: ${getChannelLabel(panel.targetChannelId) || "choose when posting"}`;
+    postedDetail.className = "channel-operation-detail";
+    postedDetail.textContent = `Last posted: ${formatTimestamp(panel.lastPostedAt)} (${formatRelativeTime(panel.lastPostedAt)})`;
+    actions.className = "channel-operation-actions";
+    actions.append(
+      createChannelActionButton("Edit", () => populateRoleAccessPanelForm(panel)),
+      createChannelActionButton("Post to Discord", () => void postRoleAccessPanel(panel.id)),
+      createChannelActionButton("Delete", () => void deleteRoleAccessPanel(panel.id)),
+    );
+
+    main.append(title, badges, roleDetail, channelDetail, postedDetail);
+    row.append(main, actions);
+    roleAccessPanelsList.append(row);
+  }
+}
+
+function getRoleFollowupFormValue() {
+  const roleId = roleFollowupForm.elements.roleId.value.trim();
+  const id = roleFollowupForm.elements.id.value.trim() || slugifyPanelId(`followup-${roleId}`);
+
+  return {
+    id,
+    roleId,
+    channelId: roleFollowupForm.elements.channelId.value.trim(),
+    message: roleFollowupForm.elements.message.value.trim(),
+    enabled: roleFollowupForm.elements.enabled.value === "true",
+  };
+}
+
+function validateRoleFollowupPayload(payload) {
+  if (!payload.roleId) {
+    return "Role ID is required.";
+  }
+
+  if (!payload.channelId) {
+    return "Channel ID is required.";
+  }
+
+  if (!payload.message) {
+    return "Message is required.";
+  }
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(payload.id)) {
+    return "Internal ID must use lowercase letters, numbers, dashes, or underscores.";
+  }
+
+  return null;
+}
+
+function renderRoleFollowupPreview() {
+  const followup = getRoleFollowupFormValue();
+
+  roleFollowupPreview.replaceChildren();
+
+  const header = document.createElement("div");
+  const flow = document.createElement("div");
+  const trigger = document.createElement("p");
+  const action = document.createElement("p");
+  const message = document.createElement("div");
+  const messageText = document.createElement("p");
+  const context = document.createElement("div");
+  const status = document.createElement("p");
+
+  header.className = "discord-panel-preview-header";
+  header.textContent = "Follow-up preview";
+  flow.className = "role-followup-preview-flow";
+  trigger.textContent = `User gets role: ${getDetailedRoleLabel(followup.roleId)}`;
+  action.textContent = `Cdawg posts in channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
+  message.className = "discord-panel-preview-embed";
+  messageText.textContent = followup.message
+    ? formatFollowupPreviewMessage(followup.message, followup)
+    : "Your follow-up message will appear here.";
+  context.className = "discord-panel-preview-context";
+  status.textContent = `Status: ${followup.enabled ? "on" : "off"}`;
+
+  flow.append(trigger, action);
+  message.append(messageText);
+  context.append(status);
+  roleFollowupPreview.append(header, flow, message, context);
+  updateFollowupQuickInsertState();
+}
+
+function formatFollowupPreviewMessage(value, followup = getRoleFollowupFormValue()) {
+  return value
+    .replace(/\{user\}|<@\{userId\}>/g, "@user")
+    .replace(/\{username\}/g, "username")
+    .replace(/\{role\}/g, followup.roleId ? `@${getRoleLabel(followup.roleId)}` : "@selected-role")
+    .replace(/\{channel\}/g, followup.channelId ? getChannelLabel(followup.channelId) : "#selected-channel")
+    .replace(/<#(\d{17,20})>/g, (_match, channelId) => getChannelLabel(channelId))
+    .replace(/<@&(\d{17,20})>/g, (_match, roleId) => `@${getRoleLabel(roleId)}`);
+}
+
+function updateFollowupQuickInsertState() {
+  const followup = getRoleFollowupFormValue();
+
+  if (followupInsertChannelButton) {
+    followupInsertChannelButton.disabled = !followup.channelId;
+  }
+
+  if (followupInsertRoleButton) {
+    followupInsertRoleButton.disabled = !followup.roleId;
+  }
+}
+
+function insertIntoFollowupMessage(text) {
+  const textarea = roleFollowupForm.elements.message;
+  const currentValue = textarea.value;
+  const selectionStart = typeof textarea.selectionStart === "number" ? textarea.selectionStart : currentValue.length;
+  const selectionEnd = typeof textarea.selectionEnd === "number" ? textarea.selectionEnd : currentValue.length;
+  const nextValue = `${currentValue.slice(0, selectionStart)}${text}${currentValue.slice(selectionEnd)}`;
+  const nextCursor = selectionStart + text.length;
+
+  textarea.value = nextValue;
+  textarea.focus();
+  textarea.setSelectionRange(nextCursor, nextCursor);
+  renderRoleFollowupPreview();
+}
+
+function handleFollowupQuickInsert(button) {
+  const followup = getRoleFollowupFormValue();
+
+  if (button.dataset.followupInsertChannel !== undefined) {
+    if (!followup.channelId) {
+      return;
+    }
+
+    insertIntoFollowupMessage(`<#${followup.channelId}>`);
+    return;
+  }
+
+  if (button.dataset.followupInsertRole !== undefined) {
+    if (!followup.roleId) {
+      return;
+    }
+
+    insertIntoFollowupMessage(`<@&${followup.roleId}>`);
+    return;
+  }
+
+  insertIntoFollowupMessage(button.dataset.followupInsert ?? "");
+}
+
+function resetRoleFollowupForm() {
+  roleFollowupForm.reset();
+  roleFollowupForm.elements.enabled.value = "true";
+  setRoleFollowupStatus("New follow-up ready.");
+  syncDiscordMetadataSelections();
+  renderRoleFollowupPreview();
+}
+
+function populateRoleFollowupForm(followup) {
+  roleFollowupForm.elements.id.value = followup.id;
+  roleFollowupForm.elements.roleId.value = followup.roleId;
+  roleFollowupForm.elements.channelId.value = followup.channelId;
+  roleFollowupForm.elements.message.value = followup.message;
+  roleFollowupForm.elements.enabled.value = String(followup.enabled !== false);
+  setRoleFollowupStatus(`Editing follow-up for role ${followup.roleId}.`);
+  syncDiscordMetadataSelections();
+  renderRoleFollowupPreview();
+}
+
+function renderRoleFollowups() {
+  roleFollowupsList.replaceChildren();
+
+  if (roleFollowups.length === 0) {
+    const emptyState = document.createElement("section");
+    const emptyTitle = document.createElement("h3");
+    const emptyCopy = document.createElement("p");
+
+    emptyState.className = "channel-operation-card role-access-empty-callout";
+    emptyTitle.textContent = "Create a role follow-up";
+    emptyCopy.className = "channel-operation-detail";
+    emptyCopy.textContent = "Start by choosing the Discord role that should trigger an automatic message.";
+    emptyState.append(emptyTitle, emptyCopy);
+    roleFollowupsList.append(emptyState);
+    return;
+  }
+
+  for (const followup of roleFollowups) {
+    const row = document.createElement("section");
+    const main = document.createElement("div");
+    const title = document.createElement("h3");
+    const badges = document.createElement("div");
+    const roleDetail = document.createElement("p");
+    const channelDetail = document.createElement("p");
+    const messagePreview = document.createElement("p");
+    const actions = document.createElement("div");
+
+    row.className = "channel-operation-card compact role-followup-card";
+    main.className = "channel-operation-main";
+    title.textContent = getRoleLabel(followup.roleId);
+    badges.className = "channel-operation-badges";
+    badges.append(createStatusBadge(followup.enabled ? "enabled" : "inactive", followup.enabled ? "active" : "neutral"));
+    roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
+    roleDetail.textContent = `Role: ${getDetailedRoleLabel(followup.roleId)}`;
+    channelDetail.className = "channel-operation-detail";
+    channelDetail.textContent = `Channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
+    messagePreview.className = "channel-operation-detail";
+    messagePreview.textContent = followup.message.length > 140 ? `${followup.message.slice(0, 140)}...` : followup.message;
+    actions.className = "channel-operation-actions";
+    actions.append(
+      createChannelActionButton("Edit", () => populateRoleFollowupForm(followup)),
+      createChannelActionButton("Delete", () => void deleteRoleFollowup(followup.id)),
+    );
+
+    main.append(title, badges, roleDetail, channelDetail, messagePreview);
+    row.append(main, actions);
+    roleFollowupsList.append(row);
+  }
+}
+
 function renderDailyTriviaChallenge() {
   dailyTriviaSummary.replaceChildren();
 
@@ -1048,6 +1569,25 @@ async function loadChannelPresets() {
   }
 }
 
+async function loadGuildMetadata() {
+  try {
+    const data = await fetchJson("/api/discord/guild-metadata");
+    guildRoles = Array.isArray(data.roles) ? data.roles : [];
+    guildChannels = Array.isArray(data.channels) ? data.channels : [];
+    discordMetadataWarning.hidden = true;
+    renderDiscordMetadataOptions();
+    renderRoleAccessPreview();
+    renderRoleAccessPanels();
+    renderRoleFollowupPreview();
+    renderRoleFollowups();
+  } catch (error) {
+    guildRoles = [];
+    guildChannels = [];
+    discordMetadataWarning.hidden = false;
+    renderDiscordMetadataOptions();
+  }
+}
+
 async function loadFeeds() {
   try {
     const data = await fetchJson("/api/feeds");
@@ -1060,6 +1600,34 @@ async function loadFeeds() {
     feeds = [];
     renderFeeds();
     feedsOutput.textContent = `Failed to load feeds.\n${error.message}`;
+  }
+}
+
+async function loadRoleAccessPanels() {
+  try {
+    const data = await fetchJson("/api/role-access-panels");
+    roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
+    renderRoleAccessPanels();
+    setPrettyJson(roleAccessPanelsOutput, data);
+  } catch (error) {
+    roleAccessPanels = [];
+    renderRoleAccessPanels();
+    roleAccessPanelsOutput.textContent = `Failed to load role access panels.\n${error.message}`;
+    setRoleAccessPanelStatus(`Role access load failed: ${error.message}`, "error");
+  }
+}
+
+async function loadRoleFollowups() {
+  try {
+    const data = await fetchJson("/api/role-followups");
+    roleFollowups = Array.isArray(data.roleFollowups) ? data.roleFollowups : [];
+    renderRoleFollowups();
+    setPrettyJson(roleFollowupsOutput, data);
+  } catch (error) {
+    roleFollowups = [];
+    renderRoleFollowups();
+    roleFollowupsOutput.textContent = `Failed to load role follow-ups.\n${error.message}`;
+    setRoleFollowupStatus(`Follow-up load failed: ${error.message}`, "error");
   }
 }
 
@@ -1339,6 +1907,180 @@ async function saveFeed(event) {
   }
 }
 
+async function saveRoleAccessPanel(event) {
+  event.preventDefault();
+
+  const payload = getRoleAccessPanelFormValue();
+  const validationError = validateRoleAccessPanelPayload(payload);
+
+  if (validationError) {
+    setRoleAccessPanelStatus(validationError, "error");
+    return;
+  }
+
+  setRoleAccessPanelStatus("Saving...");
+
+  try {
+    const data = await fetchJson("/api/role-access-panels/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
+    renderRoleAccessPanels();
+    populateRoleAccessPanelForm(data.panel);
+    setPrettyJson(roleAccessPanelsOutput, data);
+    setRoleAccessPanelStatus("Draft saved.", "success");
+  } catch (error) {
+    setRoleAccessPanelStatus(`Save failed: ${error.message}`, "error");
+  }
+}
+
+async function postRoleAccessPanel(panelId) {
+  const panel = roleAccessPanels.find((entry) => entry.id === panelId);
+  const formPanel = getRoleAccessPanelFormValue();
+  const channelId = formPanel.id === panelId ? formPanel.targetChannelId : panel?.targetChannelId ?? null;
+
+  setRoleAccessPanelStatus(`Posting ${panelId}...`);
+
+  try {
+    const data = await fetchJson("/api/role-access-panels/post", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: panelId,
+        channelId,
+      }),
+    });
+
+    roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
+    renderRoleAccessPanels();
+    setPrettyJson(roleAccessPanelsOutput, data);
+    setRoleAccessPanelStatus(`Posted ${panelId} to ${data.result.channelId}.`, "success");
+  } catch (error) {
+    setRoleAccessPanelStatus(`Post failed: ${error.message}`, "error");
+  }
+}
+
+async function postCurrentRoleAccessPanel() {
+  const panelId = roleAccessPanelForm.elements.id.value.trim();
+
+  if (!panelId) {
+    setRoleAccessPanelStatus("Save or set the internal ID in Advanced before posting.", "error");
+    return;
+  }
+
+  await postRoleAccessPanel(panelId);
+}
+
+async function deleteRoleAccessPanel(panelId) {
+  if (!window.confirm(`Delete role access panel "${panelId}"?`)) {
+    return;
+  }
+
+  setRoleAccessPanelStatus(`Deleting ${panelId}...`);
+
+  try {
+    const data = await fetchJson("/api/role-access-panels/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: panelId,
+      }),
+    });
+
+    roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
+    renderRoleAccessPanels();
+    setPrettyJson(roleAccessPanelsOutput, data);
+    if (roleAccessPanelForm.elements.id.value.trim() === panelId) {
+      resetRoleAccessPanelForm();
+    }
+    setRoleAccessPanelStatus(`Deleted ${panelId}.`, "success");
+  } catch (error) {
+    setRoleAccessPanelStatus(`Delete failed: ${error.message}`, "error");
+  }
+}
+
+async function saveRoleFollowup(event) {
+  event.preventDefault();
+
+  const payload = getRoleFollowupFormValue();
+  const validationError = validateRoleFollowupPayload(payload);
+
+  if (validationError) {
+    setRoleFollowupStatus(validationError, "error");
+    return;
+  }
+
+  setRoleFollowupStatus("Saving...");
+
+  try {
+    const data = await fetchJson("/api/role-followups/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    roleFollowups = Array.isArray(data.roleFollowups) ? data.roleFollowups : [];
+    renderRoleFollowups();
+    populateRoleFollowupForm(data.followup);
+    setPrettyJson(roleFollowupsOutput, data);
+    setRoleFollowupStatus("Follow-up saved.", "success");
+  } catch (error) {
+    setRoleFollowupStatus(`Save failed: ${error.message}`, "error");
+  }
+}
+
+async function deleteRoleFollowup(followupId) {
+  if (!window.confirm(`Delete role follow-up "${followupId}"?`)) {
+    return;
+  }
+
+  setRoleFollowupStatus(`Deleting ${followupId}...`);
+
+  try {
+    const data = await fetchJson("/api/role-followups/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: followupId,
+      }),
+    });
+
+    roleFollowups = Array.isArray(data.roleFollowups) ? data.roleFollowups : [];
+    renderRoleFollowups();
+    setPrettyJson(roleFollowupsOutput, data);
+    if (roleFollowupForm.elements.id.value.trim() === followupId) {
+      resetRoleFollowupForm();
+    }
+    setRoleFollowupStatus(`Deleted ${followupId}.`, "success");
+  } catch (error) {
+    setRoleFollowupStatus(`Delete failed: ${error.message}`, "error");
+  }
+}
+
+async function deleteCurrentRoleFollowup() {
+  const followupId = roleFollowupForm.elements.id.value.trim();
+
+  if (!followupId) {
+    setRoleFollowupStatus("Choose an existing follow-up before deleting.", "error");
+    return;
+  }
+
+  await deleteRoleFollowup(followupId);
+}
+
 async function setFeedEnabledState(feedId, enabled) {
   try {
     const data = await fetchJson("/api/feeds/set-enabled", {
@@ -1483,10 +2225,13 @@ async function reloadAll() {
     loadMetrics(),
     loadChannelOperations(),
     loadChannelPresets(),
+    loadGuildMetadata(),
     loadHistoryReview(),
     loadDogState(),
     loadDailyTriviaChallenge(),
     loadFeeds(),
+    loadRoleAccessPanels(),
+    loadRoleFollowups(),
   ]);
 }
 
@@ -1520,9 +2265,39 @@ settingsForm.addEventListener("submit", saveSettings);
 manualPushForm.addEventListener("submit", submitManualPush);
 dailyTriviaForm.addEventListener("submit", saveDailyTriviaChallenge);
 feedForm.addEventListener("submit", saveFeed);
+roleAccessPanelForm.addEventListener("submit", saveRoleAccessPanel);
+roleAccessPanelForm.addEventListener("input", (event) => {
+  if (event.target?.matches?.("[data-discord-role-select], [data-discord-channel-select]")) {
+    updateDiscordMetadataSelection(event.target);
+    return;
+  }
+
+  syncDiscordMetadataSelections();
+  renderRoleAccessPreview();
+});
+roleFollowupForm.addEventListener("submit", saveRoleFollowup);
+roleFollowupForm.addEventListener("input", (event) => {
+  if (event.target?.matches?.("[data-discord-role-select], [data-discord-channel-select]")) {
+    updateDiscordMetadataSelection(event.target);
+    return;
+  }
+
+  syncDiscordMetadataSelections();
+  renderRoleFollowupPreview();
+});
+for (const button of document.querySelectorAll("[data-followup-insert], [data-followup-insert-channel], [data-followup-insert-role]")) {
+  button.addEventListener("click", () => handleFollowupQuickInsert(button));
+}
+for (const select of document.querySelectorAll("[data-discord-role-select], [data-discord-channel-select]")) {
+  select.addEventListener("change", () => updateDiscordMetadataSelection(select));
+}
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
+resetRoleAccessPanelFormButton.addEventListener("click", resetRoleAccessPanelForm);
+postRoleAccessPanelFormButton.addEventListener("click", () => void postCurrentRoleAccessPanel());
+resetRoleFollowupFormButton.addEventListener("click", resetRoleFollowupForm);
+deleteRoleFollowupFormButton.addEventListener("click", () => void deleteCurrentRoleFollowup());
 refreshAllButton.addEventListener("click", () => void reloadAll());
 automationMasterButton.addEventListener("click", () => void toggleAutomationMaster());
 refreshHealthButton.addEventListener("click", loadHealth);
@@ -1530,6 +2305,8 @@ refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
 refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
 refreshFeedsButton.addEventListener("click", loadFeeds);
+refreshRoleAccessPanelsButton.addEventListener("click", loadRoleAccessPanels);
+refreshRoleFollowupsButton.addEventListener("click", loadRoleFollowups);
 refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
@@ -1540,4 +2317,6 @@ autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 configureAutoRefresh();
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
+renderRoleAccessPreview();
+renderRoleFollowupPreview();
 void reloadAll();

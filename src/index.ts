@@ -1,4 +1,4 @@
-import { Client, Collection, Events, GatewayIntentBits } from "discord.js";
+import { ChannelType, Client, Collection, Events, GatewayIntentBits, PermissionFlagsBits } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
 import * as dotenv from "dotenv";
 import { apiConfig } from "./config/api.js";
@@ -11,7 +11,6 @@ import {
   chatXpEligibleChannelIds,
 } from "./config/chat-xp.js";
 import * as announce from "./commands/announce.js";
-import { roleFollowupConfig } from "./config/role-followups.js";
 import * as botHelp from "./commands/bot-help.js";
 import { welcomeConfig } from "./config/welcome.js";
 import * as ping from "./commands/ping.js";
@@ -38,7 +37,14 @@ import * as wyr from "./commands/wyr.js";
 import { getRankMilestoneMessage } from "./lib/rank-milestones.js";
 import { startScheduler } from "./scheduler/scheduler.js";
 import { handleLevelShareInteraction } from "./systems/level-share.js";
-import { handleRoleAccessPanelInteraction } from "./systems/role-access-panels.js";
+import { handleRoleFollowups } from "./systems/role-followups.js";
+import {
+  buildRoleAccessPanelMessage,
+  getPanelById,
+  handleRoleAccessPanelInteraction,
+  isSendableGuildTextChannel,
+  upsertPanel,
+} from "./systems/role-access-panels.js";
 import { addXp } from "./systems/xp.js";
 import { buildWelcomeMessage } from "./lib/welcome.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
@@ -51,6 +57,7 @@ import { getHistoryEventById } from "./lib/history-content.js";
 dotenv.config();
 
 const token = process.env.DISCORD_TOKEN;
+const guildId = process.env.DISCORD_GUILD_ID;
 
 if (!token) {
   throw new Error("Missing DISCORD_TOKEN in environment.");
@@ -68,7 +75,6 @@ const client = new Client({
 const lastChatXpGainAtByUserId = new Map<string, number>();
 const recentChatMessagesByUserId = new Map<string, string[]>();
 const RECENT_CHAT_MESSAGE_LIMIT = 5;
-const activeRoleFollowupKeys = new Set<string>();
 
 type CommandModule = {
   data: {
@@ -125,7 +131,120 @@ client.once(Events.ClientReady, (readyClient) => {
         botReady: client.isReady(),
         botTag: client.isReady() ? client.user.tag : null,
       }),
+      getGuildMetadata: async () => {
+        if (!guildId) {
+          return {
+            roles: [],
+            channels: [],
+          };
+        }
+
+        const guild = await readyClient.guilds.fetch(guildId);
+        await guild.roles.fetch();
+        await guild.channels.fetch();
+
+        const roles = [...guild.roles.cache.values()]
+          .filter((role) => role.id !== guild.id)
+          .map((role) => ({
+            id: role.id,
+            name: role.name,
+            color: role.color,
+            position: role.position,
+          }))
+          .sort((left, right) => (right.position ?? 0) - (left.position ?? 0) || left.name.localeCompare(right.name));
+
+        const channels = [...guild.channels.cache.values()]
+          .filter((channel) => {
+            if (!channel) {
+              return false;
+            }
+
+            const supportedTypes = [ChannelType.GuildText, ChannelType.GuildAnnouncement];
+
+            if (!supportedTypes.includes(channel.type)) {
+              return false;
+            }
+
+            const permissions = channel.permissionsFor(readyClient.user);
+            return permissions?.has(PermissionFlagsBits.SendMessages) === true;
+          })
+          .map((channel) => ({
+            id: channel.id,
+            name: channel.name,
+            type: ChannelType[channel.type] ?? String(channel.type),
+            parentId: channel.parentId ?? null,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        return {
+          roles,
+          channels,
+        };
+      },
       pushManualContent: (request) => pushManualContentToChannel(client, request),
+      postRoleAccessPanel: async (request) => {
+        if (!client.isReady()) {
+          return {
+            ok: false,
+            code: "BOT_NOT_READY",
+            error: "Bot is not ready.",
+          };
+        }
+
+        const panel = getPanelById(request.panelId);
+
+        if (!panel) {
+          return {
+            ok: false,
+            code: "PANEL_NOT_FOUND",
+            error: "Role access panel was not found.",
+          };
+        }
+
+        const targetChannelId = request.channelId?.trim() || panel.targetChannelId;
+
+        if (!targetChannelId) {
+          return {
+            ok: false,
+            code: "CHANNEL_UNAVAILABLE",
+            error: "No target channel was supplied or configured for this panel.",
+          };
+        }
+
+        try {
+          const channel = await client.channels.fetch(targetChannelId);
+
+          if (!isSendableGuildTextChannel(channel)) {
+            return {
+              ok: false,
+              code: "CHANNEL_UNAVAILABLE",
+              error: "Target channel is not available or is not a text channel.",
+            };
+          }
+
+          await channel.send(buildRoleAccessPanelMessage(panel));
+
+          const lastPostedAt = Date.now();
+          upsertPanel({
+            ...panel,
+            lastPostedAt,
+          });
+
+          return {
+            ok: true,
+            panelId: panel.id,
+            channelId: targetChannelId,
+            lastPostedAt,
+          };
+        } catch (error) {
+          console.error(`[role-panels] failed to post panel ${panel.id} to ${targetChannelId}:`, error);
+          return {
+            ok: false,
+            code: "SEND_FAILED",
+            error: "Failed to post the role access panel.",
+          };
+        }
+      },
       pushHistoryPreview: async (request) => {
         const event = getHistoryEventById(request.eventId);
 
@@ -183,71 +302,7 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
-  const memberLabel = newMember.user.tag ?? newMember.user.id;
-  const configuredRoles = Object.values(roleFollowupConfig.roles);
-  const oldRoleIds = [...oldMember.roles.cache.keys()];
-  const newRoleIds = [...newMember.roles.cache.keys()];
-  const addedRoleIds = newRoleIds.filter((roleId) => !oldMember.roles.cache.has(roleId));
-  const removedRoleIds = oldRoleIds.filter((roleId) => !newMember.roles.cache.has(roleId));
-
-  console.log(`[role-followup] GuildMemberUpdate fired for ${memberLabel}`);
-  console.log(`[role-followup] old roles=${oldRoleIds.join(", ") || "none"}`);
-  console.log(`[role-followup] new roles=${newRoleIds.join(", ") || "none"}`);
-  console.log(`[role-followup] newly added roles=${addedRoleIds.join(", ") || "none"}`);
-
-  for (const roleConfig of configuredRoles) {
-    if (!removedRoleIds.includes(roleConfig.roleId)) {
-      continue;
-    }
-
-    const followupKey = `${newMember.id}:${roleConfig.roleId}`;
-    activeRoleFollowupKeys.delete(followupKey);
-    console.log(`[role-followup] cleared duplicate guard for removed role ${roleConfig.roleId}`);
-  }
-
-  for (const roleConfig of configuredRoles) {
-    const followupKey = `${newMember.id}:${roleConfig.roleId}`;
-    const hadRole = oldMember.roles.cache.has(roleConfig.roleId);
-    const hasRole = newMember.roles.cache.has(roleConfig.roleId);
-
-    if (!hasRole) {
-      continue;
-    }
-
-    if (hadRole || activeRoleFollowupKeys.has(followupKey)) {
-      continue;
-    }
-
-    console.log(`[role-followup] matched configured role ${roleConfig.roleId}`);
-    console.log(`[role-followup] target channelId=${roleConfig.channelId}`);
-
-    try {
-      const channel = await newMember.guild.channels.fetch(roleConfig.channelId);
-      const channelFound = Boolean(channel);
-      const channelSendable = Boolean(channel?.isTextBased() && "send" in channel);
-
-      console.log(`[role-followup] target channel found=${channelFound}`);
-      console.log(`[role-followup] target channel sendable=${channelSendable}`);
-
-      if (!channel?.isTextBased() || !("send" in channel)) {
-        continue;
-      }
-
-      activeRoleFollowupKeys.add(followupKey);
-      console.log(`[role-followup] sending follow-up for ${memberLabel} role=${roleConfig.roleId}`);
-      await channel.send(`<@${newMember.id}> ${roleConfig.message}`);
-    } catch (error) {
-      console.error(
-        `[role-followup] failed to send follow-up for ${memberLabel} role=${roleConfig.roleId}:`,
-        error,
-      );
-      // Fail quietly if the follow-up channel is missing or inaccessible.
-    }
-  }
-
-  if (!configuredRoles.some((roleConfig) => addedRoleIds.includes(roleConfig.roleId))) {
-    console.log("[role-followup] no configured follow-up matched");
-  }
+  await handleRoleFollowups(oldMember, newMember);
 });
 
 client.on(Events.MessageCreate, async (message) => {

@@ -46,6 +46,8 @@
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Channels</button>
           <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Push</button>
           <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
+          <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Access</button>
+          <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
         </div>
         <div class="automation-master-panel">
@@ -57,6 +59,9 @@
         </div>
         <div id="automation-master-banner" class="automation-master-banner" hidden>
           Automation Master is OFF. All automatic posting is disabled until it is turned back on.
+        </div>
+        <div id="discord-metadata-warning" class="metadata-warning" hidden>
+          Could not load Discord roles/channels. You can still paste IDs manually.
         </div>
       </header>
 
@@ -381,6 +386,206 @@
               <details class="details-block control-debug-details">
                 <summary>Raw dog payload</summary>
                 <pre id="dog-output">Loading...</pre>
+              </details>
+            </section>
+          </div>
+        </section>
+
+        <section class="control-tab-panel" data-tab-panel="access" hidden>
+          <div class="tab-stack">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Role Access Panels</h3>
+                  <p>Create, edit, and manually post Discord role access panels.</p>
+                </div>
+                <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
+              </div>
+
+              <form id="role-access-panel-form" class="settings-form">
+                <section class="form-group">
+                  <h3>Access Setup</h3>
+                  <label>
+                    What are people getting access to?
+                    <input name="title" type="text" placeholder="Windrose Access" required />
+                    <small>Shown as the heading on the Discord message.</small>
+                  </label>
+                  <label>
+                    Which role should people get?
+                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                      <option value="">Loading roles...</option>
+                    </select>
+                    <small>Select a Discord role if available.</small>
+                    <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                    <small>Create a role in Discord first, then paste the role ID here.</small>
+                  </label>
+                  <label>
+                    Where should this message go?
+                    <select name="targetChannelIdSelect" data-discord-channel-select data-target-input="targetChannelId">
+                      <option value="">Loading channels...</option>
+                    </select>
+                    <small>Select a Discord channel if available.</small>
+                    <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Optional Discord channel ID" />
+                    <small>Choose where this message will be posted.</small>
+                  </label>
+                </section>
+
+                <section class="form-group">
+                  <h3>Message</h3>
+                  <label>
+                    Message
+                    <textarea name="body" rows="8" placeholder="Hi {user}, click below to unlock {role} access in {channel}." required></textarea>
+                    <small>Supports simple token-style copy such as {user}, {channel}, and {role}. Tokens are visual placeholders for now.</small>
+                  </label>
+                </section>
+
+                <section class="form-group">
+                  <h3>Button</h3>
+                  <label>
+                    Button Label
+                    <input name="buttonLabel" type="text" placeholder="Request Access" required />
+                    <small>This is the button text members click in Discord.</small>
+                  </label>
+                </section>
+
+                <details class="form-group role-access-advanced">
+                  <summary>Advanced</summary>
+                  <label>
+                    Internal ID
+                    <input name="id" type="text" placeholder="windrose" required />
+                    <small>Stable internal key used by buttons and slash commands. Lowercase letters, numbers, dashes, or underscores.</small>
+                  </label>
+                  <label>
+                    Active
+                    <select name="active">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                    <small>Inactive messages can remain posted, but their buttons will not grant access.</small>
+                  </label>
+                  <label>
+                    Success Message
+                    <textarea name="successMessage" rows="3" placeholder="Optional confirmation after role assignment."></textarea>
+                    <small>Private confirmation shown after a member receives the role.</small>
+                  </label>
+                  <label>
+                    Already Has Role Message
+                    <textarea name="alreadyHasRoleMessage" rows="3" placeholder="Optional message when the user already has the role."></textarea>
+                    <small>Private response shown if the member already has access.</small>
+                  </label>
+                </details>
+
+                <section class="form-group role-access-preview-panel">
+                  <h3>Preview</h3>
+                  <div id="role-access-preview" class="discord-panel-preview"></div>
+                </section>
+
+                <div class="settings-actions">
+                  <button id="post-role-access-panel-form" type="button">Post to Discord</button>
+                  <button type="submit" class="secondary">Save Draft</button>
+                  <button id="reset-role-access-panel-form" type="button" class="secondary">New Message</button>
+                  <span id="role-access-panel-status"></span>
+                </div>
+              </form>
+
+              <div id="role-access-panels-list" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw role access panels payload</summary>
+                <pre id="role-access-panels-output">Loading...</pre>
+              </details>
+            </section>
+          </div>
+        </section>
+
+        <section class="control-tab-panel" data-tab-panel="followups" hidden>
+          <div class="tab-stack">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Role Follow-Up Messages</h3>
+                  <p>When someone gets a Discord role, Cdawg Bot can automatically send a message.</p>
+                </div>
+                <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
+              </div>
+
+              <form id="role-followup-form" class="settings-form">
+                <section class="form-group">
+                  <h3>Trigger</h3>
+                  <label>
+                    What role triggers this message?
+                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                      <option value="">Loading roles...</option>
+                    </select>
+                    <small>Select a Discord role if available.</small>
+                    <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                    <small>When this role is added to a member, Cdawg sends the follow-up.</small>
+                  </label>
+                  <label>
+                    Where should Cdawg post it?
+                    <select name="channelIdSelect" data-discord-channel-select data-target-input="channelId">
+                      <option value="">Loading channels...</option>
+                    </select>
+                    <small>Select a Discord channel if available.</small>
+                    <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
+                    <small>The follow-up is posted in this channel.</small>
+                  </label>
+                  <label>
+                    Turn this follow-up on?
+                    <select name="enabled">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                    <small>Inactive follow-ups stay saved but do not send.</small>
+                  </label>
+                </section>
+
+                <section class="form-group">
+                  <h3>Message</h3>
+                  <label>
+                    What should Cdawg say?
+                    <textarea name="message" rows="8" placeholder="You now have access. Server info: ..." required></textarea>
+                    <small>Use quick inserts to mention the member, role, or channel exactly where you want.</small>
+                  </label>
+                  <div class="message-builder">
+                    <div class="message-builder-header">Quick inserts</div>
+                    <p>Use quick inserts to mention the member, role, or channel exactly where you want.</p>
+                    <div class="message-builder-actions">
+                      <button type="button" class="pill-button" data-followup-insert="{user}">@user</button>
+                      <button type="button" class="pill-button" data-followup-insert-channel>#selected-channel</button>
+                      <button type="button" class="pill-button" data-followup-insert-role>@selected-role</button>
+                      <button type="button" class="pill-button" data-followup-insert="Server info: ">Server info</button>
+                      <button type="button" class="pill-button" data-followup-insert="Please review the rules before jumping in: ">Rules reminder</button>
+                      <button type="button" class="pill-button" data-followup-insert="If you need help, ask in the community channel and an admin will jump in.">Ask for help</button>
+                    </div>
+                  </div>
+                </section>
+
+                <details class="form-group role-access-advanced">
+                  <summary>Advanced</summary>
+                  <label>
+                    Internal ID
+                    <input name="id" type="text" placeholder="windrose-followup" />
+                    <small>Stable internal key. Leave blank to generate one from the role ID.</small>
+                  </label>
+                </details>
+
+                <section class="form-group role-access-preview-panel">
+                  <h3>Preview</h3>
+                  <div id="role-followup-preview" class="discord-panel-preview"></div>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Save Follow-Up</button>
+                  <button id="reset-role-followup-form" type="button" class="secondary">New Follow-Up</button>
+                  <button id="delete-role-followup-form" type="button" class="secondary">Delete existing</button>
+                  <span id="role-followup-status"></span>
+                </div>
+              </form>
+
+              <div id="role-followups-list" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Raw role follow-ups payload</summary>
+                <pre id="role-followups-output">Loading...</pre>
               </details>
             </section>
           </div>

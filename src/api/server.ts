@@ -46,17 +46,45 @@ import {
   upsertDailyTriviaChallengeConfig,
 } from "../systems/daily-trivia-challenge.js";
 import { getDogStatusSummary } from "../systems/cdawg-dog.js";
+import {
+  deletePanel,
+  getPanelById,
+  listPanels,
+  upsertPanel,
+} from "../systems/role-access-panels.js";
+import {
+  deleteFollowup,
+  getFollowups,
+  upsertFollowup,
+} from "../systems/role-followups.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
   botTag: string | null;
 };
 
+type DiscordGuildMetadata = {
+  roles: Array<{
+    id: string;
+    name: string;
+    color?: number;
+    position?: number;
+  }>;
+  channels: Array<{
+    id: string;
+    name: string;
+    type: string;
+    parentId?: string | null;
+  }>;
+};
+
 type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
+  getGuildMetadata?: () => Promise<DiscordGuildMetadata>;
   pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
   triggerAutomatedContentNow: (request: { channelId: string }) => Promise<TriggerAutomatedContentNowResult>;
   pushHistoryPreview: (request: { channelId: string; eventId: string }) => Promise<ManualContentPushResult>;
+  postRoleAccessPanel: (request: { panelId: string; channelId?: string | null }) => Promise<RoleAccessPanelPostResult>;
 };
 
 type SettingsPatchBody = {
@@ -132,6 +160,40 @@ type DailyTriviaChallengeRequestBody = {
 type HistoryReviewRequestBody = {
   channelId?: string;
   eventId?: string;
+};
+
+type RoleAccessPanelPostResult =
+  | {
+      ok: true;
+      panelId: string;
+      channelId: string;
+      lastPostedAt: number;
+    }
+  | {
+      ok: false;
+      code: "BOT_NOT_READY" | "PANEL_NOT_FOUND" | "CHANNEL_UNAVAILABLE" | "SEND_FAILED";
+      error: string;
+    };
+
+type RoleAccessPanelRequestBody = {
+  id: string;
+  title?: string;
+  body?: string;
+  buttonLabel?: string;
+  roleId?: string;
+  targetChannelId?: string | null;
+  successMessage?: string | null;
+  alreadyHasRoleMessage?: string | null;
+  active?: boolean;
+  channelId?: string | null;
+};
+
+type RoleFollowupRequestBody = {
+  id: string;
+  roleId?: string;
+  channelId?: string;
+  message?: string;
+  enabled?: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -639,6 +701,222 @@ function sanitizeDailyTriviaChallengeRequest(value: unknown, requireFullConfig: 
   };
 }
 
+function sanitizeRoleAccessPanelRequest(value: unknown, requireFullConfig: boolean) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Role access panel payload must be a JSON object.",
+    };
+  }
+
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
+    return {
+      ok: false as const,
+      error: "Invalid panel ID. Use lowercase letters, numbers, dashes, or underscores.",
+    };
+  }
+
+  const nextValue: RoleAccessPanelRequestBody = {
+    id,
+  };
+
+  const requiredStringFields = ["title", "body", "buttonLabel", "roleId"] as const;
+
+  for (const field of requiredStringFields) {
+    if (requireFullConfig || field in value) {
+      const fieldValue = typeof value[field] === "string" ? value[field].trim() : "";
+
+      if (!fieldValue) {
+        return {
+          ok: false as const,
+          error: `Missing required field: ${field}.`,
+        };
+      }
+
+      nextValue[field] = fieldValue;
+    }
+  }
+
+  if (requireFullConfig || "active" in value) {
+    if (typeof value.active !== "boolean") {
+      return {
+        ok: false as const,
+        error: "Invalid active flag.",
+      };
+    }
+
+    nextValue.active = value.active;
+  }
+
+  if ("targetChannelId" in value) {
+    if (value.targetChannelId === null || value.targetChannelId === "") {
+      nextValue.targetChannelId = null;
+    } else if (typeof value.targetChannelId === "string" && discordSnowflakePattern.test(value.targetChannelId.trim())) {
+      nextValue.targetChannelId = value.targetChannelId.trim();
+    } else {
+      return {
+        ok: false as const,
+        error: "Invalid target channel ID. Expected a Discord snowflake string or blank.",
+      };
+    }
+  } else if (requireFullConfig) {
+    nextValue.targetChannelId = null;
+  }
+
+  for (const field of ["successMessage", "alreadyHasRoleMessage"] as const) {
+    if (field in value) {
+      nextValue[field] = typeof value[field] === "string" && value[field].trim() ? value[field].trim() : null;
+    } else if (requireFullConfig) {
+      nextValue[field] = null;
+    }
+  }
+
+  return {
+    ok: true as const,
+    value: nextValue,
+  };
+}
+
+function sanitizeRoleAccessPanelIdRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Role access panel payload must be a JSON object.",
+    };
+  }
+
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
+    return {
+      ok: false as const,
+      error: "Invalid panel ID.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      id,
+    },
+  };
+}
+
+function sanitizeRoleAccessPanelPostRequest(value: unknown) {
+  const idValidation = sanitizeRoleAccessPanelIdRequest(value);
+
+  if (!idValidation.ok) {
+    return idValidation;
+  }
+
+  const channelId = isRecord(value) ? value.channelId : undefined;
+
+  if (channelId === undefined || channelId === null || channelId === "") {
+    return {
+      ok: true as const,
+      value: {
+        id: idValidation.value.id,
+        channelId: null,
+      },
+    };
+  }
+
+  if (typeof channelId !== "string" || !discordSnowflakePattern.test(channelId.trim())) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string or blank.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      id: idValidation.value.id,
+      channelId: channelId.trim(),
+    },
+  };
+}
+
+function sanitizeRoleFollowupRequest(value: unknown, requireFullConfig: boolean) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Role follow-up payload must be a JSON object.",
+    };
+  }
+
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
+    return {
+      ok: false as const,
+      error: "Invalid follow-up ID. Use lowercase letters, numbers, dashes, or underscores.",
+    };
+  }
+
+  const nextValue: RoleFollowupRequestBody = {
+    id,
+  };
+
+  for (const field of ["roleId", "channelId", "message"] as const) {
+    if (requireFullConfig || field in value) {
+      const fieldValue = typeof value[field] === "string" ? value[field].trim() : "";
+
+      if (!fieldValue) {
+        return {
+          ok: false as const,
+          error: `Missing required field: ${field}.`,
+        };
+      }
+
+      nextValue[field] = fieldValue;
+    }
+  }
+
+  if (requireFullConfig || "enabled" in value) {
+    if (typeof value.enabled !== "boolean") {
+      return {
+        ok: false as const,
+        error: "Invalid enabled flag.",
+      };
+    }
+
+    nextValue.enabled = value.enabled;
+  }
+
+  return {
+    ok: true as const,
+    value: nextValue,
+  };
+}
+
+function sanitizeRoleFollowupIdRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Role follow-up payload must be a JSON object.",
+    };
+  }
+
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+
+  if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(id)) {
+    return {
+      ok: false as const,
+      error: "Invalid follow-up ID.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      id,
+    },
+  };
+}
+
 function buildFeedResponse(feedId: string) {
   const feed = getFeedConfig(feedId);
 
@@ -773,9 +1051,11 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
   }
 
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
+  const getGuildMetadata = dependencies?.getGuildMetadata;
   const pushManualContent = dependencies?.pushManualContent;
   const triggerAutomatedContentNow = dependencies?.triggerAutomatedContentNow;
   const pushHistoryPreview = dependencies?.pushHistoryPreview;
+  const postRoleAccessPanel = dependencies?.postRoleAccessPanel;
 
   const server = http.createServer(async (request, response) => {
     const method = request.method ?? "GET";
@@ -859,6 +1139,24 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           channelPresets: dashboardChannelPresets,
         });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discord/guild-metadata") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!getGuildMetadata) {
+          sendJson(response, 503, {
+            error: "Discord guild metadata route is unavailable.",
+          });
+          return;
+        }
+
+        const metadata = await getGuildMetadata();
+        sendJson(response, 200, metadata);
         return;
       }
 
@@ -1178,6 +1476,207 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           ok: true,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-access-panels") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          roleAccessPanels: listPanels(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-access-panels/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeRoleAccessPanelRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const currentPanel = getPanelById(validation.value.id);
+        const panel = upsertPanel({
+          id: validation.value.id,
+          title: validation.value.title ?? currentPanel?.title ?? "",
+          body: validation.value.body ?? currentPanel?.body ?? "",
+          buttonLabel: validation.value.buttonLabel ?? currentPanel?.buttonLabel ?? "",
+          roleId: validation.value.roleId ?? currentPanel?.roleId ?? "",
+          targetChannelId: validation.value.targetChannelId ?? null,
+          successMessage: validation.value.successMessage ?? null,
+          alreadyHasRoleMessage: validation.value.alreadyHasRoleMessage ?? null,
+          active: validation.value.active ?? true,
+        });
+
+        sendJson(response, 200, {
+          panel,
+          roleAccessPanels: listPanels(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-access-panels/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeRoleAccessPanelIdRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deletePanel(validation.value.id);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Role access panel not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          roleAccessPanels: listPanels(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-access-panels/post") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!postRoleAccessPanel) {
+          sendJson(response, 503, {
+            error: "Role access panel post route is unavailable.",
+          });
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeRoleAccessPanelPostRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const result = await postRoleAccessPanel({
+          panelId: validation.value.id,
+          channelId: validation.value.channelId,
+        });
+
+        if (!result.ok) {
+          const statusCode =
+            result.code === "BOT_NOT_READY"
+              ? 503
+              : result.code === "PANEL_NOT_FOUND" || result.code === "CHANNEL_UNAVAILABLE"
+                ? 404
+                : 400;
+          sendJson(response, statusCode, result);
+          return;
+        }
+
+        sendJson(response, 200, {
+          result,
+          roleAccessPanels: listPanels(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-followups") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          roleFollowups: getFollowups(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-followups/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeRoleFollowupRequest(nextBody, true);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const followup = upsertFollowup({
+          id: validation.value.id,
+          roleId: validation.value.roleId ?? "",
+          channelId: validation.value.channelId ?? "",
+          message: validation.value.message ?? "",
+          enabled: validation.value.enabled ?? true,
+        });
+
+        sendJson(response, 200, {
+          followup,
+          roleFollowups: getFollowups(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/role-followups/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeRoleFollowupIdRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteFollowup(validation.value.id);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Role follow-up not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          roleFollowups: getFollowups(),
         });
         return;
       }

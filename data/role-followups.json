@@ -1,0 +1,39 @@
+{
+  "followups": [
+    {
+      "id": "palworld",
+      "roleId": "1463690145516490825",
+      "channelId": "1463685003564027946",
+      "message": "You now have access to **Palworld**.\n\nServer info: <#1463685100473553127>\n\nCommunity chat: <#1463686052509388894>",
+      "enabled": true
+    },
+    {
+      "id": "valheim",
+      "roleId": "1482886824564101140",
+      "channelId": "1463685003564027946",
+      "message": "You now have access to **Valheim**.\n\nServer info: <#1482888318470328492>\n\nCommunity chat: <#1482887724871712788>",
+      "enabled": true
+    },
+    {
+      "id": "supporter",
+      "roleId": "1488957456989294733",
+      "channelId": "1488962637852311643",
+      "message": "Thanks for supporting the server! It means a lot to me. That will help keep us going!",
+      "enabled": true
+    },
+    {
+      "id": "legendDonor",
+      "roleId": "1488959352755847228",
+      "channelId": "1488962637852311643",
+      "message": "A Legend donor role was added. Thank you for the support.",
+      "enabled": true
+    },
+    {
+      "id": "followup-1498041571483058277",
+      "roleId": "1498041571483058277",
+      "channelId": "1463685003564027946",
+      "message": "Welcome to Cdawg's Windrose Server! You can now access #windrose-server-info for login instructions and join the community in #windrose-chat. Hope you enjoy your time here!",
+      "enabled": true
+    }
+  ]
+}
