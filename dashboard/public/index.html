@@ -387,6 +387,20 @@
                   <div id="composer-preview" class="discord-panel-preview composer-preview"></div>
                 </section>
 
+                <section class="form-group composer-templates-panel">
+                  <h3>Saved Templates</h3>
+                  <label>
+                    Template name
+                    <input name="templateName" type="text" placeholder="Community reminder" />
+                    <input name="templateId" type="hidden" />
+                  </label>
+                  <div class="settings-actions composer-template-actions">
+                    <button id="save-composer-template" type="button" class="secondary">Save Template</button>
+                    <span id="composer-template-status"></span>
+                  </div>
+                  <div id="composer-templates-list" class="feed-list composer-templates-list"></div>
+                </section>
+
                 <div class="settings-actions">
                   <button type="submit">Post to Discord</button>
                   <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>

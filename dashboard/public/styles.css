@@ -275,6 +275,7 @@ small {
 #role-access-panel-status,
 #role-followup-status,
 #composer-status,
+#composer-template-status,
 #history-review-status {
   font-size: 14px;
   color: var(--muted);
@@ -400,6 +401,18 @@ small {
 .composer-preview-mention {
   color: var(--accent-strong);
   font-weight: 700;
+}
+
+.composer-templates-panel {
+  grid-column: 1 / -1;
+}
+
+.composer-template-actions {
+  grid-column: auto;
+}
+
+.composer-templates-list {
+  gap: 10px;
 }
 
 .role-followup-preview-flow {

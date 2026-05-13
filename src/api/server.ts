@@ -58,6 +58,11 @@ import {
   upsertFollowup,
 } from "../systems/role-followups.js";
 import { assistComposerMessage, composerAssistModes, type ComposerAssistMode } from "../lib/composer-assist.js";
+import {
+  deleteComposerTemplate,
+  listComposerTemplates,
+  upsertComposerTemplate,
+} from "../systems/composer-templates.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -162,6 +167,14 @@ type ComposerAssistRequestBody = {
   channelId: string;
   message: string;
   mode: ComposerAssistMode;
+};
+
+type ComposerTemplateRequestBody = {
+  id?: string;
+  name: string;
+  channelId: string | null;
+  roleId: string | null;
+  message: string;
 };
 
 type FeedRequestBody = {
@@ -540,6 +553,95 @@ function sanitizeComposerAssistRequest(value: unknown) {
       message,
       mode: value.mode as ComposerAssistMode,
     } satisfies ComposerAssistRequestBody,
+  };
+}
+
+function sanitizeComposerTemplateRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Composer template payload must be a JSON object.",
+    };
+  }
+
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const message = typeof value.message === "string" ? value.message.trim() : "";
+
+  if (!name) {
+    return {
+      ok: false as const,
+      error: "Template name is required.",
+    };
+  }
+
+  if (!message) {
+    return {
+      ok: false as const,
+      error: "Message is required.",
+    };
+  }
+
+  if (message.length > 2000) {
+    return {
+      ok: false as const,
+      error: "Message must be 2000 characters or fewer.",
+    };
+  }
+
+  if ("id" in value && value.id !== undefined && (typeof value.id !== "string" || value.id.trim().length === 0)) {
+    return {
+      ok: false as const,
+      error: "Invalid template ID.",
+    };
+  }
+
+  if (
+    value.channelId !== null &&
+    value.channelId !== undefined &&
+    (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId))
+  ) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (
+    value.roleId !== null &&
+    value.roleId !== undefined &&
+    (typeof value.roleId !== "string" || !discordSnowflakePattern.test(value.roleId))
+  ) {
+    return {
+      ok: false as const,
+      error: "Invalid role ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      ...(typeof value.id === "string" && value.id.trim() ? { id: value.id.trim() } : {}),
+      name,
+      channelId: typeof value.channelId === "string" ? value.channelId : null,
+      roleId: typeof value.roleId === "string" ? value.roleId : null,
+      message,
+    } satisfies ComposerTemplateRequestBody,
+  };
+}
+
+function sanitizeComposerTemplateDeleteRequest(value: unknown) {
+  if (!isRecord(value) || typeof value.id !== "string" || value.id.trim().length === 0) {
+    return {
+      ok: false as const,
+      error: "Template ID is required.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      id: value.id.trim(),
+    },
   };
 }
 
@@ -2107,6 +2209,74 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
           mode: validation.value.mode,
           channelId: validation.value.channelId,
           message,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/composer/templates") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          templates: listComposerTemplates(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/composer/templates/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeComposerTemplateRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const template = upsertComposerTemplate(validation.value);
+        sendJson(response, 200, {
+          template,
+          templates: listComposerTemplates(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/composer/templates/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeComposerTemplateDeleteRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteComposerTemplate(validation.value.id);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Composer template not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          templates: listComposerTemplates(),
         });
         return;
       }

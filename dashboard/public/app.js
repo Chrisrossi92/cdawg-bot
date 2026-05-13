@@ -28,6 +28,8 @@ const composerStatus = document.querySelector("#composer-status");
 const composerOutput = document.querySelector("#composer-output");
 const composerPreview = document.querySelector("#composer-preview");
 const composerCharacterCount = document.querySelector("#composer-character-count");
+const composerTemplatesList = document.querySelector("#composer-templates-list");
+const composerTemplateStatus = document.querySelector("#composer-template-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
 const dailyTriviaForm = document.querySelector("#daily-trivia-form");
@@ -82,6 +84,7 @@ const deleteRoleFollowupFormButton = document.querySelector("#delete-role-follow
 const saveComposerDraftButton = document.querySelector("#save-composer-draft");
 const clearComposerButton = document.querySelector("#clear-composer");
 const undoComposerRewriteButton = document.querySelector("#undo-composer-rewrite");
+const saveComposerTemplateButton = document.querySelector("#save-composer-template");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
@@ -102,6 +105,7 @@ let historyReview = null;
 let feeds = [];
 let roleAccessPanels = [];
 let roleFollowups = [];
+let composerTemplates = [];
 let activeControlTab = "overview";
 let composerDraftBeforeRewrite = null;
 
@@ -167,6 +171,12 @@ function setManualPushStatus(message, kind = "neutral") {
 function setComposerStatus(message, kind = "neutral") {
   composerStatus.textContent = message;
   composerStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setComposerTemplateStatus(message, kind = "neutral") {
+  composerTemplateStatus.textContent = message;
+  composerTemplateStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
@@ -409,7 +419,21 @@ function getComposerFormValue() {
   return {
     channelId: composerForm.elements.channelId.value.trim(),
     roleId: composerForm.elements.roleId.value.trim(),
+    templateId: composerForm.elements.templateId.value.trim(),
+    templateName: composerForm.elements.templateName.value.trim(),
     message: composerForm.elements.message.value,
+  };
+}
+
+function getComposerTemplatePayload() {
+  const composer = getComposerFormValue();
+
+  return {
+    ...(composer.templateId ? { id: composer.templateId } : {}),
+    name: composer.templateName,
+    channelId: composer.channelId || null,
+    roleId: composer.roleId || null,
+    message: composer.message.trim(),
   };
 }
 
@@ -641,9 +665,148 @@ function undoComposerRewrite() {
   renderComposerPreview();
 }
 
+function renderComposerTemplates() {
+  composerTemplatesList.replaceChildren();
+
+  if (composerTemplates.length === 0) {
+    const emptyState = document.createElement("section");
+    const emptyTitle = document.createElement("h3");
+    const emptyCopy = document.createElement("p");
+
+    emptyState.className = "channel-operation-card role-access-empty-callout";
+    emptyTitle.textContent = "No saved templates";
+    emptyCopy.className = "channel-operation-detail";
+    emptyCopy.textContent = "Save the current Composer draft as a named template to reuse it later.";
+    emptyState.append(emptyTitle, emptyCopy);
+    composerTemplatesList.append(emptyState);
+    return;
+  }
+
+  for (const template of composerTemplates) {
+    const row = document.createElement("section");
+    const main = document.createElement("div");
+    const title = document.createElement("h3");
+    const channelDetail = document.createElement("p");
+    const roleDetail = document.createElement("p");
+    const updatedDetail = document.createElement("p");
+    const actions = document.createElement("div");
+
+    row.className = "channel-operation-card compact";
+    main.className = "channel-operation-main";
+    title.textContent = template.name;
+    channelDetail.className = "channel-operation-detail channel-operation-detail-strong";
+    channelDetail.textContent = `Channel: ${getChannelLabel(template.channelId) || "not set"}`;
+    roleDetail.className = "channel-operation-detail";
+    roleDetail.textContent = `Role insert: ${template.roleId ? `@${getRoleLabel(template.roleId)}` : "not set"}`;
+    updatedDetail.className = "channel-operation-detail";
+    updatedDetail.textContent = `Updated: ${formatTimestamp(template.updatedAt)} (${formatRelativeTime(template.updatedAt)})`;
+    actions.className = "channel-operation-actions";
+    actions.append(
+      createChannelActionButton("Load", () => loadComposerTemplate(template)),
+      createChannelActionButton("Delete", () => void deleteComposerTemplate(template.id)),
+    );
+
+    main.append(title, channelDetail, roleDetail, updatedDetail);
+    row.append(main, actions);
+    composerTemplatesList.append(row);
+  }
+}
+
+function loadComposerTemplate(template) {
+  composerForm.elements.templateId.value = template.id;
+  composerForm.elements.templateName.value = template.name;
+  composerForm.elements.channelId.value = template.channelId ?? "";
+  composerForm.elements.roleId.value = template.roleId ?? "";
+  composerForm.elements.message.value = template.message;
+  composerDraftBeforeRewrite = null;
+  syncDiscordMetadataSelections();
+  renderComposerPreview();
+  setComposerTemplateStatus(`Loaded ${template.name}.`, "success");
+}
+
+async function saveComposerTemplate() {
+  const payload = getComposerTemplatePayload();
+  const validationError = validateComposerTemplatePayload(payload);
+
+  if (validationError) {
+    setComposerTemplateStatus(validationError, "error");
+    return;
+  }
+
+  setComposerTemplateStatus("Saving...");
+
+  try {
+    const data = await fetchJson("/api/composer/templates/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    composerTemplates = Array.isArray(data.templates) ? data.templates : [];
+    composerForm.elements.templateId.value = data.template?.id ?? "";
+    composerForm.elements.templateName.value = data.template?.name ?? payload.name;
+    renderComposerTemplates();
+    setComposerTemplateStatus("Template saved.", "success");
+  } catch (error) {
+    setComposerTemplateStatus(`Save failed: ${error.message}`, "error");
+  }
+}
+
+async function deleteComposerTemplate(templateId) {
+  const template = composerTemplates.find((entry) => entry.id === templateId);
+
+  if (!window.confirm(`Delete composer template "${template?.name ?? templateId}"?`)) {
+    return;
+  }
+
+  setComposerTemplateStatus("Deleting...");
+
+  try {
+    const data = await fetchJson("/api/composer/templates/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        id: templateId,
+      }),
+    });
+
+    composerTemplates = Array.isArray(data.templates) ? data.templates : [];
+
+    if (composerForm.elements.templateId.value === templateId) {
+      composerForm.elements.templateId.value = "";
+      composerForm.elements.templateName.value = "";
+    }
+
+    renderComposerTemplates();
+    setComposerTemplateStatus("Template deleted.", "success");
+  } catch (error) {
+    setComposerTemplateStatus(`Delete failed: ${error.message}`, "error");
+  }
+}
+
 function validateComposerPayload(payload) {
   if (!payload.channelId) {
     return "Choose a Discord channel.";
+  }
+
+  if (!payload.message.trim()) {
+    return "Message is required.";
+  }
+
+  if (payload.message.trim().length > 2000) {
+    return "Message must be 2000 characters or fewer.";
+  }
+
+  return null;
+}
+
+function validateComposerTemplatePayload(payload) {
+  if (!payload.name) {
+    return "Template name is required.";
   }
 
   if (!payload.message.trim()) {
@@ -1885,6 +2048,7 @@ async function loadGuildMetadata() {
     renderRoleAccessPanels();
     renderRoleFollowupPreview();
     renderRoleFollowups();
+    renderComposerTemplates();
   } catch (error) {
     guildRoles = [];
     guildChannels = [];
@@ -1933,6 +2097,18 @@ async function loadRoleFollowups() {
     renderRoleFollowups();
     roleFollowupsOutput.textContent = `Failed to load role follow-ups.\n${error.message}`;
     setRoleFollowupStatus(`Follow-up load failed: ${error.message}`, "error");
+  }
+}
+
+async function loadComposerTemplates() {
+  try {
+    const data = await fetchJson("/api/composer/templates");
+    composerTemplates = Array.isArray(data.templates) ? data.templates : [];
+    renderComposerTemplates();
+  } catch (error) {
+    composerTemplates = [];
+    renderComposerTemplates();
+    setComposerTemplateStatus(`Template load failed: ${error.message}`, "error");
   }
 }
 
@@ -2573,6 +2749,7 @@ async function reloadAll() {
     loadFeeds(),
     loadRoleAccessPanels(),
     loadRoleFollowups(),
+    loadComposerTemplates(),
   ]);
 }
 
@@ -2663,6 +2840,7 @@ manualPushForm.elements.channelPreset.addEventListener("change", () => syncManua
 saveComposerDraftButton.addEventListener("click", saveComposerDraft);
 clearComposerButton.addEventListener("click", clearComposer);
 undoComposerRewriteButton.addEventListener("click", undoComposerRewrite);
+saveComposerTemplateButton.addEventListener("click", () => void saveComposerTemplate());
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
 resetRoleAccessPanelFormButton.addEventListener("click", resetRoleAccessPanelForm);
