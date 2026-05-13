@@ -1,5 +1,6 @@
 const apiConfigForm = document.querySelector("#api-config-form");
 const apiBaseUrlInput = document.querySelector("#api-base-url");
+const resetApiUrlButton = document.querySelector("#reset-api-url");
 const autoRefreshEnabledInput = document.querySelector("#auto-refresh-enabled");
 const refreshAllButton = document.querySelector("#refresh-all");
 const automationMasterBadge = document.querySelector("#automation-master-badge");
@@ -105,16 +106,41 @@ let activeControlTab = "overview";
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
 
-if (savedApiBaseUrl) {
-  apiBaseUrlInput.value = savedApiBaseUrl;
-}
+apiBaseUrlInput.value = savedApiBaseUrl || getDefaultApiBaseUrl();
 
 if (savedAutoRefresh === "true") {
   autoRefreshEnabledInput.checked = true;
 }
 
+function isLocalDashboardHost() {
+  return ["localhost", "127.0.0.1", "::1"].includes(window.location.hostname);
+}
+
+function getDefaultApiBaseUrl() {
+  if (isLocalDashboardHost()) {
+    return "http://127.0.0.1:8787";
+  }
+
+  return window.location.origin;
+}
+
+function normalizeApiBaseUrl(value) {
+  const trimmedValue = value.trim().replace(/\/+$/, "");
+
+  if (!trimmedValue) {
+    return getDefaultApiBaseUrl();
+  }
+
+  return trimmedValue.replace(/\/api$/, "");
+}
+
 function getApiBaseUrl() {
-  return apiBaseUrlInput.value.replace(/\/+$/, "");
+  return normalizeApiBaseUrl(apiBaseUrlInput.value);
+}
+
+function resetApiBaseUrl() {
+  window.localStorage.removeItem(apiBaseUrlStorageKey);
+  apiBaseUrlInput.value = getDefaultApiBaseUrl();
 }
 
 function setPrettyJson(target, value) {
@@ -2504,8 +2530,15 @@ for (const button of controlTabButtons) {
 
 apiConfigForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  window.localStorage.setItem(apiBaseUrlStorageKey, getApiBaseUrl());
+  apiBaseUrlInput.value = getApiBaseUrl();
+  window.localStorage.setItem(apiBaseUrlStorageKey, apiBaseUrlInput.value);
   setStatusMessage("Reconnected to API.");
+  await reloadAll();
+});
+
+resetApiUrlButton.addEventListener("click", async () => {
+  resetApiBaseUrl();
+  setStatusMessage("API URL reset to automatic default.");
   await reloadAll();
 });
 

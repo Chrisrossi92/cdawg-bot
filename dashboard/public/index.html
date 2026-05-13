@@ -25,13 +25,6 @@
             <div id="health-cards" class="health-strip"></div>
           </div>
           <div class="command-bar-controls">
-            <form id="api-config-form" class="api-config compact">
-              <label>
-                API Base URL
-                <input id="api-base-url" name="apiBaseUrl" type="url" value="http://127.0.0.1:8787" />
-              </label>
-              <button type="submit" class="secondary">Connect</button>
-            </form>
             <div class="toolbar compact">
               <label class="checkbox">
                 <input id="auto-refresh-enabled" type="checkbox" />
@@ -39,6 +32,17 @@
               </label>
               <button id="refresh-all" type="button" class="secondary">Refresh All</button>
             </div>
+            <details class="api-debug-panel">
+              <summary>Advanced / Debug</summary>
+              <form id="api-config-form" class="api-config compact">
+                <label>
+                  API Base URL
+                  <input id="api-base-url" name="apiBaseUrl" type="url" />
+                </label>
+                <button type="submit" class="secondary">Connect</button>
+                <button id="reset-api-url" type="button" class="secondary">Reset API URL</button>
+              </form>
+            </details>
           </div>
         </div>
         <div class="control-center-tabs command-bar-tabs" role="tablist" aria-label="Dashboard sections">

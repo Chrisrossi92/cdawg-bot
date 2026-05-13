@@ -644,10 +644,24 @@ small {
   font-weight: 700;
 }
 
+.api-debug-panel {
+  justify-self: end;
+  width: min(100%, 520px);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.api-debug-panel summary {
+  cursor: pointer;
+  font-weight: 800;
+  text-align: right;
+}
+
 .api-config.compact {
-  grid-template-columns: minmax(220px, 1fr) auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
   align-items: end;
-  width: min(100%, 440px);
+  width: 100%;
+  margin-top: 8px;
   padding: 12px;
   border-radius: var(--radius-card);
   background: rgba(246, 249, 253, 0.88);
@@ -1132,6 +1146,14 @@ pre {
 
   .command-bar-controls {
     justify-items: stretch;
+  }
+
+  .api-debug-panel {
+    justify-self: stretch;
+  }
+
+  .api-debug-panel summary {
+    text-align: left;
   }
 
   .toolbar.compact {
