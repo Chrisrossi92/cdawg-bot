@@ -81,6 +81,7 @@ type DiscordGuildMetadata = {
 type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
   getGuildMetadata?: () => Promise<DiscordGuildMetadata>;
+  postComposerMessage: (request: { channelId: string; message: string }) => Promise<ComposerPostResult>;
   pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
   triggerAutomatedContentNow: (request: { channelId: string }) => Promise<TriggerAutomatedContentNowResult>;
   pushHistoryPreview: (request: { channelId: string; eventId: string }) => Promise<ManualContentPushResult>;
@@ -137,6 +138,23 @@ type ChannelOperationRequestBody = {
   channelId: string;
   durationMs?: number;
   automationEnabled?: boolean;
+};
+
+type ComposerPostResult =
+  | {
+      ok: true;
+      channelId: string;
+      messageId: string;
+    }
+  | {
+      ok: false;
+      code: "BOT_NOT_READY" | "CHANNEL_NOT_FOUND" | "CHANNEL_NOT_SENDABLE" | "SEND_FAILED";
+      error: string;
+    };
+
+type ComposerPostRequestBody = {
+  channelId: string;
+  message: string;
 };
 
 type FeedRequestBody = {
@@ -427,6 +445,46 @@ function sanitizeChannelAutomationEnabledRequest(value: unknown) {
       channelId: value.channelId,
       automationEnabled: value.automationEnabled,
     } satisfies ChannelOperationRequestBody,
+  };
+}
+
+function sanitizeComposerPostRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Composer payload must be a JSON object.",
+    };
+  }
+
+  if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (typeof value.message !== "string" || value.message.trim().length === 0) {
+    return {
+      ok: false as const,
+      error: "Message is required.",
+    };
+  }
+
+  const message = value.message.trim();
+
+  if (message.length > 2000) {
+    return {
+      ok: false as const,
+      error: "Message must be 2000 characters or fewer.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId: value.channelId,
+      message,
+    } satisfies ComposerPostRequestBody,
   };
 }
 
@@ -1052,6 +1110,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
   const getGuildMetadata = dependencies?.getGuildMetadata;
+  const postComposerMessage = dependencies?.postComposerMessage;
   const pushManualContent = dependencies?.pushManualContent;
   const triggerAutomatedContentNow = dependencies?.triggerAutomatedContentNow;
   const pushHistoryPreview = dependencies?.pushHistoryPreview;
@@ -1917,6 +1976,46 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
                 : result.code === "CONTENT_UNAVAILABLE"
                   ? 404
                   : 400;
+          sendJson(response, statusCode, result);
+          return;
+        }
+
+        sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/composer/post") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!postComposerMessage) {
+          sendJson(response, 503, {
+            error: "Composer post route is unavailable.",
+          });
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeComposerPostRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const result = await postComposerMessage(validation.value);
+
+        if (!result.ok) {
+          const statusCode =
+            result.code === "BOT_NOT_READY"
+              ? 503
+              : result.code === "CHANNEL_NOT_FOUND" || result.code === "CHANNEL_NOT_SENDABLE"
+                ? 404
+                : 400;
           sendJson(response, statusCode, result);
           return;
         }

@@ -181,6 +181,49 @@ client.once(Events.ClientReady, (readyClient) => {
           channels,
         };
       },
+      postComposerMessage: async (request) => {
+        if (!client.isReady()) {
+          return {
+            ok: false,
+            code: "BOT_NOT_READY",
+            error: "Bot is not ready.",
+          };
+        }
+
+        const channel = await client.channels.fetch(request.channelId);
+
+        if (!channel) {
+          return {
+            ok: false,
+            code: "CHANNEL_NOT_FOUND",
+            error: "Discord channel was not found.",
+          };
+        }
+
+        if (!channel.isTextBased() || !("send" in channel)) {
+          return {
+            ok: false,
+            code: "CHANNEL_NOT_SENDABLE",
+            error: "Discord channel is not sendable.",
+          };
+        }
+
+        try {
+          const sentMessage = await channel.send(request.message);
+          return {
+            ok: true,
+            channelId: request.channelId,
+            messageId: sentMessage.id,
+          };
+        } catch (error) {
+          console.error(`[composer] failed to post message to ${request.channelId}:`, error);
+          return {
+            ok: false,
+            code: "SEND_FAILED",
+            error: "Failed to post the composer message.",
+          };
+        }
+      },
       pushManualContent: (request) => pushManualContentToChannel(client, request),
       postRoleAccessPanel: async (request) => {
         if (!client.isReady()) {

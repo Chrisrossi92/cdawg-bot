@@ -22,6 +22,11 @@ const roleFollowupsOutput = document.querySelector("#role-followups-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
+const composerForm = document.querySelector("#composer-form");
+const composerStatus = document.querySelector("#composer-status");
+const composerOutput = document.querySelector("#composer-output");
+const composerPreview = document.querySelector("#composer-preview");
+const composerCharacterCount = document.querySelector("#composer-character-count");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
 const dailyTriviaForm = document.querySelector("#daily-trivia-form");
@@ -73,9 +78,12 @@ const resetRoleAccessPanelFormButton = document.querySelector("#reset-role-acces
 const postRoleAccessPanelFormButton = document.querySelector("#post-role-access-panel-form");
 const resetRoleFollowupFormButton = document.querySelector("#reset-role-followup-form");
 const deleteRoleFollowupFormButton = document.querySelector("#delete-role-followup-form");
+const saveComposerDraftButton = document.querySelector("#save-composer-draft");
+const clearComposerButton = document.querySelector("#clear-composer");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
+const composerDraftStorageKey = "cdawg-dashboard-composer-draft";
 const autoRefreshIntervalMs = 15000;
 
 let lastSettingsSnapshot = null;
@@ -122,6 +130,12 @@ function setStatusMessage(message, kind = "neutral") {
 function setManualPushStatus(message, kind = "neutral") {
   manualPushStatus.textContent = message;
   manualPushStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setComposerStatus(message, kind = "neutral") {
+  composerStatus.textContent = message;
+  composerStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
@@ -270,6 +284,7 @@ function renderDiscordMetadataOptions() {
   }
 
   syncDiscordMetadataSelections();
+  renderComposerPreview();
 }
 
 function syncDiscordMetadataSelections() {
@@ -328,6 +343,13 @@ function updateDiscordMetadataSelection(select) {
     syncDiscordMetadataSelections();
     renderRoleFollowupPreview();
     console.debug("[discord-metadata] follow-up preview rendered");
+    return;
+  }
+
+  if (select.form === composerForm) {
+    syncDiscordMetadataSelections();
+    renderComposerPreview();
+    console.debug("[discord-metadata] composer preview rendered");
   }
 }
 
@@ -350,6 +372,196 @@ function syncManualPushPresetSelection(prefillTopic = true) {
   if (prefillTopic) {
     manualPushForm.elements.topicOverride.value = selectedPreset.defaultTopic ?? "";
   }
+}
+
+function getComposerFormValue() {
+  return {
+    channelId: composerForm.elements.channelId.value.trim(),
+    roleId: composerForm.elements.roleId.value.trim(),
+    message: composerForm.elements.message.value,
+  };
+}
+
+function updateComposerCharacterCount() {
+  const messageLength = composerForm.elements.message.value.length;
+  composerCharacterCount.textContent = `${messageLength} / 2000 characters`;
+  composerCharacterCount.style.color = messageLength > 2000 ? "#b42318" : "#74859a";
+}
+
+function getComposerPreviewTokenLabel(token) {
+  if (token === "{user}") {
+    return "@user";
+  }
+
+  const channelMatch = token.match(/^<#(\d{17,20})>$/);
+
+  if (channelMatch) {
+    return getChannelLabel(channelMatch[1]);
+  }
+
+  const roleMatch = token.match(/^<@&(\d{17,20})>$/);
+
+  if (roleMatch) {
+    return `@${getRoleLabel(roleMatch[1])}`;
+  }
+
+  return token;
+}
+
+function appendComposerPreviewText(target, value) {
+  const tokenPattern = /(\{user\}|<#\d{17,20}>|<@&\d{17,20}>)/g;
+  const parts = value.split(tokenPattern).filter((part) => part.length > 0);
+
+  for (const part of parts) {
+    if (/^(\{user\}|<#\d{17,20}>|<@&\d{17,20}>)$/.test(part)) {
+      const mention = document.createElement("span");
+      mention.className = "composer-preview-mention";
+      mention.textContent = getComposerPreviewTokenLabel(part);
+      target.append(mention);
+    } else {
+      target.append(document.createTextNode(part));
+    }
+  }
+}
+
+function renderComposerPreview() {
+  const composer = getComposerFormValue();
+  const message = composer.message.trim() || "Your message preview will appear here.";
+
+  composerPreview.replaceChildren();
+
+  const header = document.createElement("div");
+  const previewMessage = document.createElement("div");
+  const author = document.createElement("div");
+  const body = document.createElement("p");
+  const context = document.createElement("div");
+  const channelContext = document.createElement("p");
+  const roleContext = document.createElement("p");
+
+  header.className = "discord-panel-preview-header";
+  header.textContent = "Discord preview";
+  previewMessage.className = "composer-preview-message";
+  author.className = "composer-preview-author";
+  author.textContent = "Cdawg Bot";
+  body.className = "composer-preview-body";
+  appendComposerPreviewText(body, message);
+  context.className = "discord-panel-preview-context";
+  channelContext.textContent = `Post to channel: ${getDetailedChannelLabel(composer.channelId, "not set")}`;
+  roleContext.textContent = `Selected role insert: ${getDetailedRoleLabel(composer.roleId)}`;
+
+  previewMessage.append(author, body);
+  context.append(channelContext, roleContext);
+  composerPreview.append(header, previewMessage, context);
+  updateComposerCharacterCount();
+  updateComposerQuickInsertState();
+}
+
+function updateComposerQuickInsertState() {
+  const composer = getComposerFormValue();
+
+  for (const button of document.querySelectorAll("[data-composer-insert-channel]")) {
+    button.disabled = !composer.channelId;
+  }
+
+  for (const button of document.querySelectorAll("[data-composer-insert-role]")) {
+    button.disabled = !composer.roleId;
+  }
+}
+
+function insertIntoComposerMessage(text) {
+  const textarea = composerForm.elements.message;
+  const currentValue = textarea.value;
+  const selectionStart = typeof textarea.selectionStart === "number" ? textarea.selectionStart : currentValue.length;
+  const selectionEnd = typeof textarea.selectionEnd === "number" ? textarea.selectionEnd : currentValue.length;
+  const nextValue = `${currentValue.slice(0, selectionStart)}${text}${currentValue.slice(selectionEnd)}`;
+  const nextCursor = selectionStart + text.length;
+
+  textarea.value = nextValue.slice(0, 2000);
+  textarea.focus();
+  textarea.setSelectionRange(Math.min(nextCursor, textarea.value.length), Math.min(nextCursor, textarea.value.length));
+  renderComposerPreview();
+}
+
+function handleComposerQuickInsert(button) {
+  const composer = getComposerFormValue();
+
+  if (button.dataset.composerInsertChannel !== undefined) {
+    if (!composer.channelId) {
+      return;
+    }
+
+    insertIntoComposerMessage(`<#${composer.channelId}>`);
+    return;
+  }
+
+  if (button.dataset.composerInsertRole !== undefined) {
+    if (!composer.roleId) {
+      return;
+    }
+
+    insertIntoComposerMessage(`<@&${composer.roleId}>`);
+    return;
+  }
+
+  insertIntoComposerMessage(button.dataset.composerInsert ?? "");
+}
+
+function saveComposerDraft() {
+  const draft = getComposerFormValue();
+  window.localStorage.setItem(composerDraftStorageKey, JSON.stringify(draft));
+  setComposerStatus("Draft saved locally.", "success");
+}
+
+function loadComposerDraft() {
+  const rawDraft = window.localStorage.getItem(composerDraftStorageKey);
+
+  if (!rawDraft) {
+    renderComposerPreview();
+    return;
+  }
+
+  try {
+    const draft = JSON.parse(rawDraft);
+
+    if (draft && typeof draft === "object") {
+      composerForm.elements.channelId.value = typeof draft.channelId === "string" ? draft.channelId : "";
+      composerForm.elements.roleId.value = typeof draft.roleId === "string" ? draft.roleId : "";
+      composerForm.elements.message.value = typeof draft.message === "string" ? draft.message.slice(0, 2000) : "";
+      syncDiscordMetadataSelections();
+      renderComposerPreview();
+      setComposerStatus("Local draft loaded.");
+      return;
+    }
+  } catch (error) {
+    console.warn("[composer] failed to load draft:", error);
+  }
+
+  renderComposerPreview();
+}
+
+function clearComposer() {
+  composerForm.reset();
+  window.localStorage.removeItem(composerDraftStorageKey);
+  composerOutput.textContent = "No composer request yet.";
+  setComposerStatus("Composer cleared.");
+  syncDiscordMetadataSelections();
+  renderComposerPreview();
+}
+
+function validateComposerPayload(payload) {
+  if (!payload.channelId) {
+    return "Choose a Discord channel.";
+  }
+
+  if (!payload.message.trim()) {
+    return "Message is required.";
+  }
+
+  if (payload.message.trim().length > 2000) {
+    return "Message must be 2000 characters or fewer.";
+  }
+
+  return null;
 }
 
 function createHealthCard(label, value, statusClass = "") {
@@ -1826,6 +2038,42 @@ async function submitManualPush(event) {
   }
 }
 
+async function submitComposer(event) {
+  event.preventDefault();
+
+  const composer = getComposerFormValue();
+  const payload = {
+    channelId: composer.channelId,
+    message: composer.message.trim(),
+  };
+  const validationError = validateComposerPayload(payload);
+
+  if (validationError) {
+    setComposerStatus(validationError, "error");
+    return;
+  }
+
+  setComposerStatus("Posting...");
+  setPrettyJson(composerOutput, payload);
+
+  try {
+    const data = await fetchJson("/api/composer/post", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setPrettyJson(composerOutput, data);
+    setComposerStatus(`Posted to ${getChannelLabel(data.channelId)}.`, "success");
+    await loadHealth();
+  } catch (error) {
+    composerOutput.textContent = `Composer post failed.\n${error.message}`;
+    setComposerStatus(`Post failed: ${error.message}`, "error");
+  }
+}
+
 function buildDailyTriviaPayload() {
   const topicOverride = dailyTriviaForm.elements.topicOverride.value.trim();
   const allowedStartTime = dailyTriviaForm.elements.allowedStartTime.value;
@@ -2262,6 +2510,16 @@ apiConfigForm.addEventListener("submit", async (event) => {
 });
 
 settingsForm.addEventListener("submit", saveSettings);
+composerForm.addEventListener("submit", submitComposer);
+composerForm.addEventListener("input", (event) => {
+  if (event.target?.matches?.("[data-discord-role-select], [data-discord-channel-select]")) {
+    updateDiscordMetadataSelection(event.target);
+    return;
+  }
+
+  syncDiscordMetadataSelections();
+  renderComposerPreview();
+});
 manualPushForm.addEventListener("submit", submitManualPush);
 dailyTriviaForm.addEventListener("submit", saveDailyTriviaChallenge);
 feedForm.addEventListener("submit", saveFeed);
@@ -2288,10 +2546,15 @@ roleFollowupForm.addEventListener("input", (event) => {
 for (const button of document.querySelectorAll("[data-followup-insert], [data-followup-insert-channel], [data-followup-insert-role]")) {
   button.addEventListener("click", () => handleFollowupQuickInsert(button));
 }
+for (const button of document.querySelectorAll("[data-composer-insert], [data-composer-insert-channel], [data-composer-insert-role]")) {
+  button.addEventListener("click", () => handleComposerQuickInsert(button));
+}
 for (const select of document.querySelectorAll("[data-discord-role-select], [data-discord-channel-select]")) {
   select.addEventListener("change", () => updateDiscordMetadataSelection(select));
 }
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
+saveComposerDraftButton.addEventListener("click", saveComposerDraft);
+clearComposerButton.addEventListener("click", clearComposer);
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
 resetRoleAccessPanelFormButton.addEventListener("click", resetRoleAccessPanelForm);
@@ -2317,6 +2580,7 @@ autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 configureAutoRefresh();
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
+loadComposerDraft();
 renderRoleAccessPreview();
 renderRoleFollowupPreview();
 void reloadAll();

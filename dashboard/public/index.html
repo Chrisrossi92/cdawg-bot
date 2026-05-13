@@ -45,6 +45,7 @@
           <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Overview</button>
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Channels</button>
           <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Push</button>
+          <button type="button" class="control-tab" data-tab-target="composer" aria-selected="false">Composer</button>
           <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Access</button>
           <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
@@ -309,6 +310,78 @@
               <details class="details-block control-debug-details">
                 <summary>Raw manual push payload</summary>
                 <pre id="manual-push-output">Waiting for request...</pre>
+              </details>
+            </section>
+          </div>
+        </section>
+
+        <section class="control-tab-panel" data-tab-panel="composer" hidden>
+          <div class="tab-stack">
+            <section class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Composer</h3>
+                  <p>Create and post a plain text Discord message without touching automation.</p>
+                </div>
+              </div>
+
+              <form id="composer-form" class="settings-form composer-form">
+                <section class="form-group">
+                  <h3>Destination</h3>
+                  <label>
+                    Discord Channel
+                    <select name="channelIdSelect" data-discord-channel-select data-target-input="channelId">
+                      <option value="">Loading channels...</option>
+                    </select>
+                    <input name="channelId" type="hidden" required />
+                    <small>Choose where Cdawg Bot should post this message.</small>
+                  </label>
+                  <label>
+                    Optional Role For Quick Insert
+                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                      <option value="">Loading roles...</option>
+                    </select>
+                    <input name="roleId" type="hidden" />
+                    <small>Used only by the selected role mention chip.</small>
+                  </label>
+                </section>
+
+                <section class="form-group composer-message-group">
+                  <h3>Message</h3>
+                  <label>
+                    Message
+                    <textarea name="message" rows="10" maxlength="2000" placeholder="Write the Discord message..." required></textarea>
+                    <small id="composer-character-count">0 / 2000 characters</small>
+                  </label>
+                  <div class="message-builder">
+                    <div class="message-builder-header">Quick inserts</div>
+                    <div class="message-builder-actions">
+                      <button type="button" class="pill-button" data-composer-insert="{user}">@user placeholder</button>
+                      <button type="button" class="pill-button" data-composer-insert-channel>Selected channel mention</button>
+                      <button type="button" class="pill-button" data-composer-insert-role>Selected role mention</button>
+                      <button type="button" class="pill-button" data-composer-insert="Please review the rules before jumping in: ">Rules reminder</button>
+                      <button type="button" class="pill-button" data-composer-insert="Question for everyone: ">Ask a question</button>
+                      <button type="button" class="pill-button" data-composer-insert="Server info: ">Server info</button>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="form-group role-access-preview-panel">
+                  <h3>Preview</h3>
+                  <div id="composer-preview" class="discord-panel-preview composer-preview"></div>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Post to Discord</button>
+                  <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>
+                  <button id="clear-composer" type="button" class="secondary">Clear</button>
+                  <span id="composer-status"></span>
+                </div>
+              </form>
+
+              <details class="details-block control-debug-details">
+                <summary>Raw composer response</summary>
+                <pre id="composer-output">No composer request yet.</pre>
               </details>
             </section>
           </div>
