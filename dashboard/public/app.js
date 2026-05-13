@@ -125,13 +125,16 @@ function getDefaultApiBaseUrl() {
 }
 
 function normalizeApiBaseUrl(value) {
-  const trimmedValue = value.trim().replace(/\/+$/, "");
+  const trimmedValue = value
+    .trim()
+    .replace(/\/+$/, "")
+    .replace(/(?:\/api)+$/i, "");
 
   if (!trimmedValue) {
     return getDefaultApiBaseUrl();
   }
 
-  return trimmedValue.replace(/\/api$/, "");
+  return trimmedValue;
 }
 
 function getApiBaseUrl() {
