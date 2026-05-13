@@ -81,6 +81,7 @@ const resetRoleFollowupFormButton = document.querySelector("#reset-role-followup
 const deleteRoleFollowupFormButton = document.querySelector("#delete-role-followup-form");
 const saveComposerDraftButton = document.querySelector("#save-composer-draft");
 const clearComposerButton = document.querySelector("#clear-composer");
+const undoComposerRewriteButton = document.querySelector("#undo-composer-rewrite");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
@@ -102,6 +103,7 @@ let feeds = [];
 let roleAccessPanels = [];
 let roleFollowups = [];
 let activeControlTab = "overview";
+let composerDraftBeforeRewrite = null;
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -495,6 +497,12 @@ function updateComposerQuickInsertState() {
   for (const button of document.querySelectorAll("[data-composer-insert-role]")) {
     button.disabled = !composer.roleId;
   }
+
+  for (const button of document.querySelectorAll("[data-composer-assist]")) {
+    button.disabled = !composer.channelId || !composer.message.trim();
+  }
+
+  undoComposerRewriteButton.disabled = !composerDraftBeforeRewrite;
 }
 
 function insertIntoComposerMessage(text) {
@@ -570,10 +578,66 @@ function loadComposerDraft() {
 
 function clearComposer() {
   composerForm.reset();
+  composerDraftBeforeRewrite = null;
   window.localStorage.removeItem(composerDraftStorageKey);
   composerOutput.textContent = "No composer request yet.";
   setComposerStatus("Composer cleared.");
   syncDiscordMetadataSelections();
+  renderComposerPreview();
+}
+
+function setComposerMessage(value) {
+  composerForm.elements.message.value = value.slice(0, 2000);
+  renderComposerPreview();
+}
+
+async function assistComposer(mode) {
+  const composer = getComposerFormValue();
+  const payload = {
+    channelId: composer.channelId,
+    message: composer.message.trim(),
+    mode,
+  };
+  const validationError = validateComposerPayload(payload);
+
+  if (validationError) {
+    setComposerStatus(validationError, "error");
+    return;
+  }
+
+  composerDraftBeforeRewrite = composer.message;
+  setComposerStatus("Rewriting...");
+  setPrettyJson(composerOutput, payload);
+  renderComposerPreview();
+
+  try {
+    const data = await fetchJson("/api/composer/assist", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    setPrettyJson(composerOutput, data);
+    setComposerMessage(data.message ?? composer.message);
+    setComposerStatus("Rewrite applied.", "success");
+  } catch (error) {
+    composerDraftBeforeRewrite = null;
+    composerOutput.textContent = `Composer rewrite failed.\n${error.message}`;
+    setComposerStatus(`Rewrite failed: ${error.message}`, "error");
+    renderComposerPreview();
+  }
+}
+
+function undoComposerRewrite() {
+  if (!composerDraftBeforeRewrite) {
+    return;
+  }
+
+  setComposerMessage(composerDraftBeforeRewrite);
+  composerDraftBeforeRewrite = null;
+  setComposerStatus("Rewrite undone.");
   renderComposerPreview();
 }
 
@@ -2553,6 +2617,10 @@ composerForm.addEventListener("input", (event) => {
     return;
   }
 
+  if (event.target === composerForm.elements.message) {
+    composerDraftBeforeRewrite = null;
+  }
+
   syncDiscordMetadataSelections();
   renderComposerPreview();
 });
@@ -2585,12 +2653,16 @@ for (const button of document.querySelectorAll("[data-followup-insert], [data-fo
 for (const button of document.querySelectorAll("[data-composer-insert], [data-composer-insert-channel], [data-composer-insert-role]")) {
   button.addEventListener("click", () => handleComposerQuickInsert(button));
 }
+for (const button of document.querySelectorAll("[data-composer-assist]")) {
+  button.addEventListener("click", () => void assistComposer(button.dataset.composerAssist));
+}
 for (const select of document.querySelectorAll("[data-discord-role-select], [data-discord-channel-select]")) {
   select.addEventListener("change", () => updateDiscordMetadataSelection(select));
 }
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
 saveComposerDraftButton.addEventListener("click", saveComposerDraft);
 clearComposerButton.addEventListener("click", clearComposer);
+undoComposerRewriteButton.addEventListener("click", undoComposerRewrite);
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
 resetRoleAccessPanelFormButton.addEventListener("click", resetRoleAccessPanelForm);

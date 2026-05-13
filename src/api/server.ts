@@ -57,6 +57,7 @@ import {
   getFollowups,
   upsertFollowup,
 } from "../systems/role-followups.js";
+import { assistComposerMessage, composerAssistModes, type ComposerAssistMode } from "../lib/composer-assist.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -155,6 +156,12 @@ type ComposerPostResult =
 type ComposerPostRequestBody = {
   channelId: string;
   message: string;
+};
+
+type ComposerAssistRequestBody = {
+  channelId: string;
+  message: string;
+  mode: ComposerAssistMode;
 };
 
 type FeedRequestBody = {
@@ -485,6 +492,54 @@ function sanitizeComposerPostRequest(value: unknown) {
       channelId: value.channelId,
       message,
     } satisfies ComposerPostRequestBody,
+  };
+}
+
+function sanitizeComposerAssistRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Composer assist payload must be a JSON object.",
+    };
+  }
+
+  if (typeof value.channelId !== "string" || !discordSnowflakePattern.test(value.channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (typeof value.message !== "string" || value.message.trim().length === 0) {
+    return {
+      ok: false as const,
+      error: "Message is required.",
+    };
+  }
+
+  const message = value.message.trim();
+
+  if (message.length > 2000) {
+    return {
+      ok: false as const,
+      error: "Message must be 2000 characters or fewer.",
+    };
+  }
+
+  if (typeof value.mode !== "string" || !composerAssistModes.includes(value.mode as ComposerAssistMode)) {
+    return {
+      ok: false as const,
+      error: `Invalid assist mode. Allowed values: ${composerAssistModes.join(", ")}.`,
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId: value.channelId,
+      message,
+      mode: value.mode as ComposerAssistMode,
+    } satisfies ComposerAssistRequestBody,
   };
 }
 
@@ -2021,6 +2076,38 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         }
 
         sendJson(response, 200, result);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/composer/assist") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeComposerAssistRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelPreset = dashboardChannelPresets.find((preset) => preset.channelId === validation.value.channelId);
+        const message = assistComposerMessage({
+          mode: validation.value.mode,
+          message: validation.value.message,
+          channelLabel: channelPreset?.label ?? null,
+        });
+
+        sendJson(response, 200, {
+          ok: true,
+          mode: validation.value.mode,
+          channelId: validation.value.channelId,
+          message,
+        });
         return;
       }
 

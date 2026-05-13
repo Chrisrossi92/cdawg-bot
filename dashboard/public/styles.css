@@ -451,6 +451,11 @@ small {
   box-shadow: none;
 }
 
+.pill-button.secondary {
+  background: #e8eef7;
+  color: #16324f;
+}
+
 .pill-button:disabled {
   cursor: not-allowed;
   opacity: 0.48;
