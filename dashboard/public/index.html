@@ -860,9 +860,46 @@
             <button id="refresh-settings" type="button" class="secondary">Refresh</button>
           </div>
 
+          <section class="settings-summary-grid" aria-label="Current settings summary">
+            <section class="metric-card settings-summary-card">
+              <h3>Current Settings Summary</h3>
+              <dl class="settings-summary-list">
+                <div>
+                  <dt>Automation Master</dt>
+                  <dd id="settings-summary-automation">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Passive Automation</dt>
+                  <dd id="settings-summary-passive">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Active Provider</dt>
+                  <dd id="settings-summary-provider">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Dashboard API Base URL</dt>
+                  <dd id="settings-summary-api-url">Loading...</dd>
+                </div>
+              </dl>
+            </section>
+          </section>
+
           <form id="settings-form" class="settings-form">
+            <section class="form-group settings-global-controls">
+              <h3>Global Automation Controls</h3>
+              <div class="settings-state-row">
+                <span id="settings-automation-master-state" class="status-badge neutral">Loading</span>
+                <span id="settings-automation-master-copy">Loading automation master state...</span>
+              </div>
+              <div class="settings-help warning">
+                Automation Master ON means scheduled and passive automation may run. OFF blocks scheduled and passive automation globally.
+              </div>
+              <small>Manual Push stays allowed. Trigger Next Now stays allowed unless the channel is silenced, cooling down, or skip-next is pending.</small>
+            </section>
+
             <section class="form-group">
-              <h3>Passive Chat</h3>
+              <h3>Passive Automation Controls</h3>
+              <p class="form-group-intro">Controls passive chat nudges only. Automation Master and channel-level controls can still block passive sends.</p>
               <label>
                 Enabled
                 <select name="passiveEnabled">
@@ -886,7 +923,8 @@
             </section>
 
             <section class="form-group">
-              <h3>Smart Engagement</h3>
+              <h3>Passive Engagement Thresholds</h3>
+              <p class="form-group-intro">Broad timing changes affect how often passive conversation nudges are considered.</p>
               <label>
                 Quiet Gap (ms)
                 <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
@@ -900,9 +938,10 @@
             </section>
 
             <section class="form-group">
-              <h3>Provider Logging</h3>
+              <h3>Content / Provider Controls</h3>
+              <p class="form-group-intro">Provider logging changes diagnostics only. It does not change provider selection or posting rules.</p>
               <label>
-                Enabled
+                Provider Logging
                 <select name="providerLoggingEnabled">
                   <option value="true">On</option>
                   <option value="false">Off</option>
@@ -910,10 +949,25 @@
               </label>
             </section>
 
+            <section class="form-group">
+              <h3>Dashboard / API Configuration</h3>
+              <dl class="settings-summary-list compact-list">
+                <div>
+                  <dt>API Base URL</dt>
+                  <dd id="settings-api-url-detail">Loading...</dd>
+                </div>
+                <div>
+                  <dt>Auto-refresh</dt>
+                  <dd id="settings-auto-refresh-detail">Loading...</dd>
+                </div>
+              </dl>
+              <small>Advanced connection controls remain in the header debug panel. Changing the API URL affects dashboard requests only.</small>
+            </section>
+
             <div class="settings-actions">
               <button type="submit">Save Settings</button>
               <button id="reset-settings" type="button" class="secondary">Reset Form</button>
-              <span id="settings-status"></span>
+              <span id="settings-status" class="form-status" role="status" aria-live="polite"></span>
             </div>
           </form>
 

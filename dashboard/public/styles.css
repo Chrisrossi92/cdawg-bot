@@ -241,6 +241,112 @@ button.ghost:hover {
   grid-column: 1 / -1;
 }
 
+.settings-summary-grid {
+  display: grid;
+  margin-bottom: 14px;
+}
+
+.settings-summary-card {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-summary-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.settings-summary-list div {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-summary-list dt {
+  color: var(--muted-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.settings-summary-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text);
+  font-weight: 700;
+}
+
+.settings-summary-list.compact-list {
+  padding: 10px;
+  border: 1px solid rgba(199, 212, 227, 0.68);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.68);
+}
+
+.settings-summary-value.ok {
+  color: var(--success);
+}
+
+.settings-summary-value.blocked {
+  color: var(--danger);
+}
+
+.settings-summary-value.neutral {
+  color: var(--text);
+}
+
+.settings-global-controls {
+  border-color: rgba(154, 103, 0, 0.28);
+  background: linear-gradient(180deg, #fffaf0 0%, rgba(255, 255, 255, 0.95) 100%);
+}
+
+.settings-state-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-state-row span:last-child {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.settings-help {
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.settings-help.warning {
+  border: 1px solid rgba(154, 103, 0, 0.28);
+  background: rgba(154, 103, 0, 0.08);
+  color: #694800;
+}
+
+.form-group-intro {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.form-status {
+  min-height: 20px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(17, 32, 51, 0.05);
+}
+
+.form-status.success {
+  background: rgba(19, 115, 51, 0.1);
+}
+
+.form-status.error {
+  background: rgba(180, 35, 24, 0.1);
+}
+
 .subpanel-header {
   display: flex;
   align-items: center;

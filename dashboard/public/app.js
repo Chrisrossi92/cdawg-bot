@@ -60,6 +60,14 @@ const metricsOutput = document.querySelector("#metrics-output");
 const automationActivityOutput = document.querySelector("#automation-activity-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
+const settingsSummaryAutomation = document.querySelector("#settings-summary-automation");
+const settingsSummaryPassive = document.querySelector("#settings-summary-passive");
+const settingsSummaryProvider = document.querySelector("#settings-summary-provider");
+const settingsSummaryApiUrl = document.querySelector("#settings-summary-api-url");
+const settingsAutomationMasterState = document.querySelector("#settings-automation-master-state");
+const settingsAutomationMasterCopy = document.querySelector("#settings-automation-master-copy");
+const settingsApiUrlDetail = document.querySelector("#settings-api-url-detail");
+const settingsAutoRefreshDetail = document.querySelector("#settings-auto-refresh-detail");
 const composerForm = document.querySelector("#composer-form");
 const composerStatus = document.querySelector("#composer-status");
 const composerOutput = document.querySelector("#composer-output");
@@ -134,6 +142,7 @@ const autoRefreshIntervalMs = 15000;
 
 let lastSettingsSnapshot = null;
 let lastHealthSnapshot = null;
+let lastMetricsSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let guildRoles = [];
@@ -202,6 +211,7 @@ function setPrettyJson(target, value) {
 
 function setStatusMessage(message, kind = "neutral") {
   settingsStatus.textContent = message;
+  settingsStatus.className = `form-status ${kind}`;
   settingsStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
@@ -277,7 +287,62 @@ function renderAutomationMaster() {
     : "All automatic posting is disabled globally. Manual triggers remain available for testing.";
 
   automationMasterBanner.hidden = enabled;
+  renderSettingsSummary();
   renderOpsSnapshot();
+}
+
+function getActiveProviderSummary() {
+  const usageCounts = lastMetricsSnapshot?.contentProviders?.usageCounts;
+
+  if (!usageCounts || typeof usageCounts !== "object") {
+    return "Not reported by current metrics";
+  }
+
+  const [topEntry] = sortCounterEntries(usageCounts);
+  if (!topEntry || topEntry[1] <= 0) {
+    return "No provider usage recorded";
+  }
+
+  const [rawLabel, count] = topEntry;
+  const [contentType, providerName] = rawLabel.includes(":") ? rawLabel.split(":", 2) : ["content", rawLabel];
+
+  return `${providerName} for ${contentType} (${count})`;
+}
+
+function renderSettingsSummary() {
+  const masterEnabled = automationMaster.globalAutomationEnabled === true;
+  const passiveEnabled = lastSettingsSnapshot?.passiveChat?.enabled === true;
+  const providerLoggingEnabled = lastSettingsSnapshot?.contentProviders?.debugLogging === true;
+  const apiBaseUrl = getApiBaseUrl();
+
+  settingsSummaryAutomation.textContent = masterEnabled
+    ? "ON - scheduled/passive automation may run"
+    : "OFF - scheduled/passive automation blocked";
+  settingsSummaryAutomation.className = masterEnabled ? "settings-summary-value ok" : "settings-summary-value blocked";
+
+  settingsSummaryPassive.textContent = passiveEnabled ? "ON - passive chat may be considered" : "OFF - passive chat disabled";
+  settingsSummaryPassive.className = passiveEnabled ? "settings-summary-value ok" : "settings-summary-value neutral";
+
+  settingsSummaryProvider.textContent = getActiveProviderSummary();
+  settingsSummaryProvider.className = "settings-summary-value neutral";
+
+  settingsSummaryApiUrl.textContent = apiBaseUrl;
+  settingsSummaryApiUrl.className = "settings-summary-value neutral";
+
+  settingsAutomationMasterState.textContent = masterEnabled ? "Master ON" : "Master OFF";
+  settingsAutomationMasterState.className = `status-badge ${masterEnabled ? "active" : "blocked"}`;
+  settingsAutomationMasterCopy.textContent = masterEnabled
+    ? "Scheduled and passive automation may run when channel-level gates allow it."
+    : "Scheduled and passive automation are blocked globally. Manual dashboard actions remain available.";
+
+  settingsApiUrlDetail.textContent = apiBaseUrl;
+  settingsAutoRefreshDetail.textContent = autoRefreshEnabledInput.checked ? "On" : "Off";
+
+  if (providerLoggingEnabled) {
+    settingsSummaryProvider.title = "Provider debug logging is enabled.";
+  } else {
+    settingsSummaryProvider.title = "Provider debug logging is disabled.";
+  }
 }
 
 function getSelectedChannelPreset() {
@@ -2527,6 +2592,7 @@ function resetSettingsForm() {
   }
 
   applySettingsToForm(lastSettingsSnapshot);
+  renderSettingsSummary();
   setStatusMessage("Form reset to current runtime settings.");
 }
 
@@ -2563,6 +2629,7 @@ async function loadMetrics() {
   try {
     const data = await fetchJson("/api/metrics");
     const metrics = data.metrics;
+    lastMetricsSnapshot = metrics;
 
     renderMetricList(passiveMetricsList, [
       ["total triggers", metrics.passiveChat.triggerCount],
@@ -2574,8 +2641,11 @@ async function loadMetrics() {
     renderMetricList(providerSuccessList, sortCounterEntries(metrics.contentProviders.apiSuccessCounts));
     renderMetricList(providerFallbackList, sortCounterEntries(metrics.contentProviders.fallbackToLocalCounts));
     renderMetricList(providerFailureList, sortCounterEntries(metrics.contentProviders.apiFailureCounts));
+    renderSettingsSummary();
     setPrettyJson(metricsOutput, data);
   } catch (error) {
+    lastMetricsSnapshot = null;
+    renderSettingsSummary();
     metricsOutput.textContent = `Failed to load metrics.\n${error.message}`;
   }
 }
@@ -3356,6 +3426,7 @@ async function reloadAll() {
 
 function configureAutoRefresh() {
   window.localStorage.setItem(autoRefreshStorageKey, String(autoRefreshEnabledInput.checked));
+  renderSettingsSummary();
 
   if (autoRefreshTimer) {
     window.clearInterval(autoRefreshTimer);
@@ -3377,12 +3448,14 @@ apiConfigForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   apiBaseUrlInput.value = getApiBaseUrl();
   window.localStorage.setItem(apiBaseUrlStorageKey, apiBaseUrlInput.value);
+  renderSettingsSummary();
   setStatusMessage("Reconnected to API.");
   await reloadAll();
 });
 
 resetApiUrlButton.addEventListener("click", async () => {
   resetApiBaseUrl();
+  renderSettingsSummary();
   setStatusMessage("API URL reset to automatic default.");
   await reloadAll();
 });
