@@ -153,6 +153,98 @@ export const thisDayInHistoryByDate: Record<string, readonly ThisDayInHistoryEve
       link: "https://en.wikipedia.org/wiki/Coca-Cola",
     },
   ],
+  "05-28": [
+    {
+      id: "585bc-battle-of-halys-eclipse",
+      monthDay: "05-28",
+      year: -585,
+      title: "A solar eclipse is linked to the Battle of Halys",
+      summary:
+        "An eclipse reportedly interrupted fighting between the Medes and Lydians, helping bring the battle and a long-running war to an end.",
+      impact:
+        "The event became one of antiquity’s most famous examples of astronomy intersecting with politics, war, and historical chronology.",
+      link: "https://en.wikipedia.org/wiki/Battle_of_Halys",
+    },
+    {
+      id: "1830-indian-removal-act",
+      monthDay: "05-28",
+      year: 1830,
+      title: "The Indian Removal Act is signed in the United States",
+      summary:
+        "President Andrew Jackson signed a law authorizing forced relocation of Native peoples from ancestral lands in the southeastern United States.",
+      impact:
+        "The law led to devastating removals including the Trail of Tears, leaving a lasting legacy in U.S. history and Native sovereignty debates.",
+      link: "https://en.wikipedia.org/wiki/Indian_Removal_Act",
+    },
+    {
+      id: "1937-golden-gate-bridge-pedestrian-opening",
+      monthDay: "05-28",
+      year: 1937,
+      title: "The Golden Gate Bridge opens to pedestrians",
+      summary:
+        "Thousands of people crossed the new San Francisco landmark on foot one day before it opened to vehicle traffic.",
+      impact:
+        "The bridge became an engineering icon and a defining symbol of San Francisco, showing the ambition of Depression-era infrastructure.",
+      link: "https://en.wikipedia.org/wiki/Golden_Gate_Bridge",
+    },
+    {
+      id: "1961-amnesty-international-founded",
+      monthDay: "05-28",
+      year: 1961,
+      title: "Amnesty International is founded",
+      summary:
+        "British lawyer Peter Benenson launched a campaign for prisoners of conscience that grew into a global human rights organization.",
+      impact:
+        "Amnesty International helped popularize modern human rights advocacy and showed how public pressure could influence governments worldwide.",
+      link: "https://en.wikipedia.org/wiki/Amnesty_International",
+    },
+  ],
+  "05-29": [
+    {
+      id: "1453-fall-of-constantinople",
+      monthDay: "05-29",
+      year: 1453,
+      title: "Constantinople falls to the Ottoman Empire",
+      summary:
+        "Ottoman forces led by Mehmed II captured Constantinople after a long siege, ending the Byzantine Empire.",
+      impact:
+        "The city’s fall reshaped trade, politics, and culture across Europe and the Middle East, marking a major turning point in world history.",
+      link: "https://en.wikipedia.org/wiki/Fall_of_Constantinople",
+    },
+    {
+      id: "1790-rhode-island-ratifies-constitution",
+      monthDay: "05-29",
+      year: 1790,
+      title: "Rhode Island ratifies the U.S. Constitution",
+      summary:
+        "Rhode Island became the last of the original thirteen states to ratify the Constitution and join the new federal system.",
+      impact:
+        "Its ratification completed the original state lineup under the Constitution and reflected early debates over federal power and local autonomy.",
+      link: "https://en.wikipedia.org/wiki/Rhode_Island",
+    },
+    {
+      id: "1913-rite-of-spring-premiere",
+      monthDay: "05-29",
+      year: 1913,
+      title: "The Rite of Spring premieres in Paris",
+      summary:
+        "Igor Stravinsky’s ballet premiered at the Theatre des Champs-Elysees, shocking audiences with its music and choreography.",
+      impact:
+        "The premiere became a landmark in modern art, challenging expectations about rhythm, movement, and what classical performance could be.",
+      link: "https://en.wikipedia.org/wiki/The_Rite_of_Spring",
+    },
+    {
+      id: "1953-everest-first-confirmed-summit",
+      monthDay: "05-29",
+      year: 1953,
+      title: "Edmund Hillary and Tenzing Norgay reach the summit of Everest",
+      summary:
+        "The New Zealand climber and Sherpa mountaineer became the first confirmed people to stand on the summit of Mount Everest.",
+      impact:
+        "Their climb became one of exploration’s most famous achievements and brought global attention to Himalayan mountaineering.",
+      link: "https://en.wikipedia.org/wiki/1953_British_Mount_Everest_expedition",
+    },
+  ],
   "06-06": [
     {
       id: "1944-d-day-landings",
