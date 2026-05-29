@@ -50,7 +50,7 @@
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Automation</button>
           <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Post Now</button>
           <button type="button" class="control-tab" data-tab-target="composer" aria-selected="false">Composer</button>
-          <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
+          <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
           <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
@@ -293,12 +293,74 @@
                 <pre id="automation-activity-output">Loading...</pre>
               </details>
             </section>
+          </div>
+        </section>
 
-            <section class="control-block">
+        <section class="control-tab-panel" data-tab-panel="channels" hidden>
+          <div class="subpanel-header">
+            <div>
+              <h3>Automation</h3>
+              <p>Use this page to control automatic posts: where they go, when they run, and whether a channel should pause or skip the next post.</p>
+            </div>
+          </div>
+          <div class="automation-section-grid">
+            <a href="#automation-channel-controls" class="automation-section-card">
+              <strong>Channel Posting Controls</strong>
+              <span>Pause, resume, delay, skip, or post the next scheduled item for each channel.</span>
+            </a>
+            <a href="#automation-scheduled-posts" class="automation-section-card">
+              <strong>Scheduled Posts</strong>
+              <span>Manage recurring feed-style posts.</span>
+            </a>
+            <a href="#automation-daily-trivia" class="automation-section-card">
+              <strong>Daily Trivia</strong>
+              <span>Manage the daily trivia challenge.</span>
+            </a>
+            <a href="#automation-community-game" class="automation-section-card">
+              <strong>Dog Game / Community Game</strong>
+              <span>Manage community game status.</span>
+            </a>
+          </div>
+
+          <div class="tab-stack">
+            <section id="automation-channel-controls" class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Feeds</h3>
-                  <p>Recurring content configuration and current execution state.</p>
+                  <h3>Channel Posting Controls</h3>
+                  <p>Pause, resume, delay, skip, or post the next scheduled item for each channel.</p>
+                </div>
+                <div class="toolbar">
+                  <label>
+                    Filter
+                    <select id="channel-operations-filter">
+                      <option value="all">All</option>
+                      <option value="active">Active Only</option>
+                      <option value="blocked">Blocked Only</option>
+                    </select>
+                  </label>
+                  <label>
+                    Sort
+                    <select id="channel-operations-sort">
+                      <option value="status">By Status</option>
+                      <option value="next-eligible">By Next Eligible</option>
+                      <option value="name">By Name</option>
+                    </select>
+                  </label>
+                  <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
+                </div>
+              </div>
+              <div id="channel-operations-grid" class="channel-operations-grid"></div>
+              <details class="details-block control-debug-details">
+                <summary>Technical Details</summary>
+                <pre id="channel-operations-output">Loading...</pre>
+              </details>
+            </section>
+
+            <section id="automation-scheduled-posts" class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Scheduled Posts</h3>
+                  <p>Manage recurring feed-style posts.</p>
                 </div>
                 <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
               </div>
@@ -306,7 +368,7 @@
               <form id="feed-form" class="settings-form">
                 <input name="feedId" type="hidden" />
                 <section class="form-group">
-                  <h3>Feed Config</h3>
+                  <h3>Scheduled Post Config</h3>
                   <label>
                     Enabled
                     <select name="enabled">
@@ -337,7 +399,7 @@
                     </select>
                   </label>
                   <label>
-                    Cadence Minutes
+                    Repeat Every (minutes)
                     <input name="cadenceMinutes" type="number" min="1" step="1" />
                   </label>
                   <label>
@@ -357,7 +419,7 @@
                 </section>
 
                 <div class="settings-actions">
-                  <button type="submit">Save Feed</button>
+                  <button type="submit">Save Scheduled Post</button>
                   <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
                   <span id="feed-status"></span>
                 </div>
@@ -369,40 +431,80 @@
                 <pre id="feeds-output">Loading...</pre>
               </details>
             </section>
-          </div>
-        </section>
 
-        <section class="control-tab-panel" data-tab-panel="channels" hidden>
-          <div class="subpanel-header">
-            <div>
-              <h3>Automation</h3>
-              <p>Manage everything the bot posts automatically. Control what the bot posts automatically and when.</p>
-            </div>
-            <div class="toolbar">
-              <label>
-                Filter
-                <select id="channel-operations-filter">
-                  <option value="all">All</option>
-                  <option value="active">Active Only</option>
-                  <option value="blocked">Blocked Only</option>
-                </select>
-              </label>
-              <label>
-                Sort
-                <select id="channel-operations-sort">
-                  <option value="status">By Status</option>
-                  <option value="next-eligible">By Next Eligible</option>
-                  <option value="name">By Name</option>
-                </select>
-              </label>
-              <button id="refresh-channel-operations" type="button" class="secondary">Refresh</button>
-            </div>
+            <section id="automation-daily-trivia" class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Daily Trivia</h3>
+                  <p>Manage the daily trivia challenge.</p>
+                </div>
+              </div>
+
+              <form id="daily-trivia-form" class="settings-form">
+                <section class="form-group">
+                  <h3>Daily Trivia Config</h3>
+                  <label>
+                    Enabled
+                    <select name="enabled">
+                      <option value="true">On</option>
+                      <option value="false">Off</option>
+                    </select>
+                  </label>
+                  <label>
+                    Channel Preset
+                    <select name="channelPreset">
+                      <option value="">Loading presets...</option>
+                    </select>
+                  </label>
+                  <label>
+                    Daily Time
+                    <input name="dailyTime" type="time" required />
+                    <small>Local daily post time.</small>
+                  </label>
+                  <label>
+                    Topic Override
+                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                    <small>Leave blank to use the channel preset topic.</small>
+                  </label>
+                  <label>
+                    Allowed Start Time
+                    <input name="allowedStartTime" type="time" />
+                    <small>Optional daily local start time.</small>
+                  </label>
+                  <label>
+                    Allowed End Time
+                    <input name="allowedEndTime" type="time" />
+                    <small>Optional daily local end time.</small>
+                  </label>
+                </section>
+
+                <div class="settings-actions">
+                  <button type="submit">Save Daily Trivia</button>
+                  <span id="daily-trivia-status"></span>
+                </div>
+              </form>
+
+              <div id="daily-trivia-summary" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Technical Details</summary>
+                <pre id="daily-trivia-output">Loading...</pre>
+              </details>
+            </section>
+
+            <section id="automation-community-game" class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Dog Game / Community Game</h3>
+                  <p>Manage community game status.</p>
+                </div>
+              </div>
+              <div id="dog-summary" class="feed-list"></div>
+              <details class="details-block control-debug-details">
+                <summary>Technical Details</summary>
+                <pre id="dog-output">Loading...</pre>
+              </details>
+            </section>
           </div>
-          <div id="channel-operations-grid" class="channel-operations-grid"></div>
-          <details class="details-block control-debug-details">
-            <summary>Technical Details</summary>
-            <pre id="channel-operations-output">Loading...</pre>
-          </details>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="push" hidden>
@@ -575,80 +677,14 @@
         </section>
 
         <section class="control-tab-panel" data-tab-panel="trivia" hidden>
-          <div class="tab-stack">
-            <section class="control-block">
-              <div class="subpanel-header">
-                <div>
-                  <h3>Daily Trivia Challenge</h3>
-                  <p>Configure one recognizable daily trivia drop using the shared interactive session flow.</p>
-                </div>
+          <section class="control-block">
+            <div class="subpanel-header">
+              <div>
+                <h3>Daily Trivia moved to Automation</h3>
+                <p>Daily Trivia and the community game status now live on the Automation page.</p>
               </div>
-
-              <form id="daily-trivia-form" class="settings-form">
-                <section class="form-group">
-                  <h3>Daily Challenge Config</h3>
-                  <label>
-                    Enabled
-                    <select name="enabled">
-                      <option value="true">On</option>
-                      <option value="false">Off</option>
-                    </select>
-                  </label>
-                  <label>
-                    Channel Preset
-                    <select name="channelPreset">
-                      <option value="">Loading presets...</option>
-                    </select>
-                  </label>
-                  <label>
-                    Daily Time
-                    <input name="dailyTime" type="time" required />
-                    <small>Local daily post time.</small>
-                  </label>
-                  <label>
-                    Topic Override
-                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                    <small>Leave blank to use the channel preset topic.</small>
-                  </label>
-                  <label>
-                    Allowed Start Time
-                    <input name="allowedStartTime" type="time" />
-                    <small>Optional daily local start time.</small>
-                  </label>
-                  <label>
-                    Allowed End Time
-                    <input name="allowedEndTime" type="time" />
-                    <small>Optional daily local end time.</small>
-                  </label>
-                </section>
-
-                <div class="settings-actions">
-                  <button type="submit">Save Daily Trivia</button>
-                  <span id="daily-trivia-status"></span>
-                </div>
-              </form>
-
-              <div id="daily-trivia-summary" class="feed-list"></div>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
-                <pre id="daily-trivia-output">Loading...</pre>
-              </details>
-            </section>
-
-            <section class="control-block">
-              <div class="subpanel-header">
-                <div>
-                  <h3>Cdawg Dog</h3>
-                  <p>Feature-gated dog system status.</p>
-                </div>
-              </div>
-              <div id="dog-summary" class="feed-list"></div>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
-                <pre id="dog-output">Loading...</pre>
-              </details>
-            </section>
-          </div>
+            </div>
+          </section>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="access" hidden>

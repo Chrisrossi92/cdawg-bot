@@ -1633,7 +1633,7 @@ function renderChannelOperations() {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
     emptyState.textContent =
-      channelAutomationStatuses.length === 0 ? "No channel automation status available." : "No channels match the current filter.";
+      channelAutomationStatuses.length === 0 ? "No channel posting status available." : "No channels match the current filter.";
     channelOperationsGrid.append(emptyState);
     return;
   }
@@ -1770,7 +1770,7 @@ function renderChannelOperations() {
       createAutomationDetailLine("Next eligible", `${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`, "strong"),
       createAutomationDetailLine("Passive eligible", `${formatTimestamp(channelStatus.passiveEligibleAt)} (${formatRelativeTime(channelStatus.passiveEligibleAt)})`),
       createAutomationDetailLine("Scheduled eligible", `${formatTimestamp(channelStatus.scheduledEligibleAt)} (${formatRelativeTime(channelStatus.scheduledEligibleAt)})`),
-      createAutomationDetailLine("Next content/source", "Not included in current API payload"),
+      createAutomationDetailLine("Next content/source", "Not reported yet"),
     );
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
@@ -1808,7 +1808,7 @@ function resetFeedForm() {
   feedForm.elements.allowedStartTime.value = "";
   feedForm.elements.allowedEndTime.value = "";
   feedForm.elements.channelPreset.value = channelPresets[0]?.channelId ?? "";
-  setFeedStatus("Feed form reset.");
+  setFeedStatus("Scheduled post form reset.");
 }
 
 function applyDailyTriviaToForm(challenge) {
@@ -1832,7 +1832,7 @@ function populateFeedForm(feed) {
   feedForm.elements.topicOverride.value = feed.topicOverride ?? "";
   feedForm.elements.allowedStartTime.value = feed.allowedWindow?.startTime ?? "";
   feedForm.elements.allowedEndTime.value = feed.allowedWindow?.endTime ?? "";
-  setFeedStatus(`Editing ${feed.id}.`);
+  setFeedStatus(`Editing scheduled post ${feed.id}.`);
 }
 
 function renderFeeds() {
@@ -1841,7 +1841,7 @@ function renderFeeds() {
   if (feeds.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No feeds configured.";
+    emptyState.textContent = "No scheduled posts configured.";
     feedsList.append(emptyState);
     return;
   }
@@ -1865,7 +1865,7 @@ function renderFeeds() {
     primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
     primaryDetail.textContent = `Next run: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`;
     secondaryDetail.className = "channel-operation-detail";
-    secondaryDetail.textContent = `Cadence: every ${feed.cadenceMinutes} min • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
+    secondaryDetail.textContent = `Repeats every ${feed.cadenceMinutes} min • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
     blockedDetail.className = "channel-operation-detail";
     blockedDetail.textContent = feed.blockedReason
       ? `Blocked: ${getFeedBlockedLabel(feed)}${feed.blockedUntil ? ` until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})` : ""}`
@@ -2373,7 +2373,7 @@ function renderDailyTriviaChallenge() {
   if (!dailyTriviaChallenge) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "Daily Trivia Challenge is not configured yet.";
+    emptyState.textContent = "Daily Trivia is not configured yet.";
     dailyTriviaSummary.append(emptyState);
     applyDailyTriviaToForm(null);
     return;
@@ -3094,11 +3094,11 @@ async function saveFeed(event) {
     });
 
     setPrettyJson(feedsOutput, data);
-    setFeedStatus(feedId ? "Feed updated." : "Feed created.", "success");
+    setFeedStatus(feedId ? "Scheduled post updated." : "Scheduled post created.", "success");
     resetFeedForm();
     await Promise.all([loadFeeds(), loadChannelOperations()]);
   } catch (error) {
-    setFeedStatus(`Feed save failed: ${error.message}`, "error");
+    setFeedStatus(`Scheduled post save failed: ${error.message}`, "error");
   }
 }
 
@@ -3300,7 +3300,7 @@ async function setFeedEnabledState(feedId, enabled) {
     setPrettyJson(feedsOutput, data);
     await Promise.all([loadFeeds(), loadChannelOperations()]);
   } catch (error) {
-    feedsOutput.textContent = `Feed toggle failed.\n${error.message}`;
+    feedsOutput.textContent = `Scheduled post toggle failed.\n${error.message}`;
   }
 }
 
@@ -3322,7 +3322,7 @@ async function deleteFeed(feedId) {
     }
     await Promise.all([loadFeeds(), loadChannelOperations()]);
   } catch (error) {
-    feedsOutput.textContent = `Feed delete failed.\n${error.message}`;
+    feedsOutput.textContent = `Scheduled post delete failed.\n${error.message}`;
   }
 }
 
