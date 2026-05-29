@@ -109,8 +109,8 @@
 
               <section class="ops-snapshot-group">
                 <div class="ops-snapshot-group-header">
-                  <h3>Automation Snapshot</h3>
-                  <span id="ops-automation-master-badge" class="status-badge neutral">master loading</span>
+                  <h3>Automatic Posting</h3>
+                  <span id="ops-automation-master-badge" class="status-badge neutral">automatic posting loading</span>
                 </div>
                 <div class="ops-card-grid ops-card-grid-compact">
                   <article id="ops-active-channels-card" class="ops-status-card neutral">
@@ -149,6 +149,7 @@
                 <div class="ops-snapshot-group-header">
                   <h3>Setup Warnings</h3>
                 </div>
+                <p id="ops-setup-empty" class="channel-operation-empty" hidden>No setup warnings found.</p>
                 <div class="ops-integrity-grid">
                   <article id="ops-total-panels-card" class="ops-status-card neutral">
                     <span class="ops-status-label">Role Signup Buttons</span>
@@ -180,6 +181,57 @@
                   </article>
                 </div>
               </section>
+
+              <section id="dashboard-recent-problems" class="ops-snapshot-group ops-snapshot-group-wide">
+                <div class="ops-snapshot-group-header">
+                  <h3>Recent Problems</h3>
+                </div>
+                <div id="automation-errors-list" class="automation-activity-list">
+                  <p class="channel-operation-empty">No recent problems found.</p>
+                </div>
+              </section>
+
+              <section class="ops-snapshot-group ops-snapshot-group-wide">
+                <div class="ops-snapshot-group-header">
+                  <h3>Recent Activity</h3>
+                </div>
+                <div id="automation-activity-list" class="automation-activity-list">
+                  <p class="channel-operation-empty">No recent activity yet.</p>
+                </div>
+              </section>
+
+              <section class="ops-snapshot-group ops-snapshot-group-wide">
+                <div class="ops-snapshot-group-header">
+                  <h3>Common Tasks</h3>
+                </div>
+                <div class="common-task-grid">
+                  <article class="common-task-card">
+                    <h3>Manage Automatic Posts</h3>
+                    <p>Control scheduled posts, channel pauses, trivia, and recurring content.</p>
+                    <button id="task-manage-automation" type="button" class="secondary">Open Automation</button>
+                  </article>
+                  <article class="common-task-card">
+                    <h3>Post Something Now</h3>
+                    <p>Send generated content or write a custom bot message.</p>
+                    <button id="task-post-now" type="button" class="secondary">Open Post Now</button>
+                  </article>
+                  <article class="common-task-card">
+                    <h3>Manage Role Buttons & Messages</h3>
+                    <p>Create role signup buttons and follow-up messages.</p>
+                    <button id="task-community" type="button" class="secondary">Open Community</button>
+                  </article>
+                  <article class="common-task-card">
+                    <h3>Check Recent Problems</h3>
+                    <p>Review recent errors and warnings.</p>
+                    <button id="task-recent-problems" type="button" class="secondary">View Problems</button>
+                  </article>
+                  <article class="common-task-card">
+                    <h3>Bot Settings</h3>
+                    <p>Adjust automatic posting, chat replies, diagnostics, and dashboard connection.</p>
+                    <button id="task-settings" type="button" class="secondary">Open Settings</button>
+                  </article>
+                </div>
+              </section>
             </div>
           </section>
 
@@ -187,44 +239,18 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Dashboard</h3>
-                  <p>Check bot health, activity, and warnings.</p>
+                  <h3>Activity Stats</h3>
+                  <p>Longer-term command and content source stats.</p>
                 </div>
                 <div class="toolbar">
                   <button id="refresh-health" type="button" class="secondary">Refresh Health</button>
-                  <button id="refresh-metrics" type="button" class="secondary">Refresh Metrics</button>
+                  <button id="refresh-metrics" type="button" class="secondary">Refresh Activity Stats</button>
                 </div>
-              </div>
-              <div class="overview-status-grid">
-                <section class="metric-card compact-status">
-                  <h3>Runtime Status</h3>
-                  <p class="overview-status-copy">Health stays compact in the command bar so metrics and intervention controls can stay above the fold.</p>
-                </section>
-                <section class="metric-card compact-status">
-                  <h3>Operator Flow</h3>
-                  <p class="overview-status-copy">Use Automation for scheduled posts, Post Now for immediate sends, Community for role tools, and Settings for runtime tuning.</p>
-                </section>
-              </div>
-
-              <div class="automation-activity-grid">
-                <section class="metric-card automation-activity-card">
-                  <h3>Recent Activity</h3>
-                  <div id="automation-activity-list" class="automation-activity-list">
-                    <p class="channel-operation-empty">No recent automation activity available.</p>
-                  </div>
-                </section>
-
-                <section class="metric-card automation-activity-card">
-                  <h3>Recent Problems</h3>
-                  <div id="automation-errors-list" class="automation-activity-list">
-                    <p class="channel-operation-empty">No recent automation errors found.</p>
-                  </div>
-                </section>
               </div>
 
               <div class="metrics-grid">
                 <section class="metric-card">
-                  <h3>Passive Chat</h3>
+                  <h3>Automatic Chat Replies</h3>
                   <ul id="passive-metrics-list" class="metric-list"></ul>
                 </section>
 
@@ -234,7 +260,7 @@
                 </section>
 
                 <section class="metric-card">
-                  <h3>Provider Usage</h3>
+                  <h3>Content Source Stats</h3>
                   <ul id="provider-usage-list" class="metric-list"></ul>
                 </section>
 
@@ -244,7 +270,7 @@
                 </section>
 
                 <section class="metric-card">
-                  <h3>Fallback To Local</h3>
+                  <h3>Backup Content</h3>
                   <ul id="provider-fallback-list" class="metric-list"></ul>
                 </section>
 

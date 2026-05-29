@@ -33,6 +33,7 @@ const opsTotalFollowups = document.querySelector("#ops-total-followups");
 const opsDisabledFollowups = document.querySelector("#ops-disabled-followups");
 const opsFollowupsMissingChannel = document.querySelector("#ops-followups-missing-channel");
 const opsFollowupsMissingRole = document.querySelector("#ops-followups-missing-role");
+const opsSetupEmpty = document.querySelector("#ops-setup-empty");
 const opsTotalPanelsCard = document.querySelector("#ops-total-panels-card");
 const opsPanelsMissingChannelCard = document.querySelector("#ops-panels-missing-channel-card");
 const opsPanelsMissingRoleCard = document.querySelector("#ops-panels-missing-role-card");
@@ -44,6 +45,11 @@ const opsRefreshDashboardButton = document.querySelector("#ops-refresh-dashboard
 const opsJumpChannelsButton = document.querySelector("#ops-jump-channels");
 const opsJumpAccessButton = document.querySelector("#ops-jump-access");
 const opsJumpFollowupsButton = document.querySelector("#ops-jump-followups");
+const taskManageAutomationButton = document.querySelector("#task-manage-automation");
+const taskPostNowButton = document.querySelector("#task-post-now");
+const taskCommunityButton = document.querySelector("#task-community");
+const taskRecentProblemsButton = document.querySelector("#task-recent-problems");
+const taskSettingsButton = document.querySelector("#task-settings");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -1069,7 +1075,7 @@ function renderOpsSnapshot() {
   setOpsCardState(opsUptimeCard, uptime === "Unavailable" ? "neutral" : "ok");
 
   const masterEnabled = automationMaster.globalAutomationEnabled === true;
-  opsAutomationMasterBadge.textContent = `master ${masterEnabled ? "on" : "off"}`;
+  opsAutomationMasterBadge.textContent = `automatic posting ${masterEnabled ? "on" : "off"}`;
   opsAutomationMasterBadge.className = `status-badge ${masterEnabled ? "active" : "blocked"}`;
 
   const activeCount = channelAutomationStatuses.filter((status) => !status.blockedReason).length;
@@ -1097,6 +1103,12 @@ function renderOpsSnapshot() {
   const disabledFollowupsCount = roleFollowups.filter((followup) => followup.enabled === false).length;
   const followupsMissingChannelCount = roleFollowups.filter((followup) => hasMissingChannel(followup.channelId)).length;
   const followupsMissingRoleCount = roleFollowups.filter((followup) => hasMissingRole(followup.roleId)).length;
+  const setupWarningCount =
+    panelsMissingChannelCount +
+    panelsMissingRoleCount +
+    disabledFollowupsCount +
+    followupsMissingChannelCount +
+    followupsMissingRoleCount;
 
   setOpsValue(opsTotalPanels, roleAccessPanels.length);
   setOpsCardState(opsTotalPanelsCard, roleAccessPanels.length > 0 ? "ok" : "neutral");
@@ -1112,6 +1124,10 @@ function renderOpsSnapshot() {
   setOpsCardState(opsFollowupsMissingChannelCard, getCountTone(followupsMissingChannelCount));
   setOpsValue(opsFollowupsMissingRole, followupsMissingRoleCount);
   setOpsCardState(opsFollowupsMissingRoleCard, getCountTone(followupsMissingRoleCount));
+
+  if (opsSetupEmpty) {
+    opsSetupEmpty.hidden = setupWarningCount > 0;
+  }
 }
 
 function renderMetricList(target, entries) {
@@ -1289,7 +1305,7 @@ function renderNextAutomationSnapshot() {
     } else if (channelAutomationStatuses.length === 0) {
       emptyState.textContent = "No channel posting status is available yet.";
     } else {
-      emptyState.textContent = "No next scheduled post is available in the current API payload.";
+      emptyState.textContent = "No next scheduled post is available yet.";
     }
 
     opsNextAutomation.append(emptyState);
@@ -1312,7 +1328,7 @@ function renderNextAutomationSnapshot() {
   details.append(
     createAutomationDetailLine("Next eligible", `${formatTimestamp(nextAutomation.nextEligibleSendAt)} (${formatRelativeTime(nextAutomation.nextEligibleSendAt)})`, "strong"),
     createAutomationDetailLine("Posting mode", getAutomationModeLabel(nextAutomation.automationMode)),
-    createAutomationDetailLine("Content/source", "Not included in current API payload"),
+    createAutomationDetailLine("Content/source", "Not reported yet"),
   );
 
   if (nextAutomation.blockedReason) {
@@ -1387,7 +1403,7 @@ function renderAutomationActivity() {
   if (automationActivityItems.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No recent activity available.";
+    emptyState.textContent = "No recent activity yet.";
     automationActivityList.append(emptyState);
   } else {
     for (const item of automationActivityItems.slice(0, 8)) {
@@ -3440,6 +3456,14 @@ function configureAutoRefresh() {
   }
 }
 
+function jumpToRecentProblems() {
+  setActiveControlTab("overview");
+  document.querySelector("#dashboard-recent-problems")?.scrollIntoView({
+    behavior: "smooth",
+    block: "start",
+  });
+}
+
 for (const button of controlTabButtons) {
   button.addEventListener("click", () => setActiveControlTab(button.dataset.tabTarget || "overview"));
 }
@@ -3527,6 +3551,11 @@ opsRefreshDashboardButton.addEventListener("click", () => void reloadAll());
 opsJumpChannelsButton.addEventListener("click", () => setActiveControlTab("channels"));
 opsJumpAccessButton.addEventListener("click", () => setActiveControlTab("access"));
 opsJumpFollowupsButton.addEventListener("click", () => setActiveControlTab("followups"));
+taskManageAutomationButton.addEventListener("click", () => setActiveControlTab("channels"));
+taskPostNowButton.addEventListener("click", () => setActiveControlTab("push"));
+taskCommunityButton.addEventListener("click", () => setActiveControlTab("access"));
+taskRecentProblemsButton.addEventListener("click", jumpToRecentProblems);
+taskSettingsButton.addEventListener("click", () => setActiveControlTab("settings"));
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);

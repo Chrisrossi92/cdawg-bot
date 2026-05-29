@@ -944,6 +944,10 @@ small {
   background: rgba(250, 252, 255, 0.82);
 }
 
+.ops-snapshot-group-wide {
+  grid-column: 1 / -1;
+}
+
 .ops-snapshot-group-header {
   display: flex;
   align-items: center;
@@ -1037,6 +1041,46 @@ small {
 .ops-next-channel {
   font-size: 20px;
   line-height: 1.1;
+}
+
+.common-task-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+
+.common-task-card {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(199, 212, 227, 0.78);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.common-task-card h3,
+.common-task-card p {
+  margin: 0;
+}
+
+.common-task-card h3 {
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.common-task-card p {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.common-task-card button {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 8px 10px;
+  font-size: 12px;
 }
 
 .automation-detail-line {
