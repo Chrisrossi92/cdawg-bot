@@ -52,7 +52,7 @@
           <button type="button" class="control-tab utility-tab" data-tab-target="composer" aria-selected="false" hidden>Write a Message</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
-          <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
+          <button type="button" class="control-tab utility-tab" data-tab-target="followups" aria-selected="false" hidden>Role Follow-Up Messages</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
         </div>
         <div class="automation-master-panel">
@@ -82,7 +82,7 @@
                 <button id="ops-refresh-dashboard" type="button">Refresh Dashboard</button>
                 <button id="ops-jump-channels" type="button" class="secondary">Jump to Automation</button>
                 <button id="ops-jump-access" type="button" class="secondary">Jump to Community</button>
-                <button id="ops-jump-followups" type="button" class="secondary">Jump to Follow-Ups</button>
+                <button id="ops-jump-followups" type="button" class="secondary">Jump to Role Follow-Ups</button>
               </div>
             </div>
 
@@ -723,8 +723,56 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
+                  <h3>Community</h3>
+                  <p>Manage role signup buttons and messages that are triggered by role changes.</p>
+                </div>
+              </div>
+
+              <div class="automation-section-grid" aria-label="Community sections">
+                <a href="#community-role-signup-buttons" class="automation-section-card">
+                  <strong>Role Signup Buttons</strong>
+                  <span>Post a message with buttons people can click to receive roles.</span>
+                </a>
+                <a href="#community-role-followups" class="automation-section-card">
+                  <strong>Role Follow-Up Messages</strong>
+                  <span>Send a message after someone receives a selected role.</span>
+                </a>
+                <a href="#community-health" class="automation-section-card">
+                  <strong>Community Status</strong>
+                  <span>Review role automation warnings and configuration issues.</span>
+                </a>
+              </div>
+
+              <section id="community-health" class="ops-snapshot-group ops-snapshot-group-wide">
+                <div class="ops-snapshot-group-header">
+                  <h3>Community Status</h3>
+                </div>
+                <div class="ops-card-grid">
+                  <article id="community-total-panels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Role Signup Buttons</span>
+                    <strong id="community-total-panels">0</strong>
+                  </article>
+                  <article id="community-total-followups-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Follow-Up Messages</span>
+                    <strong id="community-total-followups">0</strong>
+                  </article>
+                  <article id="community-missing-role-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Missing Roles</span>
+                    <strong id="community-missing-role">0</strong>
+                  </article>
+                  <article id="community-missing-channel-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Missing Channels</span>
+                    <strong id="community-missing-channel">0</strong>
+                  </article>
+                </div>
+              </section>
+            </section>
+
+            <section id="community-role-signup-buttons" class="control-block">
+              <div class="subpanel-header">
+                <div>
                   <h3>Role Signup Buttons</h3>
-                  <p>Manage role buttons and role-based messages.</p>
+                  <p>Allow members to assign roles to themselves.</p>
                 </div>
                 <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
               </div>
@@ -822,16 +870,12 @@
                 <pre id="role-access-panels-output">Loading...</pre>
               </details>
             </section>
-          </div>
-        </section>
 
-        <section class="control-tab-panel" data-tab-panel="followups" hidden>
-          <div class="tab-stack">
-            <section class="control-block">
+            <section id="community-role-followups" class="control-block">
               <div class="subpanel-header">
                 <div>
                   <h3>Role Follow-Up Messages</h3>
-                  <p>Send a message after someone receives a selected role.</p>
+                  <p>Automatically send a message when someone receives a selected role.</p>
                 </div>
                 <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
               </div>
@@ -942,6 +986,17 @@
               </details>
             </section>
           </div>
+        </section>
+
+        <section class="control-tab-panel" data-tab-panel="followups" hidden>
+          <section class="control-block">
+            <div class="subpanel-header">
+              <div>
+                <h3>Role Follow-Up Messages moved to Community</h3>
+                <p>Role follow-up messages now live on the Community page.</p>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="settings" hidden>

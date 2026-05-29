@@ -41,6 +41,14 @@ const opsTotalFollowupsCard = document.querySelector("#ops-total-followups-card"
 const opsDisabledFollowupsCard = document.querySelector("#ops-disabled-followups-card");
 const opsFollowupsMissingChannelCard = document.querySelector("#ops-followups-missing-channel-card");
 const opsFollowupsMissingRoleCard = document.querySelector("#ops-followups-missing-role-card");
+const communityTotalPanels = document.querySelector("#community-total-panels");
+const communityTotalFollowups = document.querySelector("#community-total-followups");
+const communityMissingRole = document.querySelector("#community-missing-role");
+const communityMissingChannel = document.querySelector("#community-missing-channel");
+const communityTotalPanelsCard = document.querySelector("#community-total-panels-card");
+const communityTotalFollowupsCard = document.querySelector("#community-total-followups-card");
+const communityMissingRoleCard = document.querySelector("#community-missing-role-card");
+const communityMissingChannelCard = document.querySelector("#community-missing-channel-card");
 const opsRefreshDashboardButton = document.querySelector("#ops-refresh-dashboard");
 const opsJumpChannelsButton = document.querySelector("#ops-jump-channels");
 const opsJumpAccessButton = document.querySelector("#ops-jump-access");
@@ -1061,6 +1069,24 @@ function hasMissingChannel(channelId) {
   return !channelId || (guildMetadataLoaded && !metadataHasChannel(channelId));
 }
 
+function renderCommunityHealth() {
+  const panelsMissingRoleCount = roleAccessPanels.filter((panel) => hasMissingRole(panel.roleId)).length;
+  const panelsMissingChannelCount = roleAccessPanels.filter((panel) => hasMissingChannel(panel.targetChannelId)).length;
+  const followupsMissingRoleCount = roleFollowups.filter((followup) => hasMissingRole(followup.roleId)).length;
+  const followupsMissingChannelCount = roleFollowups.filter((followup) => hasMissingChannel(followup.channelId)).length;
+  const missingRoleCount = panelsMissingRoleCount + followupsMissingRoleCount;
+  const missingChannelCount = panelsMissingChannelCount + followupsMissingChannelCount;
+
+  setOpsValue(communityTotalPanels, roleAccessPanels.length);
+  setOpsCardState(communityTotalPanelsCard, roleAccessPanels.length > 0 ? "ok" : "neutral");
+  setOpsValue(communityTotalFollowups, roleFollowups.length);
+  setOpsCardState(communityTotalFollowupsCard, roleFollowups.length > 0 ? "ok" : "neutral");
+  setOpsValue(communityMissingRole, missingRoleCount);
+  setOpsCardState(communityMissingRoleCard, getCountTone(missingRoleCount));
+  setOpsValue(communityMissingChannel, missingChannelCount);
+  setOpsCardState(communityMissingChannelCard, getCountTone(missingChannelCount));
+}
+
 function renderOpsSnapshot() {
   const hasHealthSnapshot = Boolean(lastHealthSnapshot);
   const apiOnline = lastHealthSnapshot?.ok === true;
@@ -1128,6 +1154,8 @@ function renderOpsSnapshot() {
   if (opsSetupEmpty) {
     opsSetupEmpty.hidden = setupWarningCount > 0;
   }
+
+  renderCommunityHealth();
 }
 
 function renderMetricList(target, entries) {
@@ -1623,6 +1651,16 @@ function setActiveControlTab(tabName) {
   for (const panel of controlTabPanels) {
     panel.hidden = panel.dataset.tabPanel !== tabName;
   }
+}
+
+function jumpToCommunityFollowups() {
+  setActiveControlTab("access");
+  window.requestAnimationFrame(() => {
+    document.querySelector("#community-role-followups")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
 }
 
 function renderChannelOperations() {
@@ -3550,7 +3588,7 @@ automationMasterButton.addEventListener("click", () => void toggleAutomationMast
 opsRefreshDashboardButton.addEventListener("click", () => void reloadAll());
 opsJumpChannelsButton.addEventListener("click", () => setActiveControlTab("channels"));
 opsJumpAccessButton.addEventListener("click", () => setActiveControlTab("access"));
-opsJumpFollowupsButton.addEventListener("click", () => setActiveControlTab("followups"));
+opsJumpFollowupsButton.addEventListener("click", jumpToCommunityFollowups);
 taskManageAutomationButton.addEventListener("click", () => setActiveControlTab("channels"));
 taskPostNowButton.addEventListener("click", () => setActiveControlTab("push"));
 taskCommunityButton.addEventListener("click", () => setActiveControlTab("access"));
