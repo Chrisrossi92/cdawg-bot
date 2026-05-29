@@ -49,7 +49,7 @@
           <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Dashboard</button>
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Automation</button>
           <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Post Now</button>
-          <button type="button" class="control-tab" data-tab-target="composer" aria-selected="false">Composer</button>
+          <button type="button" class="control-tab utility-tab" data-tab-target="composer" aria-selected="false" hidden>Write a Message</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
           <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
@@ -377,9 +377,9 @@
                     </select>
                   </label>
                   <label>
-                    Channel Preset
+                    Saved Channel
                     <select name="channelPreset">
-                      <option value="">Loading presets...</option>
+                      <option value="">Loading saved channels...</option>
                     </select>
                   </label>
                   <label>
@@ -451,9 +451,9 @@
                     </select>
                   </label>
                   <label>
-                    Channel Preset
+                    Saved Channel
                     <select name="channelPreset">
-                      <option value="">Loading presets...</option>
+                      <option value="">Loading saved channels...</option>
                     </select>
                   </label>
                   <label>
@@ -508,11 +508,35 @@
         </section>
 
         <section class="control-tab-panel" data-tab-panel="push" hidden>
+          <div class="subpanel-header">
+            <div>
+              <h3>Post Now</h3>
+              <p>Use this page when you want the bot to say something immediately.</p>
+            </div>
+          </div>
+          <div class="automation-section-grid">
+            <a href="#post-now-generated-content" class="automation-section-card">
+              <strong>Generate Content</strong>
+              <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
+            </a>
+            <a href="#post-now-history" class="automation-section-card">
+              <strong>Today in History</strong>
+              <span>Preview, pick another item, and send a history post.</span>
+            </a>
+            <a href="#post-now-message" class="automation-section-card">
+              <strong>Write a Message</strong>
+              <span>Write and send a custom message from the bot.</span>
+            </a>
+            <a href="#post-now-saved-messages" class="automation-section-card">
+              <strong>Saved Messages</strong>
+              <span>Reuse saved message templates if available.</span>
+            </a>
+          </div>
           <div class="tab-stack">
-            <section class="control-block">
+            <section id="post-now-history" class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>History Review</h3>
+                  <h3>Today in History</h3>
                   <p>Preview, pick another item, and send today’s history content without enabling automatic posting.</p>
                 </div>
                 <div class="toolbar">
@@ -531,16 +555,16 @@
               </details>
             </section>
 
-            <section class="control-block">
+            <section id="post-now-generated-content" class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Post Generated Content</h3>
-                  <p>Send content immediately or write a custom message.</p>
+                  <h3>Generate Content</h3>
+                  <p>Create and send generated content like jokes, facts, trivia, prompts, or history items.</p>
                 </div>
               </div>
               <form id="manual-push-form" class="settings-form">
                 <section class="form-group">
-                  <h3>Send Generated Post</h3>
+                  <h3>Send Generated Content</h3>
                   <label>
                     Content Type
                     <select name="contentType">
@@ -552,11 +576,11 @@
                     </select>
                   </label>
                   <label>
-                    Channel Preset
+                    Saved Channel
                     <select name="channelPreset">
-                      <option value="">Loading presets...</option>
+                      <option value="">Loading saved channels...</option>
                     </select>
-                    <small id="manual-push-channel-meta">Select a channel preset to use its channel ID.</small>
+                    <small id="manual-push-channel-meta">Select a saved channel to use its channel ID.</small>
                   </label>
                   <label>
                     Topic Override
@@ -566,7 +590,7 @@
                 </section>
 
                 <div class="settings-actions">
-                  <button type="submit">Send Generated Post</button>
+                  <button type="submit">Send Generated Content</button>
                   <span id="manual-push-status"></span>
                 </div>
               </form>
@@ -575,16 +599,12 @@
                 <pre id="manual-push-output">Waiting for request...</pre>
               </details>
             </section>
-          </div>
-        </section>
 
-        <section class="control-tab-panel" data-tab-panel="composer" hidden>
-          <div class="tab-stack">
-            <section class="control-block">
+            <section id="post-now-message" class="control-block">
               <div class="subpanel-header">
                 <div>
                   <h3>Write a Message</h3>
-                  <p>Send content immediately or write a custom message.</p>
+                  <p>Write and send a custom message from the bot.</p>
                 </div>
               </div>
 
@@ -628,7 +648,7 @@
                     </div>
                   </div>
                   <div class="message-builder">
-                    <div class="message-builder-header">Writing Assist</div>
+                    <div class="message-builder-header">Help Me Write</div>
                     <div class="message-builder-actions">
                       <button type="button" class="pill-button" data-composer-assist="engaging">Make engaging</button>
                       <button type="button" class="pill-button" data-composer-assist="question">Turn into question</button>
@@ -646,15 +666,15 @@
                   <div id="composer-preview" class="discord-panel-preview composer-preview"></div>
                 </section>
 
-                <section class="form-group composer-templates-panel">
-                  <h3>Saved Templates</h3>
+                <section id="post-now-saved-messages" class="form-group composer-templates-panel">
+                  <h3>Saved Messages</h3>
                   <label>
-                    Template name
+                    Saved message name
                     <input name="templateName" type="text" placeholder="Community reminder" />
                     <input name="templateId" type="hidden" />
                   </label>
                   <div class="settings-actions composer-template-actions">
-                    <button id="save-composer-template" type="button" class="secondary">Save Template</button>
+                    <button id="save-composer-template" type="button" class="secondary">Save as Saved Message</button>
                     <span id="composer-template-status"></span>
                   </div>
                   <div id="composer-templates-list" class="feed-list composer-templates-list"></div>
@@ -674,6 +694,17 @@
               </details>
             </section>
           </div>
+        </section>
+
+        <section class="control-tab-panel" data-tab-panel="composer" hidden>
+          <section class="control-block">
+            <div class="subpanel-header">
+              <div>
+                <h3>Write a Message moved to Post Now</h3>
+                <p>Custom messages and saved messages now live on the Post Now page.</p>
+              </div>
+            </div>
+          </section>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="trivia" hidden>

@@ -369,7 +369,7 @@ function renderPresetOptions(targetSelect, previousValue) {
   if (channelPresets.length === 0) {
     const option = document.createElement("option");
     option.value = "";
-    option.textContent = "No channel presets available";
+    option.textContent = "No saved channels available";
     targetSelect.append(option);
   }
 
@@ -520,7 +520,7 @@ function syncManualPushPresetSelection(prefillTopic = true) {
   const selectedPreset = getSelectedChannelPreset();
 
   if (!selectedPreset) {
-    manualPushChannelMeta.textContent = "Select a channel preset to use its channel ID.";
+    manualPushChannelMeta.textContent = "Select a saved channel to use its channel ID.";
     return;
   }
 
@@ -790,7 +790,7 @@ function renderComposerTemplates() {
     const emptyCopy = document.createElement("p");
 
     emptyState.className = "channel-operation-card role-access-empty-callout";
-    emptyTitle.textContent = "No saved templates";
+    emptyTitle.textContent = "No saved messages";
     emptyCopy.className = "channel-operation-detail";
     emptyCopy.textContent = "Save the current message draft as a named template to reuse it later.";
     emptyState.append(emptyTitle, emptyCopy);
@@ -864,7 +864,7 @@ async function saveComposerTemplate() {
     composerForm.elements.templateId.value = data.template?.id ?? "";
     composerForm.elements.templateName.value = data.template?.name ?? payload.name;
     renderComposerTemplates();
-    setComposerTemplateStatus("Template saved.", "success");
+    setComposerTemplateStatus("Saved message saved.", "success");
   } catch (error) {
     setComposerTemplateStatus(`Save failed: ${error.message}`, "error");
   }
@@ -898,7 +898,7 @@ async function deleteComposerTemplate(templateId) {
     }
 
     renderComposerTemplates();
-    setComposerTemplateStatus("Template deleted.", "success");
+    setComposerTemplateStatus("Saved message deleted.", "success");
   } catch (error) {
     setComposerTemplateStatus(`Delete failed: ${error.message}`, "error");
   }
@@ -922,7 +922,7 @@ function validateComposerPayload(payload) {
 
 function validateComposerTemplatePayload(payload) {
   if (!payload.name) {
-    return "Template name is required.";
+    return "Saved message name is required.";
   }
 
   if (!payload.message.trim()) {
@@ -2701,7 +2701,7 @@ async function loadChannelPresets() {
   } catch (error) {
     channelPresets = [];
     renderChannelPresetOptions();
-    manualPushChannelMeta.textContent = `Preset load failed: ${error.message}`;
+    manualPushChannelMeta.textContent = `Saved channel load failed: ${error.message}`;
   }
 }
 
@@ -2784,7 +2784,7 @@ async function loadComposerTemplates() {
   } catch (error) {
     composerTemplates = [];
     renderComposerTemplates();
-    setComposerTemplateStatus(`Template load failed: ${error.message}`, "error");
+    setComposerTemplateStatus(`Saved messages failed to load: ${error.message}`, "error");
   }
 }
 
