@@ -40,7 +40,7 @@ body {
 }
 
 .page {
-  max-width: 1440px;
+  max-width: 1540px;
   margin: 0 auto;
   padding: 18px 20px 32px;
 }
@@ -203,7 +203,8 @@ button.ghost:hover {
 }
 
 .settings-form {
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
 }
 
 .form-group,
@@ -229,6 +230,32 @@ button.ghost:hover {
 
 .form-group {
   align-content: start;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.settings-form > .form-group {
+  grid-column: span 4;
+}
+
+.settings-form > .form-group:only-of-type {
+  grid-column: 1 / -1;
+}
+
+.form-group > h3,
+.form-group > .form-group-intro,
+.form-group > .settings-help,
+.form-group > .metadata-warning,
+.form-group > .message-builder,
+.form-group > .token-helper-list,
+.form-group > .settings-summary-list,
+.form-group > small,
+.form-group > details {
+  grid-column: 1 / -1;
+}
+
+.form-group label:has(textarea),
+.form-group .settings-actions {
+  grid-column: 1 / -1;
 }
 
 .form-group h3,
@@ -414,17 +441,17 @@ small {
 
 .discord-panel-preview {
   align-content: start;
-  padding: 18px;
+  padding: 14px;
   border-radius: 12px;
   border: 1px solid rgba(17, 32, 51, 0.12);
   background: #f2f4f7;
-  min-height: 280px;
+  min-height: 220px;
 }
 
 .discord-panel-preview-embed {
   display: grid;
   gap: 12px;
-  padding: 18px 20px;
+  padding: 15px 16px;
   border-left: 4px solid var(--success);
   border-radius: 8px;
   background: #fff;
@@ -480,8 +507,12 @@ small {
   grid-template-columns: minmax(240px, 0.75fr) minmax(320px, 1.2fr) minmax(300px, 1fr);
 }
 
+.composer-form > .form-group {
+  grid-column: auto;
+}
+
 .composer-message-group textarea {
-  min-height: 220px;
+  min-height: 190px;
 }
 
 .composer-preview-message {
@@ -899,7 +930,7 @@ small {
 
 .tab-stack {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .overview-layout {
@@ -929,7 +960,7 @@ small {
 
 .ops-snapshot-grid {
   display: grid;
-  grid-template-columns: minmax(240px, 0.8fr) minmax(300px, 1fr) minmax(260px, 0.9fr) minmax(420px, 1.55fr);
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
 }
@@ -938,13 +969,19 @@ small {
   display: grid;
   gap: 10px;
   align-content: start;
-  padding: 13px;
+  grid-column: span 4;
+  padding: 12px;
   border: 1px solid rgba(199, 212, 227, 0.78);
   border-radius: var(--radius-card);
   background: rgba(250, 252, 255, 0.82);
 }
 
 .ops-snapshot-group-wide {
+  grid-column: span 6;
+}
+
+.ops-snapshot-group-wide:has(.ops-integrity-grid),
+.ops-snapshot-group-wide:has(.common-task-grid) {
   grid-column: 1 / -1;
 }
 
@@ -972,12 +1009,12 @@ small {
 
 .ops-card-grid-compact,
 .ops-integrity-grid {
-  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
 }
 
 .ops-status-card {
   min-width: 0;
-  padding: 10px 11px;
+  padding: 9px 10px;
   border-radius: 12px;
   border: 1px solid rgba(199, 212, 227, 0.78);
   background: #fff;
@@ -986,7 +1023,7 @@ small {
 .ops-status-card strong {
   display: block;
   margin-top: 4px;
-  font-size: 22px;
+  font-size: 20px;
   line-height: 1.05;
 }
 
@@ -1045,7 +1082,7 @@ small {
 
 .common-task-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 10px;
 }
 
@@ -1085,7 +1122,7 @@ small {
 
 .automation-section-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -1158,7 +1195,7 @@ small {
 
 .control-block {
   display: grid;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
 }
 
@@ -1172,6 +1209,56 @@ small {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+#post-now-history,
+#post-now-generated-content {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+#manual-push-form > .form-group {
+  grid-template-columns: repeat(3, minmax(180px, 1fr));
+}
+
+#post-now-message {
+  gap: 12px;
+}
+
+#community-health .ops-card-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+#role-access-panel-form,
+#role-followup-form {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+}
+
+#role-access-panel-form > .form-group,
+#role-followup-form > .form-group {
+  grid-column: span 4;
+}
+
+#role-access-panel-form > .role-access-preview-panel,
+#role-followup-form > .role-access-preview-panel {
+  grid-column: span 4;
+}
+
+#role-access-panel-form > .settings-actions,
+#role-followup-form > .settings-actions {
+  grid-column: 1 / -1;
+}
+
+#settings-form > .settings-global-controls,
+#settings-form > .settings-actions {
+  grid-column: 1 / -1;
+}
+
+#settings-form > .form-group {
+  grid-column: span 4;
+}
+
+#settings-form > .settings-global-controls {
+  grid-column: 1 / -1;
 }
 
 .automation-activity-card {
@@ -1234,9 +1321,36 @@ small {
 }
 
 .channel-operations-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(330px, 1fr));
   align-items: start;
-  gap: 16px;
+  gap: 12px;
+}
+
+#automation-scheduled-posts,
+#automation-daily-trivia {
+  grid-template-columns: minmax(320px, 0.85fr) minmax(0, 1.15fr);
+  align-items: start;
+}
+
+#automation-scheduled-posts > .subpanel-header,
+#automation-daily-trivia > .subpanel-header,
+#automation-scheduled-posts > details,
+#automation-daily-trivia > details {
+  grid-column: 1 / -1;
+}
+
+#automation-scheduled-posts > .settings-form,
+#automation-daily-trivia > .settings-form {
+  grid-column: 1;
+}
+
+#feeds-list,
+#daily-trivia-summary {
+  grid-column: 2;
+}
+
+#automation-community-game {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .channel-operations-list {
@@ -1307,8 +1421,8 @@ small {
 
 .channel-row-summary-main {
   display: grid;
-  gap: 12px;
-  padding: 14px 14px 12px;
+  gap: 10px;
+  padding: 12px 13px 11px;
 }
 
 .channel-row-identity,
@@ -1363,8 +1477,8 @@ small {
 
 .channel-row-expanded {
   display: grid;
-  gap: 14px;
-  padding: 0 14px 14px;
+  gap: 12px;
+  padding: 0 13px 13px;
   border-top: 1px solid rgba(17, 32, 51, 0.08);
   background: linear-gradient(180deg, rgba(244, 248, 253, 0.4) 0%, rgba(255, 255, 255, 0) 100%);
 }
@@ -1441,10 +1555,10 @@ small {
 }
 
 .channel-operation-card.compact {
-  grid-template-columns: minmax(0, 1.7fr) minmax(180px, 0.65fr) minmax(300px, auto);
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, auto);
   align-items: start;
-  gap: 14px;
-  padding: 14px 16px;
+  gap: 12px;
+  padding: 12px 14px;
 }
 
 .channel-operation-main,
@@ -1670,15 +1784,24 @@ pre {
 
 @media (max-width: 1320px) {
   .ops-snapshot-grid {
-    grid-template-columns: minmax(260px, 0.85fr) minmax(320px, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .ops-snapshot-group {
+    grid-column: span 3;
   }
 
   .ops-snapshot-group-wide {
+    grid-column: span 3;
+  }
+
+  .ops-snapshot-group-wide:has(.ops-integrity-grid),
+  .ops-snapshot-group-wide:has(.common-task-grid) {
     grid-column: 1 / -1;
   }
 
   .channel-operations-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   }
 }
 
@@ -1689,8 +1812,21 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .ops-snapshot-group,
   .ops-snapshot-group-wide {
     grid-column: auto;
+  }
+
+  #automation-scheduled-posts,
+  #automation-daily-trivia {
+    grid-template-columns: 1fr;
+  }
+
+  #automation-scheduled-posts > .settings-form,
+  #automation-daily-trivia > .settings-form,
+  #feeds-list,
+  #daily-trivia-summary {
+    grid-column: 1;
   }
 
   .command-bar-controls {
@@ -1738,6 +1874,10 @@ pre {
     align-items: stretch;
     flex-direction: column;
   }
+
+  #community-health .ops-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 820px) {
@@ -1761,6 +1901,25 @@ pre {
   .ops-integrity-grid,
   .channel-operations-grid,
   .channel-operations-list {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-form > .form-group,
+  .settings-form > .form-group:only-of-type,
+  .settings-form > .settings-actions,
+  .composer-form > .form-group,
+  #role-access-panel-form > .form-group,
+  #role-followup-form > .form-group,
+  #role-access-panel-form > .role-access-preview-panel,
+  #role-followup-form > .role-access-preview-panel,
+  #settings-form > .form-group,
+  #settings-form > .settings-global-controls,
+  #settings-form > .settings-actions {
+    grid-column: 1 / -1;
+  }
+
+  #manual-push-form > .form-group,
+  #community-health .ops-card-grid {
     grid-template-columns: 1fr;
   }
 
