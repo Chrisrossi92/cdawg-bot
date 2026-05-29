@@ -4,6 +4,7 @@ import type { ThisDayInHistoryEvent } from "../content/history/this-day.js";
 import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
+import { recordAutomationActivity } from "../systems/automation-activity.js";
 import { formatThisDayInHistoryMessage } from "./history-content.js";
 import { postInteractiveTriviaSession, type TriviaSessionPresentation } from "./trivia-session.js";
 import { getEligibleTriviaItem, type TriviaIneligibilityCode } from "./trivia-topic-eligibility.js";
@@ -18,6 +19,7 @@ export type ManualContentPushRequest = {
   topicOverride?: Topic | null;
   source?: "manual" | "feed" | "scheduler" | "command" | "passive-chat" | "daily-challenge";
   triviaPresentation?: TriviaSessionPresentation;
+  suppressActivity?: boolean;
 };
 
 export type ManualContentPushResult =
@@ -75,6 +77,36 @@ function logManualPush(
   console.log(`[manual-push] ${parts.join(" ")}`);
 }
 
+function getChannelName(channel: unknown) {
+  return channel && typeof channel === "object" && "name" in channel && typeof channel.name === "string"
+    ? channel.name
+    : null;
+}
+
+function recordContentPushActivity(
+  request: ManualContentPushRequest,
+  event: {
+    status: "success" | "failure";
+    message: string;
+    errorCode?: string | null;
+    channelName?: string | null;
+  },
+) {
+  if (request.suppressActivity) {
+    return;
+  }
+
+  recordAutomationActivity({
+    source: request.source ?? "manual",
+    status: event.status,
+    channelId: request.channelId,
+    contentType: request.contentType,
+    message: event.message,
+    ...(event.channelName ? { channelName: event.channelName } : {}),
+    ...(event.errorCode ? { errorCode: event.errorCode } : {}),
+  });
+}
+
 export async function pushManualContentToChannel(
   client: Client,
   request: ManualContentPushRequest,
@@ -84,6 +116,11 @@ export async function pushManualContentToChannel(
       contentType: request.contentType,
       channelId: request.channelId,
       reason: "bot-not-ready",
+    });
+    recordContentPushActivity(request, {
+      status: "failure",
+      message: "Bot is not ready.",
+      errorCode: "BOT_NOT_READY",
     });
     return {
       ok: false,
@@ -110,6 +147,11 @@ export async function pushManualContentToChannel(
       resolvedTopic,
       reason: "channel-not-found",
     });
+    recordContentPushActivity(request, {
+      status: "failure",
+      message: "Discord channel was not found.",
+      errorCode: "CHANNEL_NOT_FOUND",
+    });
     return {
       ok: false,
       code: "CHANNEL_NOT_FOUND",
@@ -123,6 +165,12 @@ export async function pushManualContentToChannel(
       channelId: request.channelId,
       resolvedTopic,
       reason: "channel-not-sendable",
+    });
+    recordContentPushActivity(request, {
+      status: "failure",
+      message: "Discord channel is not sendable.",
+      errorCode: "CHANNEL_NOT_SENDABLE",
+      channelName: getChannelName(channel),
     });
     return {
       ok: false,
@@ -141,6 +189,12 @@ export async function pushManualContentToChannel(
         source: request.source ?? "manual",
         resolvedTopic: triviaResult.resolvedTopic,
         reason: triviaResult.code,
+      });
+      recordContentPushActivity(request, {
+        status: "failure",
+        message: triviaResult.error,
+        errorCode: triviaResult.code,
+        channelName: getChannelName(channel),
       });
       return {
         ok: false,
@@ -167,6 +221,11 @@ export async function pushManualContentToChannel(
       resolvedTopic,
       messageId: sentMessage.id,
     });
+    recordContentPushActivity(request, {
+      status: "success",
+      message: `Sent ${request.contentType} content.`,
+      channelName: getChannelName(channel),
+    });
 
     return {
       ok: true,
@@ -187,6 +246,12 @@ export async function pushManualContentToChannel(
       resolvedTopic,
       reason: "content-unavailable",
     });
+    recordContentPushActivity(request, {
+      status: "failure",
+      message: "No content is available for that request.",
+      errorCode: "CONTENT_UNAVAILABLE",
+      channelName: getChannelName(channel),
+    });
     return {
       ok: false,
       code: "CONTENT_UNAVAILABLE",
@@ -201,6 +266,11 @@ export async function pushManualContentToChannel(
     source: request.source ?? "manual",
     resolvedTopic,
     messageId: sentMessage.id,
+  });
+  recordContentPushActivity(request, {
+    status: "success",
+    message: `Sent ${request.contentType} content.`,
+    channelName: getChannelName(channel),
   });
 
   return {
@@ -221,6 +291,14 @@ export async function pushHistoryEventToChannel(
   },
 ): Promise<ManualContentPushResult> {
   if (!client.isReady()) {
+    recordAutomationActivity({
+      source: request.source ?? "manual",
+      status: "failure",
+      channelId: request.channelId,
+      contentType: "history",
+      errorCode: "BOT_NOT_READY",
+      message: "Bot is not ready.",
+    });
     return {
       ok: false,
       code: "BOT_NOT_READY",
@@ -231,6 +309,14 @@ export async function pushHistoryEventToChannel(
   const channel = await client.channels.fetch(request.channelId);
 
   if (!channel) {
+    recordAutomationActivity({
+      source: request.source ?? "manual",
+      status: "failure",
+      channelId: request.channelId,
+      contentType: "history",
+      errorCode: "CHANNEL_NOT_FOUND",
+      message: "Discord channel was not found.",
+    });
     return {
       ok: false,
       code: "CHANNEL_NOT_FOUND",
@@ -239,6 +325,15 @@ export async function pushHistoryEventToChannel(
   }
 
   if (!channel.isTextBased() || !("send" in channel)) {
+    recordAutomationActivity({
+      source: request.source ?? "manual",
+      status: "failure",
+      channelId: request.channelId,
+      channelName: getChannelName(channel),
+      contentType: "history",
+      errorCode: "CHANNEL_NOT_SENDABLE",
+      message: "Discord channel is not sendable.",
+    });
     return {
       ok: false,
       code: "CHANNEL_NOT_SENDABLE",
@@ -254,6 +349,14 @@ export async function pushHistoryEventToChannel(
     source: request.source ?? "manual",
     resolvedTopic: "history",
     messageId: sentMessage.id,
+  });
+  recordAutomationActivity({
+    source: request.source ?? "manual",
+    status: "success",
+    channelId: request.channelId,
+    channelName: getChannelName(channel),
+    contentType: "history",
+    message: "Sent history preview.",
   });
 
   return {
@@ -295,6 +398,16 @@ export async function triggerAutomatedContentNow(
       channelId: request.channelId,
       reason: automationStatus.blockedReason,
     });
+    recordAutomationActivity({
+      source: "trigger-now",
+      status: "blocked",
+      channelId: request.channelId,
+      blockedReason: automationStatus.blockedReason,
+      message:
+        automationStatus.blockedReason === "skip-next"
+          ? "Skip-next is pending for this channel."
+          : `Channel is currently blocked by ${automationStatus.blockedReason}.`,
+    });
     return {
       ok: false,
       code: "CHANNEL_BLOCKED",
@@ -314,6 +427,13 @@ export async function triggerAutomatedContentNow(
       channelId: request.channelId,
       reason: "no-automated-plan",
     });
+    recordAutomationActivity({
+      source: "trigger-now",
+      status: "failure",
+      channelId: request.channelId,
+      errorCode: "NO_AUTOMATED_CONTENT_PLAN",
+      message: "No automated content plan is configured for that channel.",
+    });
     return {
       ok: false,
       code: "NO_AUTOMATED_CONTENT_PLAN",
@@ -331,6 +451,7 @@ export async function triggerAutomatedContentNow(
     channelId: request.channelId,
     contentType: nextPlan.contentType,
     source: nextPlan.source,
+    suppressActivity: true,
   });
 
   if (!pushResult.ok) {
@@ -339,6 +460,14 @@ export async function triggerAutomatedContentNow(
       source: nextPlan.source,
       contentType: nextPlan.contentType,
       reason: pushResult.code,
+    });
+    recordAutomationActivity({
+      source: "trigger-now",
+      status: "failure",
+      channelId: request.channelId,
+      contentType: nextPlan.contentType,
+      errorCode: pushResult.code,
+      message: pushResult.error,
     });
     return pushResult;
   }
@@ -349,6 +478,13 @@ export async function triggerAutomatedContentNow(
     source: nextPlan.source,
     contentType: nextPlan.contentType,
     messageId: pushResult.messageId,
+  });
+  recordAutomationActivity({
+    source: "trigger-now",
+    status: "success",
+    channelId: request.channelId,
+    contentType: nextPlan.contentType,
+    message: `Triggered ${nextPlan.source} ${nextPlan.contentType}.`,
   });
 
   return {

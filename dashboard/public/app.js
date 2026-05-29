@@ -8,6 +8,42 @@ const automationMasterButton = document.querySelector("#automation-master-button
 const automationMasterDetail = document.querySelector("#automation-master-detail");
 const automationMasterBanner = document.querySelector("#automation-master-banner");
 const discordMetadataWarning = document.querySelector("#discord-metadata-warning");
+const opsApiStatus = document.querySelector("#ops-api-status");
+const opsBotStatus = document.querySelector("#ops-bot-status");
+const opsUptime = document.querySelector("#ops-uptime");
+const opsApiStatusCard = document.querySelector("#ops-api-status-card");
+const opsBotStatusCard = document.querySelector("#ops-bot-status-card");
+const opsUptimeCard = document.querySelector("#ops-uptime-card");
+const opsAutomationMasterBadge = document.querySelector("#ops-automation-master-badge");
+const opsActiveChannels = document.querySelector("#ops-active-channels");
+const opsDisabledChannels = document.querySelector("#ops-disabled-channels");
+const opsSilencedChannels = document.querySelector("#ops-silenced-channels");
+const opsCooldownChannels = document.querySelector("#ops-cooldown-channels");
+const opsSkipNextChannels = document.querySelector("#ops-skip-next-channels");
+const opsNextAutomation = document.querySelector("#ops-next-automation");
+const opsActiveChannelsCard = document.querySelector("#ops-active-channels-card");
+const opsDisabledChannelsCard = document.querySelector("#ops-disabled-channels-card");
+const opsSilencedChannelsCard = document.querySelector("#ops-silenced-channels-card");
+const opsCooldownChannelsCard = document.querySelector("#ops-cooldown-channels-card");
+const opsSkipNextChannelsCard = document.querySelector("#ops-skip-next-channels-card");
+const opsTotalPanels = document.querySelector("#ops-total-panels");
+const opsPanelsMissingChannel = document.querySelector("#ops-panels-missing-channel");
+const opsPanelsMissingRole = document.querySelector("#ops-panels-missing-role");
+const opsTotalFollowups = document.querySelector("#ops-total-followups");
+const opsDisabledFollowups = document.querySelector("#ops-disabled-followups");
+const opsFollowupsMissingChannel = document.querySelector("#ops-followups-missing-channel");
+const opsFollowupsMissingRole = document.querySelector("#ops-followups-missing-role");
+const opsTotalPanelsCard = document.querySelector("#ops-total-panels-card");
+const opsPanelsMissingChannelCard = document.querySelector("#ops-panels-missing-channel-card");
+const opsPanelsMissingRoleCard = document.querySelector("#ops-panels-missing-role-card");
+const opsTotalFollowupsCard = document.querySelector("#ops-total-followups-card");
+const opsDisabledFollowupsCard = document.querySelector("#ops-disabled-followups-card");
+const opsFollowupsMissingChannelCard = document.querySelector("#ops-followups-missing-channel-card");
+const opsFollowupsMissingRoleCard = document.querySelector("#ops-followups-missing-role-card");
+const opsRefreshDashboardButton = document.querySelector("#ops-refresh-dashboard");
+const opsJumpChannelsButton = document.querySelector("#ops-jump-channels");
+const opsJumpAccessButton = document.querySelector("#ops-jump-access");
+const opsJumpFollowupsButton = document.querySelector("#ops-jump-followups");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -21,6 +57,7 @@ const feedsOutput = document.querySelector("#feeds-output");
 const roleAccessPanelsOutput = document.querySelector("#role-access-panels-output");
 const roleFollowupsOutput = document.querySelector("#role-followups-output");
 const metricsOutput = document.querySelector("#metrics-output");
+const automationActivityOutput = document.querySelector("#automation-activity-output");
 const settingsForm = document.querySelector("#settings-form");
 const settingsStatus = document.querySelector("#settings-status");
 const composerForm = document.querySelector("#composer-form");
@@ -42,6 +79,7 @@ const roleAccessPanelForm = document.querySelector("#role-access-panel-form");
 const roleAccessPanelStatus = document.querySelector("#role-access-panel-status");
 const roleFollowupForm = document.querySelector("#role-followup-form");
 const roleFollowupStatus = document.querySelector("#role-followup-status");
+const roleFollowupMetadataWarning = document.querySelector("#role-followup-metadata-warning");
 const historyReviewStatus = document.querySelector("#history-review-status");
 const manualPushChannelMeta = document.querySelector("#manual-push-channel-meta");
 const historyReviewCard = document.querySelector("#history-review-card");
@@ -64,6 +102,8 @@ const providerUsageList = document.querySelector("#provider-usage-list");
 const providerSuccessList = document.querySelector("#provider-success-list");
 const providerFallbackList = document.querySelector("#provider-fallback-list");
 const providerFailureList = document.querySelector("#provider-failure-list");
+const automationActivityList = document.querySelector("#automation-activity-list");
+const automationErrorsList = document.querySelector("#automation-errors-list");
 
 const refreshHealthButton = document.querySelector("#refresh-health");
 const refreshSettingsButton = document.querySelector("#refresh-settings");
@@ -92,11 +132,14 @@ const composerDraftStorageKey = "cdawg-dashboard-composer-draft";
 const autoRefreshIntervalMs = 15000;
 
 let lastSettingsSnapshot = null;
+let lastHealthSnapshot = null;
 let autoRefreshTimer = null;
 let channelPresets = [];
 let guildRoles = [];
 let guildChannels = [];
+let guildMetadataLoaded = false;
 let channelAutomationStatuses = [];
+let automationActivityItems = [];
 let automationMaster = { globalAutomationEnabled: true, status: "on" };
 let dogState = null;
 let dogSystemEnabled = false;
@@ -233,6 +276,7 @@ function renderAutomationMaster() {
     : "All automatic posting is disabled globally. Manual triggers remain available for testing.";
 
   automationMasterBanner.hidden = enabled;
+  renderOpsSnapshot();
 }
 
 function getSelectedChannelPreset() {
@@ -844,6 +888,166 @@ function renderHealthCards(health) {
   );
 }
 
+function setOpsCardState(card, tone) {
+  if (!card) {
+    return;
+  }
+
+  card.className = `ops-status-card ${tone}`;
+}
+
+function setOpsValue(target, value) {
+  if (!target) {
+    return;
+  }
+
+  target.textContent = String(value);
+}
+
+function getHealthUptimeSeconds(health) {
+  if (!health || typeof health !== "object") {
+    return null;
+  }
+
+  if (typeof health.uptimeSeconds === "number") {
+    return health.uptimeSeconds;
+  }
+
+  if (typeof health.uptimeMs === "number") {
+    return Math.floor(health.uptimeMs / 1000);
+  }
+
+  if (typeof health.uptime === "number") {
+    return health.uptime > 100000 ? Math.floor(health.uptime / 1000) : health.uptime;
+  }
+
+  return null;
+}
+
+function formatUptime(health) {
+  const uptimeSeconds = getHealthUptimeSeconds(health);
+
+  if (!uptimeSeconds || uptimeSeconds < 0) {
+    return "Unavailable";
+  }
+
+  const days = Math.floor(uptimeSeconds / 86400);
+  const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+  const parts = [];
+
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+
+  if (hours > 0) {
+    parts.push(`${hours}h`);
+  }
+
+  if (minutes > 0 || parts.length === 0) {
+    parts.push(`${minutes}m`);
+  }
+
+  return parts.join(" ");
+}
+
+function getCountTone(count) {
+  return count > 0 ? "warning" : "ok";
+}
+
+function metadataHasRole(roleId) {
+  return guildRoles.some((role) => role.id === roleId);
+}
+
+function metadataHasChannel(channelId) {
+  return guildChannels.some((channel) => channel.id === channelId);
+}
+
+function getMissingMetadataWarnings(roleId, channelId) {
+  if (!guildMetadataLoaded) {
+    return [];
+  }
+
+  const warnings = [];
+
+  if (roleId && !metadataHasRole(roleId)) {
+    warnings.push(`Selected role ${roleId} was not found in Discord metadata.`);
+  }
+
+  if (channelId && !metadataHasChannel(channelId)) {
+    warnings.push(`Selected channel ${channelId} was not found in Discord metadata.`);
+  }
+
+  return warnings;
+}
+
+function hasMissingRole(roleId) {
+  return !roleId || (guildMetadataLoaded && !metadataHasRole(roleId));
+}
+
+function hasMissingChannel(channelId) {
+  return !channelId || (guildMetadataLoaded && !metadataHasChannel(channelId));
+}
+
+function renderOpsSnapshot() {
+  const hasHealthSnapshot = Boolean(lastHealthSnapshot);
+  const apiOnline = lastHealthSnapshot?.ok === true;
+  const botReady = lastHealthSnapshot?.botReady === true;
+  const uptime = formatUptime(lastHealthSnapshot);
+
+  setOpsValue(opsApiStatus, hasHealthSnapshot ? (apiOnline ? "Online" : "Offline") : "Loading");
+  setOpsCardState(opsApiStatusCard, hasHealthSnapshot ? (apiOnline ? "ok" : "bad") : "neutral");
+  setOpsValue(opsBotStatus, hasHealthSnapshot ? (botReady ? "Ready" : "Not Ready") : "Loading");
+  setOpsCardState(opsBotStatusCard, hasHealthSnapshot ? (botReady ? "ok" : "bad") : "neutral");
+  setOpsValue(opsUptime, uptime);
+  setOpsCardState(opsUptimeCard, uptime === "Unavailable" ? "neutral" : "ok");
+
+  const masterEnabled = automationMaster.globalAutomationEnabled === true;
+  opsAutomationMasterBadge.textContent = `master ${masterEnabled ? "on" : "off"}`;
+  opsAutomationMasterBadge.className = `status-badge ${masterEnabled ? "active" : "blocked"}`;
+
+  const activeCount = channelAutomationStatuses.filter((status) => !status.blockedReason).length;
+  const disabledCount = channelAutomationStatuses.filter((status) => status.blockedReason === "disabled").length;
+  const silencedCount = channelAutomationStatuses.filter((status) => status.blockedReason === "silenced").length;
+  const cooldownCount = channelAutomationStatuses.filter((status) => status.blockedReason === "cooldown").length;
+  const skipNextCount = channelAutomationStatuses.filter(
+    (status) => status.blockedReason === "skip-next" || status.skipNextSendPending === true,
+  ).length;
+
+  setOpsValue(opsActiveChannels, activeCount);
+  setOpsCardState(opsActiveChannelsCard, activeCount > 0 ? "ok" : "neutral");
+  setOpsValue(opsDisabledChannels, disabledCount);
+  setOpsCardState(opsDisabledChannelsCard, getCountTone(disabledCount));
+  setOpsValue(opsSilencedChannels, silencedCount);
+  setOpsCardState(opsSilencedChannelsCard, getCountTone(silencedCount));
+  setOpsValue(opsCooldownChannels, cooldownCount);
+  setOpsCardState(opsCooldownChannelsCard, getCountTone(cooldownCount));
+  setOpsValue(opsSkipNextChannels, skipNextCount);
+  setOpsCardState(opsSkipNextChannelsCard, getCountTone(skipNextCount));
+  renderNextAutomationSnapshot();
+
+  const panelsMissingChannelCount = roleAccessPanels.filter((panel) => hasMissingChannel(panel.targetChannelId)).length;
+  const panelsMissingRoleCount = roleAccessPanels.filter((panel) => hasMissingRole(panel.roleId)).length;
+  const disabledFollowupsCount = roleFollowups.filter((followup) => followup.enabled === false).length;
+  const followupsMissingChannelCount = roleFollowups.filter((followup) => hasMissingChannel(followup.channelId)).length;
+  const followupsMissingRoleCount = roleFollowups.filter((followup) => hasMissingRole(followup.roleId)).length;
+
+  setOpsValue(opsTotalPanels, roleAccessPanels.length);
+  setOpsCardState(opsTotalPanelsCard, roleAccessPanels.length > 0 ? "ok" : "neutral");
+  setOpsValue(opsPanelsMissingChannel, panelsMissingChannelCount);
+  setOpsCardState(opsPanelsMissingChannelCard, getCountTone(panelsMissingChannelCount));
+  setOpsValue(opsPanelsMissingRole, panelsMissingRoleCount);
+  setOpsCardState(opsPanelsMissingRoleCard, getCountTone(panelsMissingRoleCount));
+  setOpsValue(opsTotalFollowups, roleFollowups.length);
+  setOpsCardState(opsTotalFollowupsCard, roleFollowups.length > 0 ? "ok" : "neutral");
+  setOpsValue(opsDisabledFollowups, disabledFollowupsCount);
+  setOpsCardState(opsDisabledFollowupsCard, getCountTone(disabledFollowupsCount));
+  setOpsValue(opsFollowupsMissingChannel, followupsMissingChannelCount);
+  setOpsCardState(opsFollowupsMissingChannelCard, getCountTone(followupsMissingChannelCount));
+  setOpsValue(opsFollowupsMissingRole, followupsMissingRoleCount);
+  setOpsCardState(opsFollowupsMissingRoleCard, getCountTone(followupsMissingRoleCount));
+}
+
 function renderMetricList(target, entries) {
   target.replaceChildren();
 
@@ -928,6 +1132,216 @@ function getChannelOperationStatusText(channelStatus) {
   }
 
   return "Active";
+}
+
+function getBlockedReasonLabel(blockedReason) {
+  if (blockedReason === "global-disabled") {
+    return "Global automation OFF";
+  }
+
+  if (blockedReason === "disabled") {
+    return "Channel disabled";
+  }
+
+  if (blockedReason === "silenced") {
+    return "Channel silenced";
+  }
+
+  if (blockedReason === "cooldown") {
+    return "Cooldown active";
+  }
+
+  if (blockedReason === "skip-next") {
+    return "Skip-next pending";
+  }
+
+  return "No block";
+}
+
+function getAutomationModeLabel(automationMode) {
+  if (!automationMode || automationMode === "none") {
+    return "No automation configured";
+  }
+
+  return automationMode
+    .split("+")
+    .map((entry) => (entry === "scheduler" ? "scheduled" : entry))
+    .join(" + ");
+}
+
+function createChannelStateItem(label, value, tone = "neutral") {
+  const item = document.createElement("div");
+  const itemLabel = document.createElement("span");
+  const itemValue = document.createElement("strong");
+
+  item.className = `channel-state-item ${tone}`;
+  itemLabel.textContent = label;
+  itemValue.textContent = value;
+  item.append(itemLabel, itemValue);
+  return item;
+}
+
+function createAutomationDetailLine(label, value, tone = "neutral") {
+  const line = document.createElement("p");
+  const name = document.createElement("span");
+  const detail = document.createElement("strong");
+
+  line.className = `automation-detail-line ${tone}`;
+  name.textContent = label;
+  detail.textContent = value;
+  line.append(name, detail);
+  return line;
+}
+
+function getNextAutomationCandidate() {
+  const candidates = channelAutomationStatuses
+    .filter((status) => typeof status.nextEligibleSendAt === "number" && Number.isFinite(status.nextEligibleSendAt))
+    .sort(
+      (left, right) =>
+        left.nextEligibleSendAt - right.nextEligibleSendAt ||
+        (left.label ?? left.channelId).localeCompare(right.label ?? right.channelId),
+    );
+
+  return candidates[0] ?? null;
+}
+
+function renderNextAutomationSnapshot() {
+  if (!opsNextAutomation) {
+    return;
+  }
+
+  opsNextAutomation.replaceChildren();
+
+  const nextAutomation = getNextAutomationCandidate();
+
+  if (!nextAutomation) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+
+    if (automationMaster.globalAutomationEnabled === false) {
+      emptyState.textContent = "Global automation is OFF, so no next automated run is currently eligible.";
+    } else if (channelAutomationStatuses.length === 0) {
+      emptyState.textContent = "No channel automation status is available yet.";
+    } else {
+      emptyState.textContent = "No next automated run is available in the current API payload.";
+    }
+
+    opsNextAutomation.append(emptyState);
+    return;
+  }
+
+  const channel = document.createElement("strong");
+  const details = document.createElement("div");
+  const badges = document.createElement("div");
+
+  channel.className = "ops-next-channel";
+  channel.textContent = nextAutomation.label ?? nextAutomation.channelId;
+  details.className = "ops-next-details";
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(getBlockedReasonLabel(nextAutomation.blockedReason), nextAutomation.blockedReason ? "blocked" : "active"),
+    createStatusBadge(getAutomationModeLabel(nextAutomation.automationMode), "neutral"),
+  );
+
+  details.append(
+    createAutomationDetailLine("Next eligible", `${formatTimestamp(nextAutomation.nextEligibleSendAt)} (${formatRelativeTime(nextAutomation.nextEligibleSendAt)})`, "strong"),
+    createAutomationDetailLine("Mode", getAutomationModeLabel(nextAutomation.automationMode)),
+    createAutomationDetailLine("Content/provider", "Not included in current API payload"),
+  );
+
+  if (nextAutomation.blockedReason) {
+    details.append(createAutomationDetailLine("Blocked by", getChannelOperationStatusText(nextAutomation), "blocked"));
+  }
+
+  opsNextAutomation.append(channel, badges, details);
+}
+
+function getActivityChannelLabel(item) {
+  if (item.channelName) {
+    return `#${item.channelName}`;
+  }
+
+  return getChannelLabel(item.channelId);
+}
+
+function getActivityTone(item) {
+  if (item.status === "success") {
+    return "active";
+  }
+
+  if (item.status === "failure" || item.status === "blocked") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function createAutomationActivityItem(item) {
+  const row = document.createElement("article");
+  const main = document.createElement("div");
+  const meta = document.createElement("div");
+  const message = document.createElement("p");
+  const badges = document.createElement("div");
+
+  row.className = `automation-activity-item status-${item.status}`;
+  main.className = "automation-activity-main";
+  meta.className = "automation-activity-meta";
+  message.className = "automation-activity-message";
+  badges.className = "channel-operation-badges";
+
+  meta.append(
+    createAutomationDetailLine("When", formatTimestamp(item.timestamp)),
+    createAutomationDetailLine("Channel", getActivityChannelLabel(item)),
+    createAutomationDetailLine("Source", item.source ?? "unknown"),
+  );
+  message.textContent = item.message || "No details available.";
+  badges.append(createStatusBadge(item.status, getActivityTone(item)));
+
+  if (item.contentType) {
+    badges.append(createStatusBadge(item.contentType, "neutral"));
+  }
+
+  if (item.errorCode) {
+    badges.append(createStatusBadge(item.errorCode, "blocked"));
+  }
+
+  if (item.blockedReason) {
+    badges.append(createStatusBadge(item.blockedReason, "blocked"));
+  }
+
+  main.append(badges, message);
+  row.append(main, meta);
+  return row;
+}
+
+function renderAutomationActivity() {
+  automationActivityList.replaceChildren();
+  automationErrorsList.replaceChildren();
+
+  if (automationActivityItems.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No recent automation activity available.";
+    automationActivityList.append(emptyState);
+  } else {
+    for (const item of automationActivityItems.slice(0, 8)) {
+      automationActivityList.append(createAutomationActivityItem(item));
+    }
+  }
+
+  const errorItems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");
+
+  if (errorItems.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No recent automation errors found.";
+    automationErrorsList.append(emptyState);
+    return;
+  }
+
+  for (const item of errorItems.slice(0, 6)) {
+    automationErrorsList.append(createAutomationActivityItem(item));
+  }
 }
 
 function getChannelStatusLabel(channelStatus) {
@@ -1160,6 +1574,8 @@ function renderChannelOperations() {
     const expandedSecondaryActions = document.createElement("div");
     const meta = document.createElement("p");
     const badges = document.createElement("div");
+    const stateGrid = document.createElement("div");
+    const automationDetails = document.createElement("div");
     const nextEligible = document.createElement("p");
     const blockedUntil = document.createElement("p");
     const lastSend = document.createElement("p");
@@ -1188,7 +1604,7 @@ function renderChannelOperations() {
       badges.append(createStatusBadge("skip-next pending", "blocked"));
     }
     nextEligible.className = "channel-row-summary-detail channel-operation-detail-strong";
-    nextEligible.textContent = `Next eligible: ${formatTimestamp(channelStatus.nextEligibleSendAt)}`;
+    nextEligible.textContent = `Next automation: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
     blockedSummary.className = `channel-row-summary-detail${channelStatus.blockedReason ? " blocked" : ""}`;
     blockedSummary.textContent = channelStatus.blockedReason ? getChannelOperationStatusText(channelStatus) : "Active";
     summaryActions.className = "channel-row-summary-actions";
@@ -1236,11 +1652,48 @@ function renderChannelOperations() {
     expandedPrimaryActions.className = "channel-operation-action-group";
     expandedSecondaryActions.className = "channel-operation-action-group secondary";
     meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""} • Mode: ${channelStatus.automationMode}${channelStatus.globalAutomationEnabled ? "" : " • Master OFF"}${channelStatus.channelAutomationEnabled ? "" : " • Channel automation OFF"}`;
+    meta.textContent = `Channel ID: ${channelStatus.channelId}${channelStatus.defaultTopic ? ` • Topic: ${channelStatus.defaultTopic}` : ""}`;
+    stateGrid.className = "channel-state-grid";
+    stateGrid.append(
+      createChannelStateItem(
+        "Global automation",
+        channelStatus.globalAutomationEnabled ? "ON" : "OFF",
+        channelStatus.globalAutomationEnabled ? "ok" : "bad",
+      ),
+      createChannelStateItem(
+        "Channel automation",
+        channelStatus.channelAutomationEnabled ? "ON" : "OFF",
+        channelStatus.channelAutomationEnabled ? "ok" : "bad",
+      ),
+      createChannelStateItem(
+        "Silence",
+        channelStatus.blockedReason === "silenced" ? `Active until ${formatTimestamp(channelStatus.blockedUntil)}` : "Clear",
+        channelStatus.blockedReason === "silenced" ? "bad" : "ok",
+      ),
+      createChannelStateItem(
+        "Cooldown",
+        channelStatus.blockedReason === "cooldown" ? `Active until ${formatTimestamp(channelStatus.blockedUntil)}` : "Clear",
+        channelStatus.blockedReason === "cooldown" ? "warning" : "ok",
+      ),
+      createChannelStateItem(
+        "Skip-next",
+        channelStatus.skipNextSendPending ? "Pending" : "Clear",
+        channelStatus.skipNextSendPending ? "warning" : "ok",
+      ),
+    );
+    automationDetails.className = "automation-detail-list";
+    automationDetails.append(
+      createAutomationDetailLine("Blocked reason", getBlockedReasonLabel(channelStatus.blockedReason), channelStatus.blockedReason ? "blocked" : "ok"),
+      createAutomationDetailLine("Automation mode", getAutomationModeLabel(channelStatus.automationMode)),
+      createAutomationDetailLine("Next eligible", `${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`, "strong"),
+      createAutomationDetailLine("Passive eligible", `${formatTimestamp(channelStatus.passiveEligibleAt)} (${formatRelativeTime(channelStatus.passiveEligibleAt)})`),
+      createAutomationDetailLine("Scheduled eligible", `${formatTimestamp(channelStatus.scheduledEligibleAt)} (${formatRelativeTime(channelStatus.scheduledEligibleAt)})`),
+      createAutomationDetailLine("Next content/provider", "Not included in current API payload"),
+    );
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
-    lastSend.textContent = `Last automated send: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
+    lastSend.textContent = `Last automated send time: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
 
     expandedPrimaryActions.append(
       createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
@@ -1255,7 +1708,7 @@ function renderChannelOperations() {
     summaryIdentity.append(summaryTitleBlock, nextEligible, blockedSummary);
     summaryMain.append(summaryIdentity, summaryActions);
     summary.append(summaryMain);
-    expandedMeta.append(meta, lastSend, blockedUntil);
+    expandedMeta.append(meta, stateGrid, automationDetails, lastSend, blockedUntil);
     expandedActions.append(expandedPrimaryActions, expandedSecondaryActions);
     expanded.append(expandedMeta, expandedActions);
     row.append(summary, expanded);
@@ -1541,15 +1994,24 @@ function getRoleFollowupFormValue() {
 
 function validateRoleFollowupPayload(payload) {
   if (!payload.roleId) {
-    return "Role ID is required.";
+    return "Choose or enter the role that triggers this follow-up.";
   }
 
   if (!payload.channelId) {
-    return "Channel ID is required.";
+    return "Choose or enter the channel where Cdawg should post this follow-up.";
   }
 
   if (!payload.message) {
     return "Message is required.";
+  }
+
+  const messageTextWithoutTokens = payload.message
+    .replace(/\{user\}|\{username\}|\{role\}|\{channel\}/g, "")
+    .replace(/<[@#][!&]?\d{17,20}>/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
+
+  if (!messageTextWithoutTokens) {
+    return "Message needs readable text beyond tokens or mentions.";
   }
 
   if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(payload.id)) {
@@ -1561,32 +2023,41 @@ function validateRoleFollowupPayload(payload) {
 
 function renderRoleFollowupPreview() {
   const followup = getRoleFollowupFormValue();
+  const metadataWarnings = getMissingMetadataWarnings(followup.roleId, followup.channelId);
 
   roleFollowupPreview.replaceChildren();
+  roleFollowupMetadataWarning.hidden = metadataWarnings.length === 0;
+  roleFollowupMetadataWarning.textContent = metadataWarnings.join(" ");
 
   const header = document.createElement("div");
+  const headerTitle = document.createElement("span");
+  const statusBadge = createStatusBadge(followup.enabled ? "active" : "inactive", followup.enabled ? "active" : "neutral");
   const flow = document.createElement("div");
   const trigger = document.createElement("p");
   const action = document.createElement("p");
   const message = document.createElement("div");
+  const previewNote = document.createElement("p");
   const messageText = document.createElement("p");
   const context = document.createElement("div");
   const status = document.createElement("p");
 
   header.className = "discord-panel-preview-header";
-  header.textContent = "Follow-up preview";
+  headerTitle.textContent = "Follow-up preview";
   flow.className = "role-followup-preview-flow";
   trigger.textContent = `User gets role: ${getDetailedRoleLabel(followup.roleId)}`;
   action.textContent = `Cdawg posts in channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
   message.className = "discord-panel-preview-embed";
+  previewNote.className = "role-followup-preview-note";
+  previewNote.textContent = "Preview only. Discord sends the configured message when the role is added.";
   messageText.textContent = followup.message
     ? formatFollowupPreviewMessage(followup.message, followup)
     : "Your follow-up message will appear here.";
   context.className = "discord-panel-preview-context";
-  status.textContent = `Status: ${followup.enabled ? "on" : "off"}`;
+  status.textContent = `Saved state: ${followup.enabled ? "will send when triggered" : "saved but will not send"}`;
 
+  header.append(headerTitle, statusBadge);
   flow.append(trigger, action);
-  message.append(messageText);
+  message.append(previewNote, messageText);
   context.append(status);
   roleFollowupPreview.append(header, flow, message, context);
   updateFollowupQuickInsertState();
@@ -1594,10 +2065,10 @@ function renderRoleFollowupPreview() {
 
 function formatFollowupPreviewMessage(value, followup = getRoleFollowupFormValue()) {
   return value
-    .replace(/\{user\}|<@\{userId\}>/g, "@user")
-    .replace(/\{username\}/g, "username")
-    .replace(/\{role\}/g, followup.roleId ? `@${getRoleLabel(followup.roleId)}` : "@selected-role")
-    .replace(/\{channel\}/g, followup.channelId ? getChannelLabel(followup.channelId) : "#selected-channel")
+    .replace(/\{user\}|<@\{userId\}>/g, "@ExampleUser")
+    .replace(/\{username\}/g, "ExampleUser")
+    .replace(/\{role\}/g, "@ExampleRole")
+    .replace(/\{channel\}/g, "#example-channel")
     .replace(/<#(\d{17,20})>/g, (_match, channelId) => getChannelLabel(channelId))
     .replace(/<@&(\d{17,20})>/g, (_match, roleId) => `@${getRoleLabel(roleId)}`);
 }
@@ -1695,18 +2166,26 @@ function renderRoleFollowups() {
     const badges = document.createElement("div");
     const roleDetail = document.createElement("p");
     const channelDetail = document.createElement("p");
+    const metadataWarning = document.createElement("p");
     const messagePreview = document.createElement("p");
     const actions = document.createElement("div");
+    const metadataWarnings = getMissingMetadataWarnings(followup.roleId, followup.channelId);
 
     row.className = "channel-operation-card compact role-followup-card";
     main.className = "channel-operation-main";
     title.textContent = getRoleLabel(followup.roleId);
     badges.className = "channel-operation-badges";
-    badges.append(createStatusBadge(followup.enabled ? "enabled" : "inactive", followup.enabled ? "active" : "neutral"));
+    badges.append(createStatusBadge(followup.enabled ? "active" : "inactive", followup.enabled ? "active" : "neutral"));
+    if (metadataWarnings.length > 0) {
+      badges.append(createStatusBadge("metadata warning", "blocked"));
+    }
     roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
     roleDetail.textContent = `Role: ${getDetailedRoleLabel(followup.roleId)}`;
     channelDetail.className = "channel-operation-detail";
     channelDetail.textContent = `Channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
+    metadataWarning.className = "channel-operation-detail role-followup-warning";
+    metadataWarning.textContent = metadataWarnings.join(" ");
+    metadataWarning.hidden = metadataWarnings.length === 0;
     messagePreview.className = "channel-operation-detail";
     messagePreview.textContent = followup.message.length > 140 ? `${followup.message.slice(0, 140)}...` : followup.message;
     actions.className = "channel-operation-actions";
@@ -1715,7 +2194,7 @@ function renderRoleFollowups() {
       createChannelActionButton("Delete", () => void deleteRoleFollowup(followup.id)),
     );
 
-    main.append(title, badges, roleDetail, channelDetail, messagePreview);
+    main.append(title, badges, roleDetail, channelDetail, metadataWarning, messagePreview);
     row.append(main, actions);
     roleFollowupsList.append(row);
   }
@@ -1968,10 +2447,14 @@ function resetSettingsForm() {
 async function loadHealth() {
   try {
     const data = await fetchJson("/health");
+    lastHealthSnapshot = data;
     renderHealthCards(data);
+    renderOpsSnapshot();
     setPrettyJson(healthOutput, data);
   } catch (error) {
+    lastHealthSnapshot = { ok: false, botReady: false };
     healthCards.replaceChildren(createHealthCard("Health", "Unavailable", "bad"));
+    renderOpsSnapshot();
     healthOutput.textContent = `Failed to load health.\n${error.message}`;
   }
 }
@@ -2011,6 +2494,19 @@ async function loadMetrics() {
   }
 }
 
+async function loadAutomationActivity() {
+  try {
+    const data = await fetchJson("/api/automation-activity?limit=50");
+    automationActivityItems = Array.isArray(data.items) ? data.items : [];
+    renderAutomationActivity();
+    setPrettyJson(automationActivityOutput, data);
+  } catch (error) {
+    automationActivityItems = [];
+    renderAutomationActivity();
+    automationActivityOutput.textContent = `Failed to load automation activity.\n${error.message}`;
+  }
+}
+
 async function loadChannelPresets() {
   try {
     const data = await fetchJson("/api/channel-presets");
@@ -2042,6 +2538,7 @@ async function loadGuildMetadata() {
     const data = await fetchJson("/api/discord/guild-metadata");
     guildRoles = Array.isArray(data.roles) ? data.roles : [];
     guildChannels = Array.isArray(data.channels) ? data.channels : [];
+    guildMetadataLoaded = true;
     discordMetadataWarning.hidden = true;
     renderDiscordMetadataOptions();
     renderRoleAccessPreview();
@@ -2049,11 +2546,14 @@ async function loadGuildMetadata() {
     renderRoleFollowupPreview();
     renderRoleFollowups();
     renderComposerTemplates();
+    renderOpsSnapshot();
   } catch (error) {
     guildRoles = [];
     guildChannels = [];
+    guildMetadataLoaded = false;
     discordMetadataWarning.hidden = false;
     renderDiscordMetadataOptions();
+    renderOpsSnapshot();
   }
 }
 
@@ -2077,10 +2577,12 @@ async function loadRoleAccessPanels() {
     const data = await fetchJson("/api/role-access-panels");
     roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
     renderRoleAccessPanels();
+    renderOpsSnapshot();
     setPrettyJson(roleAccessPanelsOutput, data);
   } catch (error) {
     roleAccessPanels = [];
     renderRoleAccessPanels();
+    renderOpsSnapshot();
     roleAccessPanelsOutput.textContent = `Failed to load role access panels.\n${error.message}`;
     setRoleAccessPanelStatus(`Role access load failed: ${error.message}`, "error");
   }
@@ -2091,10 +2593,12 @@ async function loadRoleFollowups() {
     const data = await fetchJson("/api/role-followups");
     roleFollowups = Array.isArray(data.roleFollowups) ? data.roleFollowups : [];
     renderRoleFollowups();
+    renderOpsSnapshot();
     setPrettyJson(roleFollowupsOutput, data);
   } catch (error) {
     roleFollowups = [];
     renderRoleFollowups();
+    renderOpsSnapshot();
     roleFollowupsOutput.textContent = `Failed to load role follow-ups.\n${error.message}`;
     setRoleFollowupStatus(`Follow-up load failed: ${error.message}`, "error");
   }
@@ -2166,10 +2670,12 @@ async function loadChannelOperations() {
     channelAutomationStatuses = Array.isArray(data.channelAutomationStatuses) ? data.channelAutomationStatuses : [];
     renderAutomationMaster();
     renderChannelOperations();
+    renderOpsSnapshot();
     setPrettyJson(channelOperationsOutput, data);
   } catch (error) {
     channelAutomationStatuses = [];
     renderChannelOperations();
+    renderOpsSnapshot();
     channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
   }
 }
@@ -2740,6 +3246,7 @@ async function reloadAll() {
     loadHealth(),
     loadSettings(),
     loadMetrics(),
+    loadAutomationActivity(),
     loadChannelOperations(),
     loadChannelPresets(),
     loadGuildMetadata(),
@@ -2849,6 +3356,10 @@ resetRoleFollowupFormButton.addEventListener("click", resetRoleFollowupForm);
 deleteRoleFollowupFormButton.addEventListener("click", () => void deleteCurrentRoleFollowup());
 refreshAllButton.addEventListener("click", () => void reloadAll());
 automationMasterButton.addEventListener("click", () => void toggleAutomationMaster());
+opsRefreshDashboardButton.addEventListener("click", () => void reloadAll());
+opsJumpChannelsButton.addEventListener("click", () => setActiveControlTab("channels"));
+opsJumpAccessButton.addEventListener("click", () => setActiveControlTab("access"));
+opsJumpFollowupsButton.addEventListener("click", () => setActiveControlTab("followups"));
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
@@ -2866,6 +3377,8 @@ autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 configureAutoRefresh();
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
+renderOpsSnapshot();
+renderAutomationActivity();
 loadComposerDraft();
 renderRoleAccessPreview();
 renderRoleFollowupPreview();

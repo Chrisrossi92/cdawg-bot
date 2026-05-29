@@ -72,6 +72,117 @@
 
       <section class="panel control-center">
         <section class="control-tab-panel" data-tab-panel="overview">
+          <section class="control-block ops-snapshot" aria-label="Ops Snapshot">
+            <div class="subpanel-header">
+              <div>
+                <h3>Ops Snapshot</h3>
+                <p>Compact runtime and configuration state for quick checks.</p>
+              </div>
+              <div class="toolbar ops-snapshot-actions">
+                <button id="ops-refresh-dashboard" type="button">Refresh Dashboard</button>
+                <button id="ops-jump-channels" type="button" class="secondary">Jump to Channels</button>
+                <button id="ops-jump-access" type="button" class="secondary">Jump to Access</button>
+                <button id="ops-jump-followups" type="button" class="secondary">Jump to Follow-Ups</button>
+              </div>
+            </div>
+
+            <div class="ops-snapshot-grid">
+              <section class="ops-snapshot-group">
+                <div class="ops-snapshot-group-header">
+                  <h3>System Health</h3>
+                </div>
+                <div class="ops-card-grid">
+                  <article id="ops-api-status-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">API Status</span>
+                    <strong id="ops-api-status">Loading</strong>
+                  </article>
+                  <article id="ops-bot-status-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Bot Status</span>
+                    <strong id="ops-bot-status">Loading</strong>
+                  </article>
+                  <article id="ops-uptime-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Uptime</span>
+                    <strong id="ops-uptime">Unavailable</strong>
+                  </article>
+                </div>
+              </section>
+
+              <section class="ops-snapshot-group">
+                <div class="ops-snapshot-group-header">
+                  <h3>Automation Snapshot</h3>
+                  <span id="ops-automation-master-badge" class="status-badge neutral">master loading</span>
+                </div>
+                <div class="ops-card-grid ops-card-grid-compact">
+                  <article id="ops-active-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Active</span>
+                    <strong id="ops-active-channels">0</strong>
+                  </article>
+                  <article id="ops-disabled-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Disabled</span>
+                    <strong id="ops-disabled-channels">0</strong>
+                  </article>
+                  <article id="ops-silenced-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Silenced</span>
+                    <strong id="ops-silenced-channels">0</strong>
+                  </article>
+                  <article id="ops-cooldown-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Cooldown</span>
+                    <strong id="ops-cooldown-channels">0</strong>
+                  </article>
+                  <article id="ops-skip-next-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Skip-next</span>
+                    <strong id="ops-skip-next-channels">0</strong>
+                  </article>
+                </div>
+              </section>
+
+              <section class="ops-snapshot-group">
+                <div class="ops-snapshot-group-header">
+                  <h3>Next Automation</h3>
+                </div>
+                <div id="ops-next-automation" class="ops-next-automation">
+                  <p class="channel-operation-empty">Loading automation plan...</p>
+                </div>
+              </section>
+
+              <section class="ops-snapshot-group ops-snapshot-group-wide">
+                <div class="ops-snapshot-group-header">
+                  <h3>Configuration Integrity</h3>
+                </div>
+                <div class="ops-integrity-grid">
+                  <article id="ops-total-panels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Role Access Panels</span>
+                    <strong id="ops-total-panels">0</strong>
+                  </article>
+                  <article id="ops-panels-missing-channel-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Panels Missing Channel</span>
+                    <strong id="ops-panels-missing-channel">0</strong>
+                  </article>
+                  <article id="ops-panels-missing-role-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Panels Missing Role</span>
+                    <strong id="ops-panels-missing-role">0</strong>
+                  </article>
+                  <article id="ops-total-followups-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Role Follow-Ups</span>
+                    <strong id="ops-total-followups">0</strong>
+                  </article>
+                  <article id="ops-disabled-followups-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Disabled Follow-Ups</span>
+                    <strong id="ops-disabled-followups">0</strong>
+                  </article>
+                  <article id="ops-followups-missing-channel-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Follow-Ups Missing Channel</span>
+                    <strong id="ops-followups-missing-channel">0</strong>
+                  </article>
+                  <article id="ops-followups-missing-role-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Follow-Ups Missing Role</span>
+                    <strong id="ops-followups-missing-role">0</strong>
+                  </article>
+                </div>
+              </section>
+            </div>
+          </section>
+
           <div class="overview-layout">
             <section class="control-block">
               <div class="subpanel-header">
@@ -92,6 +203,22 @@
                 <section class="metric-card compact-status">
                   <h3>Operator Flow</h3>
                   <p class="overview-status-copy">Use Channels for intervention controls, Push for one-off sends, Trivia for daily operations, and Settings for runtime tuning.</p>
+                </section>
+              </div>
+
+              <div class="automation-activity-grid">
+                <section class="metric-card automation-activity-card">
+                  <h3>Recent Automation Activity</h3>
+                  <div id="automation-activity-list" class="automation-activity-list">
+                    <p class="channel-operation-empty">No recent automation activity available.</p>
+                  </div>
+                </section>
+
+                <section class="metric-card automation-activity-card">
+                  <h3>Recent Automation Errors</h3>
+                  <div id="automation-errors-list" class="automation-activity-list">
+                    <p class="channel-operation-empty">No recent automation errors found.</p>
+                  </div>
                 </section>
               </div>
 
@@ -134,6 +261,10 @@
               <details class="details-block control-debug-details">
                 <summary>Raw metrics payload</summary>
                 <pre id="metrics-output">Loading...</pre>
+              </details>
+              <details class="details-block control-debug-details">
+                <summary>Raw automation activity payload</summary>
+                <pre id="automation-activity-output">Loading...</pre>
               </details>
             </section>
 
@@ -633,13 +764,14 @@
                     <small>The follow-up is posted in this channel.</small>
                   </label>
                   <label>
-                    Turn this follow-up on?
+                    Follow-up status
                     <select name="enabled">
                       <option value="true">On</option>
                       <option value="false">Off</option>
                     </select>
-                    <small>Inactive follow-ups stay saved but do not send.</small>
+                    <small>On sends when the role is added. Off keeps the follow-up saved without sending.</small>
                   </label>
+                  <div id="role-followup-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
                 <section class="form-group">
@@ -650,12 +782,36 @@
                     <small>Use quick inserts to mention the member, role, or channel exactly where you want.</small>
                   </label>
                   <div class="message-builder">
-                    <div class="message-builder-header">Quick inserts</div>
-                    <p>Use quick inserts to mention the member, role, or channel exactly where you want.</p>
+                    <div class="message-builder-header">Tokens</div>
+                    <p>Click a token to insert it. Tokens are replaced only when the follow-up is sent.</p>
                     <div class="message-builder-actions">
-                      <button type="button" class="pill-button" data-followup-insert="{user}">@user</button>
-                      <button type="button" class="pill-button" data-followup-insert-channel>#selected-channel</button>
-                      <button type="button" class="pill-button" data-followup-insert-role>@selected-role</button>
+                      <button type="button" class="pill-button token-chip" data-followup-insert="{user}">{user}</button>
+                      <button type="button" class="pill-button token-chip" data-followup-insert="{username}">{username}</button>
+                      <button type="button" class="pill-button token-chip" data-followup-insert="{role}">{role}</button>
+                      <button type="button" class="pill-button token-chip" data-followup-insert="{channel}">{channel}</button>
+                    </div>
+                    <dl class="token-helper-list">
+                      <div>
+                        <dt>{user}</dt>
+                        <dd>Mentions the member who received the role.</dd>
+                      </div>
+                      <div>
+                        <dt>{username}</dt>
+                        <dd>Shows the member display name without a mention.</dd>
+                      </div>
+                      <div>
+                        <dt>{role}</dt>
+                        <dd>Mentions the configured trigger role.</dd>
+                      </div>
+                      <div>
+                        <dt>{channel}</dt>
+                        <dd>Mentions the configured destination channel.</dd>
+                      </div>
+                    </dl>
+                  </div>
+                  <div class="message-builder">
+                    <div class="message-builder-header">Quick inserts</div>
+                    <div class="message-builder-actions">
                       <button type="button" class="pill-button" data-followup-insert="Server info: ">Server info</button>
                       <button type="button" class="pill-button" data-followup-insert="Please review the rules before jumping in: ">Rules reminder</button>
                       <button type="button" class="pill-button" data-followup-insert="If you need help, ask in the community channel and an admin will jump in.">Ask for help</button>

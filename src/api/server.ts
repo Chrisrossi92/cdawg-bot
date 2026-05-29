@@ -63,6 +63,7 @@ import {
   listComposerTemplates,
   upsertComposerTemplate,
 } from "../systems/composer-templates.js";
+import { getRecentAutomationActivity } from "../systems/automation-activity.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -1342,6 +1343,24 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           metrics: getBotMetrics(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/automation-activity") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const requestedLimit = Number(requestUrl.searchParams.get("limit"));
+        const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 25;
+        const items = getRecentAutomationActivity(limit);
+
+        sendJson(response, 200, {
+          items,
+          limit,
+          count: items.length,
         });
         return;
       }
