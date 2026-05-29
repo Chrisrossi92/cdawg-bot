@@ -365,60 +365,66 @@
                 <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
               </div>
 
-              <form id="feed-form" class="settings-form">
+              <form id="feed-form" class="settings-form command-form feed-config-form">
                 <input name="feedId" type="hidden" />
-                <section class="form-group">
+                <section class="form-group form-command-panel">
                   <h3>Scheduled Post Config</h3>
-                  <label>
-                    Enabled
-                    <select name="enabled">
-                      <option value="true">On</option>
-                      <option value="false">Off</option>
-                    </select>
-                  </label>
-                  <label>
-                    Saved Channel
-                    <select name="channelPreset">
-                      <option value="">Loading saved channels...</option>
-                    </select>
-                  </label>
-                  <label>
-                    Manual Channel ID
-                    <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
-                    <small>Use this only when no preset applies.</small>
-                  </label>
-                  <label>
-                    Content Type
-                    <select name="contentType">
-                      <option value="fact">fact</option>
-                      <option value="history">history</option>
-                      <option value="joke">joke</option>
-                      <option value="prompt">prompt</option>
-                      <option value="trivia">trivia</option>
-                      <option value="wyr">wyr</option>
-                    </select>
-                  </label>
-                  <label>
-                    Repeat Every (minutes)
-                    <input name="cadenceMinutes" type="number" min="1" step="1" />
-                  </label>
-                  <label>
-                    Topic Override
-                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                  </label>
-                  <label>
-                    Allowed Start Time
-                    <input name="allowedStartTime" type="time" />
-                    <small>Optional daily local start time.</small>
-                  </label>
-                  <label>
-                    Allowed End Time
-                    <input name="allowedEndTime" type="time" />
-                    <small>Optional daily local end time.</small>
-                  </label>
+                  <div class="form-grid form-grid-3">
+                    <label>
+                      Enabled
+                      <select name="enabled">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                    <label>
+                      Saved Channel
+                      <select name="channelPreset">
+                        <option value="">Loading saved channels...</option>
+                      </select>
+                    </label>
+                    <label>
+                      Manual Channel ID
+                      <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
+                      <small>Use this only when no preset applies.</small>
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-3">
+                    <label>
+                      Content Type
+                      <select name="contentType">
+                        <option value="fact">fact</option>
+                        <option value="history">history</option>
+                        <option value="joke">joke</option>
+                        <option value="prompt">prompt</option>
+                        <option value="trivia">trivia</option>
+                        <option value="wyr">wyr</option>
+                      </select>
+                    </label>
+                    <label>
+                      Repeat Every (minutes)
+                      <input name="cadenceMinutes" type="number" min="1" step="1" />
+                    </label>
+                    <label>
+                      Topic Override
+                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-2 form-grid-time">
+                    <label>
+                      Allowed Start Time
+                      <input name="allowedStartTime" type="time" />
+                      <small>Optional daily local start time.</small>
+                    </label>
+                    <label>
+                      Allowed End Time
+                      <input name="allowedEndTime" type="time" />
+                      <small>Optional daily local end time.</small>
+                    </label>
+                  </div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button type="submit">Save Scheduled Post</button>
                   <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
                   <span id="feed-status"></span>
@@ -440,45 +446,51 @@
                 </div>
               </div>
 
-              <form id="daily-trivia-form" class="settings-form">
-                <section class="form-group">
+              <form id="daily-trivia-form" class="settings-form command-form daily-trivia-config-form">
+                <section class="form-group form-command-panel">
                   <h3>Daily Trivia Config</h3>
-                  <label>
-                    Enabled
-                    <select name="enabled">
-                      <option value="true">On</option>
-                      <option value="false">Off</option>
-                    </select>
-                  </label>
-                  <label>
-                    Saved Channel
-                    <select name="channelPreset">
-                      <option value="">Loading saved channels...</option>
-                    </select>
-                  </label>
-                  <label>
-                    Daily Time
-                    <input name="dailyTime" type="time" required />
-                    <small>Local daily post time.</small>
-                  </label>
-                  <label>
-                    Topic Override
-                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                    <small>Leave blank to use the channel preset topic.</small>
-                  </label>
-                  <label>
-                    Allowed Start Time
-                    <input name="allowedStartTime" type="time" />
-                    <small>Optional daily local start time.</small>
-                  </label>
-                  <label>
-                    Allowed End Time
-                    <input name="allowedEndTime" type="time" />
-                    <small>Optional daily local end time.</small>
-                  </label>
+                  <div class="form-grid form-grid-2">
+                    <label>
+                      Enabled
+                      <select name="enabled">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                    <label>
+                      Saved Channel
+                      <select name="channelPreset">
+                        <option value="">Loading saved channels...</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-2">
+                    <label>
+                      Daily Time
+                      <input name="dailyTime" type="time" required />
+                      <small>Local daily post time.</small>
+                    </label>
+                    <label>
+                      Topic Override
+                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                      <small>Leave blank to use the channel preset topic.</small>
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-2 form-grid-time">
+                    <label>
+                      Allowed Start Time
+                      <input name="allowedStartTime" type="time" />
+                      <small>Optional daily local start time.</small>
+                    </label>
+                    <label>
+                      Allowed End Time
+                      <input name="allowedEndTime" type="time" />
+                      <small>Optional daily local end time.</small>
+                    </label>
+                  </div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button type="submit">Save Daily Trivia</button>
                   <span id="daily-trivia-status"></span>
                 </div>
@@ -562,34 +574,36 @@
                   <p>Create and send generated content like jokes, facts, trivia, prompts, or history items.</p>
                 </div>
               </div>
-              <form id="manual-push-form" class="settings-form">
-                <section class="form-group">
+              <form id="manual-push-form" class="settings-form command-form compact-send-form">
+                <section class="form-group form-command-panel">
                   <h3>Send Generated Content</h3>
-                  <label>
-                    Content Type
-                    <select name="contentType">
-                      <option value="history">history</option>
-                      <option value="joke">joke</option>
-                      <option value="prompt">prompt</option>
-                      <option value="fact">fact</option>
-                      <option value="trivia">trivia</option>
-                    </select>
-                  </label>
-                  <label>
-                    Saved Channel
-                    <select name="channelPreset">
-                      <option value="">Loading saved channels...</option>
-                    </select>
-                    <small id="manual-push-channel-meta">Select a saved channel to use its channel ID.</small>
-                  </label>
-                  <label>
-                    Topic Override
-                    <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                    <small>Leave blank to use the channel topic mapping.</small>
-                  </label>
+                  <div class="form-grid form-grid-3">
+                    <label>
+                      Content Type
+                      <select name="contentType">
+                        <option value="history">history</option>
+                        <option value="joke">joke</option>
+                        <option value="prompt">prompt</option>
+                        <option value="fact">fact</option>
+                        <option value="trivia">trivia</option>
+                      </select>
+                    </label>
+                    <label>
+                      Saved Channel
+                      <select name="channelPreset">
+                        <option value="">Loading saved channels...</option>
+                      </select>
+                      <small id="manual-push-channel-meta">Select a saved channel to use its channel ID.</small>
+                    </label>
+                    <label>
+                      Topic Override
+                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                      <small>Leave blank to use the channel topic mapping.</small>
+                    </label>
+                  </div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button type="submit">Send Generated Content</button>
                   <span id="manual-push-status"></span>
                 </div>
@@ -608,8 +622,8 @@
                 </div>
               </div>
 
-              <form id="composer-form" class="settings-form composer-form">
-                <section class="form-group">
+              <form id="composer-form" class="settings-form composer-form editor-layout">
+                <section class="form-group editor-side-panel">
                   <h3>Destination</h3>
                   <label>
                     Discord Channel
@@ -629,44 +643,46 @@
                   </label>
                 </section>
 
-                <section class="form-group composer-message-group">
+                <section class="form-group composer-message-group editor-main-panel">
                   <h3>Message</h3>
                   <label>
                     Message
                     <textarea name="message" rows="10" maxlength="2000" placeholder="Write the Discord message..." required></textarea>
                     <small id="composer-character-count">0 / 2000 characters</small>
                   </label>
-                  <div class="message-builder">
-                    <div class="message-builder-header">Quick inserts</div>
-                    <div class="message-builder-actions">
-                      <button type="button" class="pill-button" data-composer-insert="{user}">@user placeholder</button>
-                      <button type="button" class="pill-button" data-composer-insert-channel>Selected channel mention</button>
-                      <button type="button" class="pill-button" data-composer-insert-role>Selected role mention</button>
-                      <button type="button" class="pill-button" data-composer-insert="Please review the rules before jumping in: ">Rules reminder</button>
-                      <button type="button" class="pill-button" data-composer-insert="Question for everyone: ">Ask a question</button>
-                      <button type="button" class="pill-button" data-composer-insert="Server info: ">Server info</button>
+                  <div class="editor-tools">
+                    <div class="message-builder">
+                      <div class="message-builder-header">Quick inserts</div>
+                      <div class="message-builder-actions">
+                        <button type="button" class="pill-button" data-composer-insert="{user}">@user placeholder</button>
+                        <button type="button" class="pill-button" data-composer-insert-channel>Selected channel mention</button>
+                        <button type="button" class="pill-button" data-composer-insert-role>Selected role mention</button>
+                        <button type="button" class="pill-button" data-composer-insert="Please review the rules before jumping in: ">Rules reminder</button>
+                        <button type="button" class="pill-button" data-composer-insert="Question for everyone: ">Ask a question</button>
+                        <button type="button" class="pill-button" data-composer-insert="Server info: ">Server info</button>
+                      </div>
                     </div>
-                  </div>
-                  <div class="message-builder">
-                    <div class="message-builder-header">Help Me Write</div>
-                    <div class="message-builder-actions">
-                      <button type="button" class="pill-button" data-composer-assist="engaging">Make engaging</button>
-                      <button type="button" class="pill-button" data-composer-assist="question">Turn into question</button>
-                      <button type="button" class="pill-button" data-composer-assist="hype">Make hype</button>
-                      <button type="button" class="pill-button" data-composer-assist="shorter">Shorten</button>
-                      <button type="button" class="pill-button" data-composer-assist="cleaner">Clean up</button>
-                      <button type="button" class="pill-button" data-composer-assist="emojis">Add light emojis</button>
-                      <button id="undo-composer-rewrite" type="button" class="pill-button secondary" disabled>Undo Rewrite</button>
+                    <div class="message-builder">
+                      <div class="message-builder-header">Help Me Write</div>
+                      <div class="message-builder-actions">
+                        <button type="button" class="pill-button" data-composer-assist="engaging">Make engaging</button>
+                        <button type="button" class="pill-button" data-composer-assist="question">Turn into question</button>
+                        <button type="button" class="pill-button" data-composer-assist="hype">Make hype</button>
+                        <button type="button" class="pill-button" data-composer-assist="shorter">Shorten</button>
+                        <button type="button" class="pill-button" data-composer-assist="cleaner">Clean up</button>
+                        <button type="button" class="pill-button" data-composer-assist="emojis">Add light emojis</button>
+                        <button id="undo-composer-rewrite" type="button" class="pill-button secondary" disabled>Undo Rewrite</button>
+                      </div>
                     </div>
                   </div>
                 </section>
 
-                <section class="form-group role-access-preview-panel">
+                <section class="form-group role-access-preview-panel preview-panel">
                   <h3>Preview</h3>
                   <div id="composer-preview" class="discord-panel-preview composer-preview"></div>
                 </section>
 
-                <section id="post-now-saved-messages" class="form-group composer-templates-panel">
+                <section id="post-now-saved-messages" class="form-group composer-templates-panel editor-tools-panel">
                   <h3>Saved Messages</h3>
                   <label>
                     Saved message name
@@ -680,7 +696,7 @@
                   <div id="composer-templates-list" class="feed-list composer-templates-list"></div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button type="submit">Post Message</button>
                   <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>
                   <button id="clear-composer" type="button" class="secondary">Clear</button>
@@ -777,36 +793,45 @@
                 <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
               </div>
 
-              <form id="role-access-panel-form" class="settings-form">
-                <section class="form-group">
+              <form id="role-access-panel-form" class="settings-form community-builder-form">
+                <section class="form-group form-command-panel community-setup-panel">
                   <h3>Button Setup</h3>
-                  <label>
-                    What are people getting access to?
-                    <input name="title" type="text" placeholder="Member Area" required />
-                    <small>Shown as the heading on the Discord message.</small>
-                  </label>
-                  <label>
-                    Which role should people get?
-                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
-                      <option value="">Loading roles...</option>
-                    </select>
-                    <small>Select a Discord role if available.</small>
-                    <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
-                    <small>Create a role in Discord first, then paste the role ID here.</small>
-                  </label>
-                  <label>
-                    Where should this message go?
-                    <select name="targetChannelIdSelect" data-discord-channel-select data-target-input="targetChannelId">
-                      <option value="">Loading channels...</option>
-                    </select>
-                    <small>Select a Discord channel if available.</small>
-                    <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
-                    <small>Choose where this message will be posted.</small>
-                  </label>
+                  <div class="form-grid form-grid-2">
+                    <label>
+                      What are people getting access to?
+                      <input name="title" type="text" placeholder="Member Area" required />
+                      <small>Shown as the heading on the Discord message.</small>
+                    </label>
+                    <label>
+                      Button Label
+                      <input name="buttonLabel" type="text" placeholder="Get Role" required />
+                      <small>This is the button text members click in Discord.</small>
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-2">
+                    <label>
+                      Which role should people get?
+                      <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                        <option value="">Loading roles...</option>
+                      </select>
+                      <small>Select a Discord role if available.</small>
+                      <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                      <small>Create a role in Discord first, then paste the role ID here.</small>
+                    </label>
+                    <label>
+                      Where should this message go?
+                      <select name="targetChannelIdSelect" data-discord-channel-select data-target-input="targetChannelId">
+                        <option value="">Loading channels...</option>
+                      </select>
+                      <small>Select a Discord channel if available.</small>
+                      <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
+                      <small>Choose where this message will be posted.</small>
+                    </label>
+                  </div>
                   <div id="role-access-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
-                <section class="form-group">
+                <section class="form-group message-panel">
                   <h3>Message</h3>
                   <label>
                     Message
@@ -815,16 +840,12 @@
                   </label>
                 </section>
 
-                <section class="form-group">
+                <section class="form-group compact-field-panel">
                   <h3>Button</h3>
-                  <label>
-                    Button Label
-                    <input name="buttonLabel" type="text" placeholder="Get Role" required />
-                    <small>This is the button text members click in Discord.</small>
-                  </label>
+                  <p class="form-group-intro">Button label is grouped with setup above.</p>
                 </section>
 
-                <details class="form-group role-access-advanced">
+                <details class="form-group role-access-advanced compact-field-panel">
                   <summary>Advanced</summary>
                   <label>
                     Internal ID
@@ -851,12 +872,12 @@
                   </label>
                 </details>
 
-                <section class="form-group role-access-preview-panel">
+                <section class="form-group role-access-preview-panel preview-panel">
                   <h3>Preview</h3>
                   <div id="role-access-preview" class="discord-panel-preview"></div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button id="post-role-access-panel-form" type="button">Post Button Message</button>
                   <button type="submit" class="secondary">Save Draft</button>
                   <button id="reset-role-access-panel-form" type="button" class="secondary">New Button Message</button>
@@ -880,39 +901,41 @@
                 <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
               </div>
 
-              <form id="role-followup-form" class="settings-form">
-                <section class="form-group">
+              <form id="role-followup-form" class="settings-form community-builder-form">
+                <section class="form-group form-command-panel community-setup-panel">
                   <h3>Trigger</h3>
-                  <label>
-                    What role triggers this message?
-                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
-                      <option value="">Loading roles...</option>
-                    </select>
-                    <small>Select a Discord role if available.</small>
-                    <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
-                    <small>When this role is added to a member, Cdawg sends the follow-up.</small>
-                  </label>
-                  <label>
-                    Where should Cdawg post it?
-                    <select name="channelIdSelect" data-discord-channel-select data-target-input="channelId">
-                      <option value="">Loading channels...</option>
-                    </select>
-                    <small>Select a Discord channel if available.</small>
-                    <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
-                    <small>The follow-up is posted in this channel.</small>
-                  </label>
-                  <label>
-                    Follow-up status
-                    <select name="enabled">
-                      <option value="true">On</option>
-                      <option value="false">Off</option>
-                    </select>
-                    <small>On sends when the role is added. Off keeps the follow-up saved without sending.</small>
-                  </label>
+                  <div class="form-grid form-grid-3">
+                    <label>
+                      What role triggers this message?
+                      <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                        <option value="">Loading roles...</option>
+                      </select>
+                      <small>Select a Discord role if available.</small>
+                      <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                      <small>When this role is added to a member, Cdawg sends the follow-up.</small>
+                    </label>
+                    <label>
+                      Where should Cdawg post it?
+                      <select name="channelIdSelect" data-discord-channel-select data-target-input="channelId">
+                        <option value="">Loading channels...</option>
+                      </select>
+                      <small>Select a Discord channel if available.</small>
+                      <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
+                      <small>The follow-up is posted in this channel.</small>
+                    </label>
+                    <label>
+                      Follow-up status
+                      <select name="enabled">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                      </select>
+                      <small>On sends when the role is added. Off keeps the follow-up saved without sending.</small>
+                    </label>
+                  </div>
                   <div id="role-followup-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
-                <section class="form-group">
+                <section class="form-group message-panel">
                   <h3>Message</h3>
                   <label>
                     What should Cdawg say?
@@ -957,7 +980,7 @@
                   </div>
                 </section>
 
-                <details class="form-group role-access-advanced">
+                <details class="form-group role-access-advanced compact-field-panel">
                   <summary>Advanced</summary>
                   <label>
                     Internal ID
@@ -966,12 +989,12 @@
                   </label>
                 </details>
 
-                <section class="form-group role-access-preview-panel">
+                <section class="form-group role-access-preview-panel preview-panel">
                   <h3>Preview</h3>
                   <div id="role-followup-preview" class="discord-panel-preview"></div>
                 </section>
 
-                <div class="settings-actions">
+                <div class="settings-actions form-actions-row">
                   <button type="submit">Save Follow-Up</button>
                   <button id="reset-role-followup-form" type="button" class="secondary">New Follow-Up</button>
                   <button id="delete-role-followup-form" type="button" class="secondary">Delete existing</button>
@@ -1032,8 +1055,8 @@
             </section>
           </section>
 
-          <form id="settings-form" class="settings-form">
-            <section class="form-group settings-global-controls">
+          <form id="settings-form" class="settings-form settings-command-form">
+            <section class="form-group settings-global-controls form-command-panel">
               <h3>Automatic Posting Controls</h3>
               <div class="settings-state-row">
                 <span id="settings-automation-master-state" class="status-badge neutral">Loading</span>
@@ -1045,47 +1068,53 @@
               <small>Post Generated Content stays allowed. Post Next Scheduled Item Now stays allowed unless the channel is paused, delayed, or set to skip the next post.</small>
             </section>
 
-            <section class="form-group">
+            <section class="form-group form-command-panel settings-replies-panel">
               <h3>Automatic Chat Replies</h3>
               <p class="form-group-intro">Controls background chat replies only. Automatic Posting and channel-level controls can still block these sends.</p>
-              <label>
-                Enabled
-                <select name="passiveEnabled">
-                  <option value="true">On</option>
-                  <option value="false">Off</option>
-                </select>
-              </label>
-              <label>
-                Trigger Chance
-                <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
-                <small>Probability from 0 to 1.</small>
-              </label>
-              <label>
-                Global Reply Delay (ms)
-                <input name="globalCooldownMs" type="number" min="1000" step="1000" />
-              </label>
-              <label>
-                Channel Reply Delay (ms)
-                <input name="channelCooldownMs" type="number" min="1000" step="1000" />
-              </label>
+              <div class="form-grid form-grid-2">
+                <label>
+                  Enabled
+                  <select name="passiveEnabled">
+                    <option value="true">On</option>
+                    <option value="false">Off</option>
+                  </select>
+                </label>
+                <label>
+                  Trigger Chance
+                  <input name="triggerChance" type="number" min="0" max="1" step="0.01" />
+                  <small>Probability from 0 to 1.</small>
+                </label>
+              </div>
+              <div class="form-grid form-grid-2">
+                <label>
+                  Global Reply Delay (ms)
+                  <input name="globalCooldownMs" type="number" min="1000" step="1000" />
+                </label>
+                <label>
+                  Channel Reply Delay (ms)
+                  <input name="channelCooldownMs" type="number" min="1000" step="1000" />
+                </label>
+              </div>
             </section>
 
-            <section class="form-group">
+            <section class="form-group form-command-panel settings-thresholds-panel">
               <h3>Passive Engagement Thresholds</h3>
               <p class="form-group-intro">Broad timing changes affect how often passive conversation nudges are considered.</p>
-              <label>
-                Quiet Gap (ms)
-                <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
-                <small>Idle time before a low-activity nudge is considered.</small>
-              </label>
-              <label>
-                Conversation Threshold
-                <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
-                <small>Messages required before conversation nudges are considered.</small>
-              </label>
+              <div class="form-grid form-grid-2">
+                <label>
+                  Quiet Gap (ms)
+                  <input name="quietChannelThresholdMs" type="number" min="1000" step="1000" />
+                  <small>Idle time before a low-activity nudge is considered.</small>
+                </label>
+                <label>
+                  Conversation Threshold
+                  <input name="conversationNudgeMessageThreshold" type="number" min="1" step="1" />
+                  <small>Messages required before conversation nudges are considered.</small>
+                </label>
+              </div>
             </section>
 
-            <section class="form-group">
+            <section class="form-group form-command-panel settings-diagnostics-panel">
               <h3>Content / Diagnostics Controls</h3>
               <p class="form-group-intro">Diagnostics logging changes troubleshooting output only. It does not change provider selection or posting rules.</p>
               <label>
@@ -1097,7 +1126,7 @@
               </label>
             </section>
 
-            <section class="form-group">
+            <section class="form-group form-command-panel settings-api-panel">
               <h3>Dashboard / API Configuration</h3>
               <dl class="settings-summary-list compact-list">
                 <div>
@@ -1112,7 +1141,7 @@
               <small>Advanced connection controls remain in the header debug panel. Changing the API URL affects dashboard requests only.</small>
             </section>
 
-            <div class="settings-actions">
+            <div class="settings-actions form-actions-row">
               <button type="submit">Save Settings</button>
               <button id="reset-settings" type="button" class="secondary">Reset Form</button>
               <span id="settings-status" class="form-status" role="status" aria-live="polite"></span>
