@@ -77,6 +77,7 @@ const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
 const roleAccessPanelForm = document.querySelector("#role-access-panel-form");
 const roleAccessPanelStatus = document.querySelector("#role-access-panel-status");
+const roleAccessMetadataWarning = document.querySelector("#role-access-metadata-warning");
 const roleFollowupForm = document.querySelector("#role-followup-form");
 const roleFollowupStatus = document.querySelector("#role-followup-status");
 const roleFollowupMetadataWarning = document.querySelector("#role-followup-metadata-warning");
@@ -1842,25 +1843,86 @@ function slugifyPanelId(value) {
 }
 
 function validateRoleAccessPanelPayload(payload) {
-  const requiredFields = ["id", "title", "body", "buttonLabel", "roleId"];
-  const missingField = requiredFields.find((field) => !payload[field]);
+  if (!payload.title) {
+    return "Panel name is required.";
+  }
 
-  if (missingField) {
-    const fieldLabels = {
-      id: "internal ID",
-      title: "name",
-      body: "message",
-      buttonLabel: "button label",
-      roleId: "role to assign",
-    };
-    return `Missing required field: ${fieldLabels[missingField] ?? missingField}.`;
+  if (!payload.body) {
+    return "Panel message is required.";
+  }
+
+  if (!payload.buttonLabel) {
+    return "Button label is required.";
+  }
+
+  if (!payload.roleId) {
+    return "Choose or enter the role this panel should assign.";
+  }
+
+  if (!payload.targetChannelId) {
+    return "Choose or enter the channel where this panel should be posted.";
   }
 
   if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(payload.id)) {
-    return "Panel ID must use lowercase letters, numbers, dashes, or underscores.";
+    return "Internal ID must use lowercase letters, numbers, dashes, or underscores.";
   }
 
   return null;
+}
+
+function getRoleAccessReadiness(panel) {
+  if (!panel.title || !panel.body || !panel.buttonLabel) {
+    return {
+      label: "Incomplete",
+      tone: "blocked",
+      detail: "Name, message, and button label are required before posting.",
+    };
+  }
+
+  if (!panel.roleId) {
+    return {
+      label: "Missing Role",
+      tone: "blocked",
+      detail: "Choose or enter the role this panel should assign.",
+    };
+  }
+
+  if (!panel.targetChannelId) {
+    return {
+      label: "Missing Channel",
+      tone: "blocked",
+      detail: "Choose or enter the channel where this panel should be posted.",
+    };
+  }
+
+  if (guildMetadataLoaded && !metadataHasChannel(panel.targetChannelId)) {
+    return {
+      label: "Bot Cannot Post",
+      tone: "blocked",
+      detail: "The selected channel is not available in the sendable Discord channel list.",
+    };
+  }
+
+  if (guildMetadataLoaded && !metadataHasRole(panel.roleId)) {
+    return {
+      label: "Missing Role",
+      tone: "blocked",
+      detail: "The selected role was not found in Discord metadata.",
+    };
+  }
+
+  return {
+    label: "Ready to Post",
+    tone: "active",
+    detail: panel.active ? "Panel can be saved and posted." : "Panel can be posted, but its button will be inactive.",
+  };
+}
+
+function formatRoleAccessPreviewMessage(value, panel) {
+  return value
+    .replace(/\{user\}/g, "@ExampleUser")
+    .replace(/\{role\}/g, panel.roleId ? `@${getRoleLabel(panel.roleId)}` : "@ExampleRole")
+    .replace(/\{channel\}/g, panel.targetChannelId ? getChannelLabel(panel.targetChannelId) : "#example-channel");
 }
 
 function renderRoleAccessPreview() {
@@ -1868,10 +1930,16 @@ function renderRoleAccessPreview() {
   const title = panel.title || "Access message name";
   const body = panel.body || "Your Discord message will appear here.";
   const buttonLabel = panel.buttonLabel || "Request Access";
+  const readiness = getRoleAccessReadiness(panel);
+  const metadataWarnings = getMissingMetadataWarnings(panel.roleId, panel.targetChannelId);
 
   roleAccessPreview.replaceChildren();
+  roleAccessMetadataWarning.hidden = metadataWarnings.length === 0;
+  roleAccessMetadataWarning.textContent = metadataWarnings.join(" ");
 
   const previewHeader = document.createElement("div");
+  const previewHeaderTitle = document.createElement("span");
+  const readinessBadge = createStatusBadge(readiness.label, readiness.tone);
   const embed = document.createElement("div");
   const embedTitle = document.createElement("h4");
   const embedBody = document.createElement("p");
@@ -1880,20 +1948,25 @@ function renderRoleAccessPreview() {
   const roleContext = document.createElement("p");
   const channelContext = document.createElement("p");
   const statusContext = document.createElement("p");
+  const readinessContext = document.createElement("p");
+  const customIdContext = document.createElement("p");
 
   previewHeader.className = "discord-panel-preview-header";
-  previewHeader.textContent = "Discord preview";
+  previewHeaderTitle.textContent = "Discord preview";
+  previewHeader.append(previewHeaderTitle, readinessBadge);
   embed.className = "discord-panel-preview-embed";
   embedTitle.textContent = title;
-  embedBody.textContent = body;
+  embedBody.textContent = formatRoleAccessPreviewMessage(body, panel);
   previewButton.type = "button";
   previewButton.disabled = true;
   previewButton.textContent = buttonLabel;
   context.className = "discord-panel-preview-context";
   roleContext.textContent = `Role to assign: ${getDetailedRoleLabel(panel.roleId)}`;
-  channelContext.textContent = `Post to channel: ${getDetailedChannelLabel(panel.targetChannelId)}`;
-  statusContext.textContent = `Status: ${panel.active ? "active" : "inactive"}`;
-  context.append(roleContext, channelContext, statusContext);
+  channelContext.textContent = `Post to channel: ${getDetailedChannelLabel(panel.targetChannelId, "not set")}`;
+  statusContext.textContent = `Button state: ${panel.active ? "active" : "inactive"}`;
+  readinessContext.textContent = `Post readiness: ${readiness.detail}`;
+  customIdContext.textContent = `Button custom ID: role-access-panel:${panel.id || "panel-id"}`;
+  context.append(roleContext, channelContext, statusContext, readinessContext, customIdContext);
 
   embed.append(embedTitle, embedBody);
   roleAccessPreview.append(previewHeader, embed, previewButton, context);
@@ -1950,8 +2023,12 @@ function renderRoleAccessPanels() {
     const badges = document.createElement("div");
     const roleDetail = document.createElement("p");
     const channelDetail = document.createElement("p");
+    const readinessDetail = document.createElement("p");
+    const metadataWarning = document.createElement("p");
     const postedDetail = document.createElement("p");
     const actions = document.createElement("div");
+    const readiness = getRoleAccessReadiness(panel);
+    const metadataWarnings = getMissingMetadataWarnings(panel.roleId, panel.targetChannelId);
 
     row.className = "channel-operation-card compact role-access-panel-card";
     main.className = "channel-operation-main";
@@ -1959,21 +2036,30 @@ function renderRoleAccessPanels() {
     badges.className = "channel-operation-badges";
     badges.append(
       createStatusBadge(panel.active ? "active" : "inactive", panel.active ? "active" : "neutral"),
+      createStatusBadge(readiness.label, readiness.tone),
     );
+    if (metadataWarnings.length > 0) {
+      badges.append(createStatusBadge("metadata warning", "blocked"));
+    }
     roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
-    roleDetail.textContent = `Role: ${getRoleLabel(panel.roleId)}`;
+    roleDetail.textContent = `Role: ${getDetailedRoleLabel(panel.roleId)}`;
     channelDetail.className = "channel-operation-detail";
-    channelDetail.textContent = `Channel: ${getChannelLabel(panel.targetChannelId) || "choose when posting"}`;
+    channelDetail.textContent = `Channel: ${getDetailedChannelLabel(panel.targetChannelId, "not set")}`;
+    readinessDetail.className = "channel-operation-detail";
+    readinessDetail.textContent = readiness.detail;
+    metadataWarning.className = "channel-operation-detail role-followup-warning";
+    metadataWarning.textContent = metadataWarnings.join(" ");
+    metadataWarning.hidden = metadataWarnings.length === 0;
     postedDetail.className = "channel-operation-detail";
     postedDetail.textContent = `Last posted: ${formatTimestamp(panel.lastPostedAt)} (${formatRelativeTime(panel.lastPostedAt)})`;
     actions.className = "channel-operation-actions";
     actions.append(
-      createChannelActionButton("Edit", () => populateRoleAccessPanelForm(panel)),
+      createChannelActionButton("Edit Draft", () => populateRoleAccessPanelForm(panel)),
       createChannelActionButton("Post to Discord", () => void postRoleAccessPanel(panel.id)),
       createChannelActionButton("Delete", () => void deleteRoleAccessPanel(panel.id)),
     );
 
-    main.append(title, badges, roleDetail, channelDetail, postedDetail);
+    main.append(title, badges, roleDetail, channelDetail, readinessDetail, metadataWarning, postedDetail);
     row.append(main, actions);
     roleAccessPanelsList.append(row);
   }
@@ -2991,10 +3077,18 @@ async function postRoleAccessPanel(panelId) {
 }
 
 async function postCurrentRoleAccessPanel() {
+  const payload = getRoleAccessPanelFormValue();
+  const validationError = validateRoleAccessPanelPayload(payload);
+
+  if (validationError) {
+    setRoleAccessPanelStatus(validationError, "error");
+    return;
+  }
+
   const panelId = roleAccessPanelForm.elements.id.value.trim();
 
   if (!panelId) {
-    setRoleAccessPanelStatus("Save or set the internal ID in Advanced before posting.", "error");
+    setRoleAccessPanelStatus("Save the draft first so the panel has a stable internal ID before posting.", "error");
     return;
   }
 

@@ -659,9 +659,10 @@
                       <option value="">Loading channels...</option>
                     </select>
                     <small>Select a Discord channel if available.</small>
-                    <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Optional Discord channel ID" />
+                    <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
                     <small>Choose where this message will be posted.</small>
                   </label>
+                  <div id="role-access-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
                 <section class="form-group">
