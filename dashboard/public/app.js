@@ -278,13 +278,13 @@ function applyAutomationMasterState(nextState) {
 function renderAutomationMaster() {
   const enabled = automationMaster.globalAutomationEnabled;
 
-  automationMasterBadge.textContent = `Automation Master: ${enabled ? "ON" : "OFF"}`;
+  automationMasterBadge.textContent = `Automatic Posting: ${enabled ? "ON" : "OFF"}`;
   automationMasterBadge.className = `status-badge ${enabled ? "active" : "blocked"} automation-master-badge`;
-  automationMasterButton.textContent = enabled ? "Turn Master OFF" : "Turn Master ON";
+  automationMasterButton.textContent = enabled ? "Turn Automatic Posting OFF" : "Turn Automatic Posting ON";
   automationMasterButton.className = enabled ? "secondary" : "";
   automationMasterDetail.textContent = enabled
     ? "Automatic posting is allowed globally. Channel-level controls still apply."
-    : "All automatic posting is disabled globally. Manual triggers remain available for testing.";
+    : "Scheduled posts and background chat replies are disabled globally. Manual posting actions remain available.";
 
   automationMasterBanner.hidden = enabled;
   renderSettingsSummary();
@@ -316,11 +316,11 @@ function renderSettingsSummary() {
   const apiBaseUrl = getApiBaseUrl();
 
   settingsSummaryAutomation.textContent = masterEnabled
-    ? "ON - scheduled/passive automation may run"
-    : "OFF - scheduled/passive automation blocked";
+    ? "ON - scheduled posts and background chat replies may run"
+    : "OFF - scheduled posts and background chat replies blocked";
   settingsSummaryAutomation.className = masterEnabled ? "settings-summary-value ok" : "settings-summary-value blocked";
 
-  settingsSummaryPassive.textContent = passiveEnabled ? "ON - passive chat may be considered" : "OFF - passive chat disabled";
+  settingsSummaryPassive.textContent = passiveEnabled ? "ON - automatic chat replies may be considered" : "OFF - automatic chat replies disabled";
   settingsSummaryPassive.className = passiveEnabled ? "settings-summary-value ok" : "settings-summary-value neutral";
 
   settingsSummaryProvider.textContent = getActiveProviderSummary();
@@ -329,19 +329,19 @@ function renderSettingsSummary() {
   settingsSummaryApiUrl.textContent = apiBaseUrl;
   settingsSummaryApiUrl.className = "settings-summary-value neutral";
 
-  settingsAutomationMasterState.textContent = masterEnabled ? "Master ON" : "Master OFF";
+  settingsAutomationMasterState.textContent = masterEnabled ? "Automatic Posting ON" : "Automatic Posting OFF";
   settingsAutomationMasterState.className = `status-badge ${masterEnabled ? "active" : "blocked"}`;
   settingsAutomationMasterCopy.textContent = masterEnabled
-    ? "Scheduled and passive automation may run when channel-level gates allow it."
-    : "Scheduled and passive automation are blocked globally. Manual dashboard actions remain available.";
+    ? "Scheduled posts and background chat replies may run when channel-level controls allow them."
+    : "Scheduled posts and background chat replies are blocked globally. Manual dashboard actions remain available.";
 
   settingsApiUrlDetail.textContent = apiBaseUrl;
   settingsAutoRefreshDetail.textContent = autoRefreshEnabledInput.checked ? "On" : "Off";
 
   if (providerLoggingEnabled) {
-    settingsSummaryProvider.title = "Provider debug logging is enabled.";
+    settingsSummaryProvider.title = "Diagnostics logging is enabled.";
   } else {
-    settingsSummaryProvider.title = "Provider debug logging is disabled.";
+    settingsSummaryProvider.title = "Diagnostics logging is disabled.";
   }
 }
 
@@ -714,8 +714,8 @@ function clearComposer() {
   composerForm.reset();
   composerDraftBeforeRewrite = null;
   window.localStorage.removeItem(composerDraftStorageKey);
-  composerOutput.textContent = "No composer request yet.";
-  setComposerStatus("Composer cleared.");
+  composerOutput.textContent = "No message request yet.";
+  setComposerStatus("Message cleared.");
   syncDiscordMetadataSelections();
   renderComposerPreview();
 }
@@ -758,7 +758,7 @@ async function assistComposer(mode) {
     setComposerStatus("Rewrite applied.", "success");
   } catch (error) {
     composerDraftBeforeRewrite = null;
-    composerOutput.textContent = `Composer rewrite failed.\n${error.message}`;
+    composerOutput.textContent = `Message rewrite failed.\n${error.message}`;
     setComposerStatus(`Rewrite failed: ${error.message}`, "error");
     renderComposerPreview();
   }
@@ -786,7 +786,7 @@ function renderComposerTemplates() {
     emptyState.className = "channel-operation-card role-access-empty-callout";
     emptyTitle.textContent = "No saved templates";
     emptyCopy.className = "channel-operation-detail";
-    emptyCopy.textContent = "Save the current Composer draft as a named template to reuse it later.";
+    emptyCopy.textContent = "Save the current message draft as a named template to reuse it later.";
     emptyState.append(emptyTitle, emptyCopy);
     composerTemplatesList.append(emptyState);
     return;
@@ -867,7 +867,7 @@ async function saveComposerTemplate() {
 async function deleteComposerTemplate(templateId) {
   const template = composerTemplates.find((entry) => entry.id === templateId);
 
-  if (!window.confirm(`Delete composer template "${template?.name ?? templateId}"?`)) {
+  if (!window.confirm(`Delete saved message template "${template?.name ?? templateId}"?`)) {
     return;
   }
 
@@ -1178,23 +1178,23 @@ function formatRelativeTime(timestamp) {
 
 function getChannelOperationStatusText(channelStatus) {
   if (channelStatus.blockedReason === "global-disabled") {
-    return "Automation master is off for all channels";
+    return "Automatic Posting is off for all channels";
   }
 
   if (channelStatus.blockedReason === "disabled") {
-    return "Automation is off for this channel";
+    return "Automatic posts are off for this channel";
   }
 
   if (channelStatus.blockedReason === "silenced") {
-    return `Silenced until ${formatTimestamp(channelStatus.blockedUntil)}`;
+    return `Paused until ${formatTimestamp(channelStatus.blockedUntil)}`;
   }
 
   if (channelStatus.blockedReason === "cooldown") {
-    return `Cooling down until ${formatTimestamp(channelStatus.blockedUntil)}`;
+    return `Delayed until ${formatTimestamp(channelStatus.blockedUntil)}`;
   }
 
   if (channelStatus.blockedReason === "skip-next") {
-    return "Skip next automated send is pending";
+    return "Skip next scheduled post is pending";
   }
 
   return "Active";
@@ -1202,23 +1202,23 @@ function getChannelOperationStatusText(channelStatus) {
 
 function getBlockedReasonLabel(blockedReason) {
   if (blockedReason === "global-disabled") {
-    return "Global automation OFF";
+    return "Automatic Posting OFF";
   }
 
   if (blockedReason === "disabled") {
-    return "Channel disabled";
+    return "Channel posts OFF";
   }
 
   if (blockedReason === "silenced") {
-    return "Channel silenced";
+    return "Posts paused";
   }
 
   if (blockedReason === "cooldown") {
-    return "Cooldown active";
+    return "Post delayed";
   }
 
   if (blockedReason === "skip-next") {
-    return "Skip-next pending";
+    return "Skip next post pending";
   }
 
   return "No block";
@@ -1226,7 +1226,7 @@ function getBlockedReasonLabel(blockedReason) {
 
 function getAutomationModeLabel(automationMode) {
   if (!automationMode || automationMode === "none") {
-    return "No automation configured";
+    return "No automatic posts configured";
   }
 
   return automationMode
@@ -1285,11 +1285,11 @@ function renderNextAutomationSnapshot() {
     emptyState.className = "channel-operation-empty";
 
     if (automationMaster.globalAutomationEnabled === false) {
-      emptyState.textContent = "Global automation is OFF, so no next automated run is currently eligible.";
+      emptyState.textContent = "Automatic Posting is OFF, so no next scheduled post is currently eligible.";
     } else if (channelAutomationStatuses.length === 0) {
-      emptyState.textContent = "No channel automation status is available yet.";
+      emptyState.textContent = "No channel posting status is available yet.";
     } else {
-      emptyState.textContent = "No next automated run is available in the current API payload.";
+      emptyState.textContent = "No next scheduled post is available in the current API payload.";
     }
 
     opsNextAutomation.append(emptyState);
@@ -1311,8 +1311,8 @@ function renderNextAutomationSnapshot() {
 
   details.append(
     createAutomationDetailLine("Next eligible", `${formatTimestamp(nextAutomation.nextEligibleSendAt)} (${formatRelativeTime(nextAutomation.nextEligibleSendAt)})`, "strong"),
-    createAutomationDetailLine("Mode", getAutomationModeLabel(nextAutomation.automationMode)),
-    createAutomationDetailLine("Content/provider", "Not included in current API payload"),
+    createAutomationDetailLine("Posting mode", getAutomationModeLabel(nextAutomation.automationMode)),
+    createAutomationDetailLine("Content/source", "Not included in current API payload"),
   );
 
   if (nextAutomation.blockedReason) {
@@ -1387,7 +1387,7 @@ function renderAutomationActivity() {
   if (automationActivityItems.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No recent automation activity available.";
+    emptyState.textContent = "No recent activity available.";
     automationActivityList.append(emptyState);
   } else {
     for (const item of automationActivityItems.slice(0, 8)) {
@@ -1400,7 +1400,7 @@ function renderAutomationActivity() {
   if (errorItems.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No recent automation errors found.";
+    emptyState.textContent = "No recent problems found.";
     automationErrorsList.append(emptyState);
     return;
   }
@@ -1412,23 +1412,23 @@ function renderAutomationActivity() {
 
 function getChannelStatusLabel(channelStatus) {
   if (channelStatus.blockedReason === "global-disabled") {
-    return "Master Off";
+    return "Automatic Posting Off";
   }
 
   if (channelStatus.blockedReason === "disabled") {
-    return "Automation Off";
+    return "Automatic Posts Off";
   }
 
   if (channelStatus.blockedReason === "silenced") {
-    return "Silenced";
+    return "Posts Paused";
   }
 
   if (channelStatus.blockedReason === "cooldown") {
-    return "Cooling Down";
+    return "Post Delayed";
   }
 
   if (channelStatus.blockedReason === "skip-next") {
-    return "Skip Next";
+    return "Skip Next Post";
   }
 
   return "Active";
@@ -1657,20 +1657,20 @@ function renderChannelOperations() {
     badges.append(
       createStatusBadge(getChannelStatusLabel(channelStatus), channelStatus.blockedReason ? "blocked" : "active"),
       createStatusBadge(
-        channelStatus.globalAutomationEnabled ? "master on" : "master off",
+        channelStatus.globalAutomationEnabled ? "automatic posting on" : "automatic posting off",
         channelStatus.globalAutomationEnabled ? "neutral" : "blocked",
       ),
       createStatusBadge(
-        channelStatus.channelAutomationEnabled ? "channel on" : "channel off",
+        channelStatus.channelAutomationEnabled ? "channel posts on" : "channel posts off",
         channelStatus.channelAutomationEnabled ? "neutral" : "blocked",
       ),
       createStatusBadge(channelStatus.defaultTopic ?? "no-topic", "neutral"),
     );
     if (channelStatus.skipNextSendPending) {
-      badges.append(createStatusBadge("skip-next pending", "blocked"));
+      badges.append(createStatusBadge("skip next post pending", "blocked"));
     }
     nextEligible.className = "channel-row-summary-detail channel-operation-detail-strong";
-    nextEligible.textContent = `Next automation: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
+    nextEligible.textContent = `Next scheduled item: ${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`;
     blockedSummary.className = `channel-row-summary-detail${channelStatus.blockedReason ? " blocked" : ""}`;
     blockedSummary.textContent = channelStatus.blockedReason ? getChannelOperationStatusText(channelStatus) : "Active";
     summaryActions.className = "channel-row-summary-actions";
@@ -1683,15 +1683,15 @@ function renderChannelOperations() {
       void applyChannelAutomationEnabled(channelStatus.channelId, !channelStatus.channelAutomationEnabled);
     });
     const triggerNowButton = createChannelInlineActionButton(
-      "Trigger Next Now",
+      "Post Next Scheduled Item Now",
       () => void applyChannelOperation(channelStatus.channelId, "trigger-now"),
     );
     triggerNowButton.classList.add("primary-action");
-    const skipNextButton = createChannelInlineActionButton("Skip Next", () => void applyChannelOperation(channelStatus.channelId, "skip-next"), {
+    const skipNextButton = createChannelInlineActionButton("Skip Next Scheduled Post", () => void applyChannelOperation(channelStatus.channelId, "skip-next"), {
         variant: "secondary",
       });
     const silenceOneHourButton = createChannelInlineActionButton(
-      "Silence 1 Hour",
+      "Pause Posts 1 Hour",
       () => void applyChannelOperation(channelStatus.channelId, "silence", 60 * 60 * 1000),
       {
         variant: "secondary",
@@ -1722,27 +1722,27 @@ function renderChannelOperations() {
     stateGrid.className = "channel-state-grid";
     stateGrid.append(
       createChannelStateItem(
-        "Global automation",
+        "Automatic posting",
         channelStatus.globalAutomationEnabled ? "ON" : "OFF",
         channelStatus.globalAutomationEnabled ? "ok" : "bad",
       ),
       createChannelStateItem(
-        "Channel automation",
+        "Channel automatic posts",
         channelStatus.channelAutomationEnabled ? "ON" : "OFF",
         channelStatus.channelAutomationEnabled ? "ok" : "bad",
       ),
       createChannelStateItem(
-        "Silence",
+        "Pause posts",
         channelStatus.blockedReason === "silenced" ? `Active until ${formatTimestamp(channelStatus.blockedUntil)}` : "Clear",
         channelStatus.blockedReason === "silenced" ? "bad" : "ok",
       ),
       createChannelStateItem(
-        "Cooldown",
+        "Delay next post",
         channelStatus.blockedReason === "cooldown" ? `Active until ${formatTimestamp(channelStatus.blockedUntil)}` : "Clear",
         channelStatus.blockedReason === "cooldown" ? "warning" : "ok",
       ),
       createChannelStateItem(
-        "Skip-next",
+        "Skip next scheduled post",
         channelStatus.skipNextSendPending ? "Pending" : "Clear",
         channelStatus.skipNextSendPending ? "warning" : "ok",
       ),
@@ -1750,24 +1750,24 @@ function renderChannelOperations() {
     automationDetails.className = "automation-detail-list";
     automationDetails.append(
       createAutomationDetailLine("Blocked reason", getBlockedReasonLabel(channelStatus.blockedReason), channelStatus.blockedReason ? "blocked" : "ok"),
-      createAutomationDetailLine("Automation mode", getAutomationModeLabel(channelStatus.automationMode)),
+      createAutomationDetailLine("Posting mode", getAutomationModeLabel(channelStatus.automationMode)),
       createAutomationDetailLine("Next eligible", `${formatTimestamp(channelStatus.nextEligibleSendAt)} (${formatRelativeTime(channelStatus.nextEligibleSendAt)})`, "strong"),
       createAutomationDetailLine("Passive eligible", `${formatTimestamp(channelStatus.passiveEligibleAt)} (${formatRelativeTime(channelStatus.passiveEligibleAt)})`),
       createAutomationDetailLine("Scheduled eligible", `${formatTimestamp(channelStatus.scheduledEligibleAt)} (${formatRelativeTime(channelStatus.scheduledEligibleAt)})`),
-      createAutomationDetailLine("Next content/provider", "Not included in current API payload"),
+      createAutomationDetailLine("Next content/source", "Not included in current API payload"),
     );
     blockedUntil.className = "channel-operation-detail";
     blockedUntil.textContent = `Blocked until: ${formatTimestamp(channelStatus.blockedUntil)} (${formatRelativeTime(channelStatus.blockedUntil)})`;
     lastSend.className = "channel-operation-detail";
-    lastSend.textContent = `Last automated send time: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
+    lastSend.textContent = `Last automatic post time: ${formatTimestamp(channelStatus.lastAutomatedSendAt)} (${formatRelativeTime(channelStatus.lastAutomatedSendAt)})`;
 
     expandedPrimaryActions.append(
-      createChannelActionButton("Silence 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
-      createChannelActionButton("Cool Down 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
+      createChannelActionButton("Pause Posts 6 Hours", () => void applyChannelOperation(channelStatus.channelId, "silence", 6 * 60 * 60 * 1000)),
+      createChannelActionButton("Delay Next Post 30 Minutes", () => void applyChannelOperation(channelStatus.channelId, "cooldown", 30 * 60 * 1000)),
     );
     expandedSecondaryActions.append(
-      createChannelActionButton("Clear Skip", () => void applyChannelOperation(channelStatus.channelId, "clear-skip-next")),
-      createChannelActionButton("Resume", () => void applyChannelOperation(channelStatus.channelId, "resume")),
+      createChannelActionButton("Don't Skip Next Post", () => void applyChannelOperation(channelStatus.channelId, "clear-skip-next")),
+      createChannelActionButton("Resume Posts", () => void applyChannelOperation(channelStatus.channelId, "resume")),
     );
 
     summaryTitleBlock.append(title, badges);
@@ -1992,9 +1992,9 @@ function formatRoleAccessPreviewMessage(value, panel) {
 
 function renderRoleAccessPreview() {
   const panel = getRoleAccessPanelFormValue();
-  const title = panel.title || "Access message name";
+  const title = panel.title || "Button message name";
   const body = panel.body || "Your Discord message will appear here.";
-  const buttonLabel = panel.buttonLabel || "Request Access";
+  const buttonLabel = panel.buttonLabel || "Get Role";
   const readiness = getRoleAccessReadiness(panel);
   const metadataWarnings = getMissingMetadataWarnings(panel.roleId, panel.targetChannelId);
 
@@ -2039,12 +2039,12 @@ function renderRoleAccessPreview() {
 
 function resetRoleAccessPanelForm() {
   roleAccessPanelForm.reset();
-  roleAccessPanelForm.elements.title.value = "New Access";
-  roleAccessPanelForm.elements.body.value = "Click the button below to get access.";
-  roleAccessPanelForm.elements.buttonLabel.value = "Request Access";
+  roleAccessPanelForm.elements.title.value = "New Button Message";
+  roleAccessPanelForm.elements.body.value = "Click the button below to get the role.";
+  roleAccessPanelForm.elements.buttonLabel.value = "Get Role";
   roleAccessPanelForm.elements.id.value = "";
   roleAccessPanelForm.elements.active.value = "true";
-  setRoleAccessPanelStatus("New message ready.");
+  setRoleAccessPanelStatus("New button message ready.");
   syncDiscordMetadataSelections();
   renderRoleAccessPreview();
 }
@@ -2120,7 +2120,7 @@ function renderRoleAccessPanels() {
     actions.className = "channel-operation-actions";
     actions.append(
       createChannelActionButton("Edit Draft", () => populateRoleAccessPanelForm(panel)),
-      createChannelActionButton("Post to Discord", () => void postRoleAccessPanel(panel.id)),
+      createChannelActionButton("Post Button Message", () => void postRoleAccessPanel(panel.id)),
       createChannelActionButton("Delete", () => void deleteRoleAccessPanel(panel.id)),
     );
 
@@ -2739,8 +2739,8 @@ async function loadRoleAccessPanels() {
     roleAccessPanels = [];
     renderRoleAccessPanels();
     renderOpsSnapshot();
-    roleAccessPanelsOutput.textContent = `Failed to load role access panels.\n${error.message}`;
-    setRoleAccessPanelStatus(`Role access load failed: ${error.message}`, "error");
+    roleAccessPanelsOutput.textContent = `Failed to load role signup buttons.\n${error.message}`;
+    setRoleAccessPanelStatus(`Role signup buttons failed to load: ${error.message}`, "error");
   }
 }
 
@@ -2837,7 +2837,7 @@ async function loadChannelOperations() {
 }
 
 async function rerollHistoryReview() {
-  setHistoryReviewStatus("Rerolling...");
+  setHistoryReviewStatus("Picking another item...");
 
   try {
     const data = await fetchJson("/api/history-review/reroll", {
@@ -2855,19 +2855,19 @@ async function rerollHistoryReview() {
     renderAutomationMaster();
     renderHistoryReview();
     setPrettyJson(historyReviewOutput, data);
-    setHistoryReviewStatus("Preview rerolled.", "success");
+    setHistoryReviewStatus("Another item picked.", "success");
   } catch (error) {
-    setHistoryReviewStatus(`Reroll failed: ${error.message}`, "error");
+    setHistoryReviewStatus(`Pick another item failed: ${error.message}`, "error");
   }
 }
 
 async function pushHistoryReviewPreview() {
   if (!historyReview?.previewEvent) {
-    setHistoryReviewStatus("No previewed history event is available to push.", "error");
+    setHistoryReviewStatus("No previewed history event is available to send.", "error");
     return;
   }
 
-  setHistoryReviewStatus("Pushing preview...");
+  setHistoryReviewStatus("Sending preview...");
 
   try {
     const data = await fetchJson("/api/history-review/push", {
@@ -2886,9 +2886,9 @@ async function pushHistoryReviewPreview() {
     renderAutomationMaster();
     renderHistoryReview();
     setPrettyJson(historyReviewOutput, data);
-    setHistoryReviewStatus("History preview pushed.", "success");
+    setHistoryReviewStatus("History preview sent.", "success");
   } catch (error) {
-    setHistoryReviewStatus(`Push failed: ${error.message}`, "error");
+    setHistoryReviewStatus(`Send failed: ${error.message}`, "error");
   }
 }
 
@@ -2964,8 +2964,8 @@ async function submitManualPush(event) {
     setManualPushStatus(`Sent ${data.contentType} to ${data.channelId}.`, "success");
     await loadHealth();
   } catch (error) {
-    manualPushOutput.textContent = `Manual push failed.\n${error.message}`;
-    setManualPushStatus(`Push failed: ${error.message}`, "error");
+    manualPushOutput.textContent = `Generated post failed.\n${error.message}`;
+    setManualPushStatus(`Send failed: ${error.message}`, "error");
   }
 }
 
@@ -3000,7 +3000,7 @@ async function submitComposer(event) {
     setComposerStatus(`Posted to ${getChannelLabel(data.channelId)}.`, "success");
     await loadHealth();
   } catch (error) {
-    composerOutput.textContent = `Composer post failed.\n${error.message}`;
+    composerOutput.textContent = `Message post failed.\n${error.message}`;
     setComposerStatus(`Post failed: ${error.message}`, "error");
   }
 }

@@ -46,24 +46,24 @@
           </div>
         </div>
         <div class="control-center-tabs command-bar-tabs" role="tablist" aria-label="Dashboard sections">
-          <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Overview</button>
-          <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Channels</button>
-          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Push</button>
+          <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Dashboard</button>
+          <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Automation</button>
+          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Post Now</button>
           <button type="button" class="control-tab" data-tab-target="composer" aria-selected="false">Composer</button>
           <button type="button" class="control-tab" data-tab-target="trivia" aria-selected="false">Trivia</button>
-          <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Access</button>
+          <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
           <button type="button" class="control-tab" data-tab-target="followups" aria-selected="false">Follow-Ups</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
         </div>
         <div class="automation-master-panel">
           <div class="automation-master-copy">
-            <span id="automation-master-badge" class="status-badge neutral automation-master-badge">Automation Master: ON</span>
+            <span id="automation-master-badge" class="status-badge neutral automation-master-badge">Automatic Posting: ON</span>
             <p id="automation-master-detail">Automatic posting is allowed globally. Channel-level controls still apply.</p>
           </div>
           <button id="automation-master-button" type="button" class="secondary">Turn Master OFF</button>
         </div>
         <div id="automation-master-banner" class="automation-master-banner" hidden>
-          Automation Master is OFF. All automatic posting is disabled until it is turned back on.
+          Automatic Posting is OFF. Scheduled and background posts are disabled until it is turned back on.
         </div>
         <div id="discord-metadata-warning" class="metadata-warning" hidden>
           Could not load Discord roles/channels. You can still paste IDs manually.
@@ -72,16 +72,16 @@
 
       <section class="panel control-center">
         <section class="control-tab-panel" data-tab-panel="overview">
-          <section class="control-block ops-snapshot" aria-label="Ops Snapshot">
+          <section class="control-block ops-snapshot" aria-label="Bot Status">
             <div class="subpanel-header">
               <div>
-                <h3>Ops Snapshot</h3>
-                <p>Compact runtime and configuration state for quick checks.</p>
+                <h3>Bot Status</h3>
+                <p>Check bot health, activity, and warnings.</p>
               </div>
               <div class="toolbar ops-snapshot-actions">
                 <button id="ops-refresh-dashboard" type="button">Refresh Dashboard</button>
-                <button id="ops-jump-channels" type="button" class="secondary">Jump to Channels</button>
-                <button id="ops-jump-access" type="button" class="secondary">Jump to Access</button>
+                <button id="ops-jump-channels" type="button" class="secondary">Jump to Automation</button>
+                <button id="ops-jump-access" type="button" class="secondary">Jump to Community</button>
                 <button id="ops-jump-followups" type="button" class="secondary">Jump to Follow-Ups</button>
               </div>
             </div>
@@ -122,11 +122,11 @@
                     <strong id="ops-disabled-channels">0</strong>
                   </article>
                   <article id="ops-silenced-channels-card" class="ops-status-card neutral">
-                    <span class="ops-status-label">Silenced</span>
+                    <span class="ops-status-label">Paused</span>
                     <strong id="ops-silenced-channels">0</strong>
                   </article>
                   <article id="ops-cooldown-channels-card" class="ops-status-card neutral">
-                    <span class="ops-status-label">Cooldown</span>
+                    <span class="ops-status-label">Delayed</span>
                     <strong id="ops-cooldown-channels">0</strong>
                   </article>
                   <article id="ops-skip-next-channels-card" class="ops-status-card neutral">
@@ -138,20 +138,20 @@
 
               <section class="ops-snapshot-group">
                 <div class="ops-snapshot-group-header">
-                  <h3>Next Automation</h3>
+                  <h3>What Happens Next</h3>
                 </div>
                 <div id="ops-next-automation" class="ops-next-automation">
-                  <p class="channel-operation-empty">Loading automation plan...</p>
+                  <p class="channel-operation-empty">Loading posting plan...</p>
                 </div>
               </section>
 
               <section class="ops-snapshot-group ops-snapshot-group-wide">
                 <div class="ops-snapshot-group-header">
-                  <h3>Configuration Integrity</h3>
+                  <h3>Setup Warnings</h3>
                 </div>
                 <div class="ops-integrity-grid">
                   <article id="ops-total-panels-card" class="ops-status-card neutral">
-                    <span class="ops-status-label">Role Access Panels</span>
+                    <span class="ops-status-label">Role Signup Buttons</span>
                     <strong id="ops-total-panels">0</strong>
                   </article>
                   <article id="ops-panels-missing-channel-card" class="ops-status-card neutral">
@@ -187,8 +187,8 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Overview</h3>
-                  <p>Live metrics and runtime status at a glance.</p>
+                  <h3>Dashboard</h3>
+                  <p>Check bot health, activity, and warnings.</p>
                 </div>
                 <div class="toolbar">
                   <button id="refresh-health" type="button" class="secondary">Refresh Health</button>
@@ -202,20 +202,20 @@
                 </section>
                 <section class="metric-card compact-status">
                   <h3>Operator Flow</h3>
-                  <p class="overview-status-copy">Use Channels for intervention controls, Push for one-off sends, Trivia for daily operations, and Settings for runtime tuning.</p>
+                  <p class="overview-status-copy">Use Automation for scheduled posts, Post Now for immediate sends, Community for role tools, and Settings for runtime tuning.</p>
                 </section>
               </div>
 
               <div class="automation-activity-grid">
                 <section class="metric-card automation-activity-card">
-                  <h3>Recent Automation Activity</h3>
+                  <h3>Recent Activity</h3>
                   <div id="automation-activity-list" class="automation-activity-list">
                     <p class="channel-operation-empty">No recent automation activity available.</p>
                   </div>
                 </section>
 
                 <section class="metric-card automation-activity-card">
-                  <h3>Recent Automation Errors</h3>
+                  <h3>Recent Problems</h3>
                   <div id="automation-errors-list" class="automation-activity-list">
                     <p class="channel-operation-empty">No recent automation errors found.</p>
                   </div>
@@ -255,15 +255,15 @@
               </div>
 
               <details class="details-block control-debug-details">
-                <summary>Raw health payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="health-output">Loading...</pre>
               </details>
               <details class="details-block control-debug-details">
-                <summary>Raw metrics payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="metrics-output">Loading...</pre>
               </details>
               <details class="details-block control-debug-details">
-                <summary>Raw automation activity payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="automation-activity-output">Loading...</pre>
               </details>
             </section>
@@ -339,7 +339,7 @@
 
               <div id="feeds-list" class="feed-list"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw feeds payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="feeds-output">Loading...</pre>
               </details>
             </section>
@@ -349,8 +349,8 @@
         <section class="control-tab-panel" data-tab-panel="channels" hidden>
           <div class="subpanel-header">
             <div>
-              <h3>Channel Controls</h3>
-              <p>Temporarily silence or cool down automated content per channel, with next-eligible visibility.</p>
+              <h3>Automation</h3>
+              <p>Manage everything the bot posts automatically. Control what the bot posts automatically and when.</p>
             </div>
             <div class="toolbar">
               <label>
@@ -374,7 +374,7 @@
           </div>
           <div id="channel-operations-grid" class="channel-operations-grid"></div>
           <details class="details-block control-debug-details">
-            <summary>Raw channel operations payload</summary>
+            <summary>Technical Details</summary>
             <pre id="channel-operations-output">Loading...</pre>
           </details>
         </section>
@@ -385,12 +385,12 @@
               <div class="subpanel-header">
                 <div>
                   <h3>History Review</h3>
-                  <p>Preview, reroll, and manually push today’s history content without enabling automation.</p>
+                  <p>Preview, pick another item, and send today’s history content without enabling automatic posting.</p>
                 </div>
                 <div class="toolbar">
                   <button id="refresh-history-review" type="button" class="secondary">Refresh</button>
-                  <button id="reroll-history-review" type="button" class="secondary">Reroll</button>
-                  <button id="push-history-preview" type="button">Push Preview</button>
+                  <button id="reroll-history-review" type="button" class="secondary">Pick Another Item</button>
+                  <button id="push-history-preview" type="button">Send This Preview</button>
                 </div>
               </div>
               <div id="history-review-card" class="history-review-card">
@@ -398,7 +398,7 @@
               </div>
               <div id="history-review-status" class="history-review-status"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw history review payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="history-review-output">Loading...</pre>
               </details>
             </section>
@@ -406,13 +406,13 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Manual Push</h3>
-                  <p>Send provider-backed content into a Discord channel on demand.</p>
+                  <h3>Post Generated Content</h3>
+                  <p>Send content immediately or write a custom message.</p>
                 </div>
               </div>
               <form id="manual-push-form" class="settings-form">
                 <section class="form-group">
-                  <h3>Push Content</h3>
+                  <h3>Send Generated Post</h3>
                   <label>
                     Content Type
                     <select name="contentType">
@@ -438,12 +438,12 @@
                 </section>
 
                 <div class="settings-actions">
-                  <button type="submit">Push Content</button>
+                  <button type="submit">Send Generated Post</button>
                   <span id="manual-push-status"></span>
                 </div>
               </form>
               <details class="details-block control-debug-details">
-                <summary>Raw manual push payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="manual-push-output">Waiting for request...</pre>
               </details>
             </section>
@@ -455,8 +455,8 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Composer</h3>
-                  <p>Create and post a plain text Discord message without touching automation.</p>
+                  <h3>Write a Message</h3>
+                  <p>Send content immediately or write a custom message.</p>
                 </div>
               </div>
 
@@ -533,7 +533,7 @@
                 </section>
 
                 <div class="settings-actions">
-                  <button type="submit">Post to Discord</button>
+                  <button type="submit">Post Message</button>
                   <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>
                   <button id="clear-composer" type="button" class="secondary">Clear</button>
                   <span id="composer-status"></span>
@@ -541,8 +541,8 @@
               </form>
 
               <details class="details-block control-debug-details">
-                <summary>Raw composer response</summary>
-                <pre id="composer-output">No composer request yet.</pre>
+                <summary>Technical Details</summary>
+                <pre id="composer-output">No message request yet.</pre>
               </details>
             </section>
           </div>
@@ -604,7 +604,7 @@
 
               <div id="daily-trivia-summary" class="feed-list"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw daily trivia payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="daily-trivia-output">Loading...</pre>
               </details>
             </section>
@@ -618,7 +618,7 @@
               </div>
               <div id="dog-summary" class="feed-list"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw dog payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="dog-output">Loading...</pre>
               </details>
             </section>
@@ -630,18 +630,18 @@
             <section class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Role Access Panels</h3>
-                  <p>Create, edit, and manually post Discord role access panels.</p>
+                  <h3>Role Signup Buttons</h3>
+                  <p>Manage role buttons and role-based messages.</p>
                 </div>
                 <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
               </div>
 
               <form id="role-access-panel-form" class="settings-form">
                 <section class="form-group">
-                  <h3>Access Setup</h3>
+                  <h3>Button Setup</h3>
                   <label>
                     What are people getting access to?
-                    <input name="title" type="text" placeholder="Windrose Access" required />
+                    <input name="title" type="text" placeholder="Member Area" required />
                     <small>Shown as the heading on the Discord message.</small>
                   </label>
                   <label>
@@ -678,7 +678,7 @@
                   <h3>Button</h3>
                   <label>
                     Button Label
-                    <input name="buttonLabel" type="text" placeholder="Request Access" required />
+                    <input name="buttonLabel" type="text" placeholder="Get Role" required />
                     <small>This is the button text members click in Discord.</small>
                   </label>
                 </section>
@@ -716,16 +716,16 @@
                 </section>
 
                 <div class="settings-actions">
-                  <button id="post-role-access-panel-form" type="button">Post to Discord</button>
+                  <button id="post-role-access-panel-form" type="button">Post Button Message</button>
                   <button type="submit" class="secondary">Save Draft</button>
-                  <button id="reset-role-access-panel-form" type="button" class="secondary">New Message</button>
+                  <button id="reset-role-access-panel-form" type="button" class="secondary">New Button Message</button>
                   <span id="role-access-panel-status"></span>
                 </div>
               </form>
 
               <div id="role-access-panels-list" class="feed-list"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw role access panels payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="role-access-panels-output">Loading...</pre>
               </details>
             </section>
@@ -738,7 +738,7 @@
               <div class="subpanel-header">
                 <div>
                   <h3>Role Follow-Up Messages</h3>
-                  <p>When someone gets a Discord role, Cdawg Bot can automatically send a message.</p>
+                  <p>Send a message after someone receives a selected role.</p>
                 </div>
                 <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
               </div>
@@ -844,7 +844,7 @@
 
               <div id="role-followups-list" class="feed-list"></div>
               <details class="details-block control-debug-details">
-                <summary>Raw role follow-ups payload</summary>
+                <summary>Technical Details</summary>
                 <pre id="role-followups-output">Loading...</pre>
               </details>
             </section>
@@ -855,7 +855,7 @@
           <div class="subpanel-header">
             <div>
               <h3>Settings</h3>
-              <p>Safe runtime tuning controls backed by the internal API.</p>
+              <p>Configure bot behavior, diagnostics, and dashboard settings.</p>
             </div>
             <button id="refresh-settings" type="button" class="secondary">Refresh</button>
           </div>
@@ -865,11 +865,11 @@
               <h3>Current Settings Summary</h3>
               <dl class="settings-summary-list">
                 <div>
-                  <dt>Automation Master</dt>
+                  <dt>Automatic Posting</dt>
                   <dd id="settings-summary-automation">Loading...</dd>
                 </div>
                 <div>
-                  <dt>Passive Automation</dt>
+                  <dt>Automatic Chat Replies</dt>
                   <dd id="settings-summary-passive">Loading...</dd>
                 </div>
                 <div>
@@ -886,20 +886,20 @@
 
           <form id="settings-form" class="settings-form">
             <section class="form-group settings-global-controls">
-              <h3>Global Automation Controls</h3>
+              <h3>Automatic Posting Controls</h3>
               <div class="settings-state-row">
                 <span id="settings-automation-master-state" class="status-badge neutral">Loading</span>
                 <span id="settings-automation-master-copy">Loading automation master state...</span>
               </div>
               <div class="settings-help warning">
-                Automation Master ON means scheduled and passive automation may run. OFF blocks scheduled and passive automation globally.
+                Automatic Posting ON means scheduled posts and background chat replies may run. OFF blocks them globally.
               </div>
-              <small>Manual Push stays allowed. Trigger Next Now stays allowed unless the channel is silenced, cooling down, or skip-next is pending.</small>
+              <small>Post Generated Content stays allowed. Post Next Scheduled Item Now stays allowed unless the channel is paused, delayed, or set to skip the next post.</small>
             </section>
 
             <section class="form-group">
-              <h3>Passive Automation Controls</h3>
-              <p class="form-group-intro">Controls passive chat nudges only. Automation Master and channel-level controls can still block passive sends.</p>
+              <h3>Automatic Chat Replies</h3>
+              <p class="form-group-intro">Controls background chat replies only. Automatic Posting and channel-level controls can still block these sends.</p>
               <label>
                 Enabled
                 <select name="passiveEnabled">
@@ -913,11 +913,11 @@
                 <small>Probability from 0 to 1.</small>
               </label>
               <label>
-                Global Cooldown (ms)
+                Global Reply Delay (ms)
                 <input name="globalCooldownMs" type="number" min="1000" step="1000" />
               </label>
               <label>
-                Channel Cooldown (ms)
+                Channel Reply Delay (ms)
                 <input name="channelCooldownMs" type="number" min="1000" step="1000" />
               </label>
             </section>
@@ -938,10 +938,10 @@
             </section>
 
             <section class="form-group">
-              <h3>Content / Provider Controls</h3>
-              <p class="form-group-intro">Provider logging changes diagnostics only. It does not change provider selection or posting rules.</p>
+              <h3>Content / Diagnostics Controls</h3>
+              <p class="form-group-intro">Diagnostics logging changes troubleshooting output only. It does not change provider selection or posting rules.</p>
               <label>
-                Provider Logging
+                Diagnostics Logging
                 <select name="providerLoggingEnabled">
                   <option value="true">On</option>
                   <option value="false">Off</option>
@@ -972,7 +972,7 @@
           </form>
 
           <details class="details-block control-debug-details">
-            <summary>Raw settings payload</summary>
+            <summary>Technical Details</summary>
             <pre id="settings-output">Loading...</pre>
           </details>
         </section>
