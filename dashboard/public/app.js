@@ -69,6 +69,8 @@ const missionProblemCount = document.querySelector("#mission-problem-count");
 const missionNextActivity = document.querySelector("#mission-next-activity");
 const missionActionCount = document.querySelector("#mission-action-count");
 const missionActionList = document.querySelector("#mission-action-list");
+const missionFoundCount = document.querySelector("#mission-found-count");
+const missionFoundList = document.querySelector("#mission-found-list");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -1475,6 +1477,225 @@ function createMissionActionCard(opportunity) {
   return card;
 }
 
+function getEnabledUpcomingFeeds() {
+  return feeds
+    .filter((feed) => feed.enabled !== false)
+    .filter((feed) => typeof (feed.nextRunAt ?? feed.nextEligibleAt) === "number")
+    .sort((left, right) => {
+      const leftTime = left.nextRunAt ?? left.nextEligibleAt ?? Number.POSITIVE_INFINITY;
+      const rightTime = right.nextRunAt ?? right.nextEligibleAt ?? Number.POSITIVE_INFINITY;
+      return leftTime - rightTime || (left.channelLabel ?? left.channelId).localeCompare(right.channelLabel ?? right.channelId);
+    });
+}
+
+function getContentTypeUsageCounts() {
+  const usageCounts = lastMetricsSnapshot?.contentProviders?.usageCounts;
+  const contentTypes = ["history", "trivia", "fact", "prompt", "joke", "wyr"];
+  const totals = Object.fromEntries(contentTypes.map((contentType) => [contentType, 0]));
+
+  if (!usageCounts || typeof usageCounts !== "object") {
+    return totals;
+  }
+
+  for (const [rawKey, value] of Object.entries(usageCounts)) {
+    if (typeof value !== "number") {
+      continue;
+    }
+
+    const [contentType] = rawKey.split(":", 1);
+    if (contentType in totals) {
+      totals[contentType] += value;
+    }
+  }
+
+  return totals;
+}
+
+function getUnderusedContentTypes() {
+  const usageTotals = getContentTypeUsageCounts();
+  const entries = Object.entries(usageTotals);
+  const hasAnyUsage = entries.some(([, count]) => count > 0);
+
+  if (!hasAnyUsage) {
+    return [];
+  }
+
+  return entries
+    .sort((left, right) => left[1] - right[1] || left[0].localeCompare(right[0]))
+    .slice(0, 3);
+}
+
+function getDailyTriviaStatusSummary() {
+  if (!dailyTriviaChallenge) {
+    return {
+      badge: createStatusBadge("not configured", "neutral"),
+      detail: "Daily trivia is not configured yet.",
+      meta: "Set a channel and daily time when you want to use it.",
+    };
+  }
+
+  const latestSession = dailyTriviaChallenge.latestSession;
+  const statusLabel = dailyTriviaChallenge.enabled === false
+    ? "disabled"
+    : dailyTriviaChallenge.blockedReason
+      ? "blocked"
+      : latestSession?.active
+        ? "active now"
+        : "upcoming";
+  const detail = latestSession
+    ? `Latest session: ${latestSession.answerCount} answer${latestSession.answerCount === 1 ? "" : "s"}, ${latestSession.correctAnswerCount} correct.`
+    : dailyTriviaChallenge.nextRunAt
+      ? `Next run: ${formatTimestamp(dailyTriviaChallenge.nextRunAt)} (${formatRelativeTime(dailyTriviaChallenge.nextRunAt)}).`
+      : "Daily trivia is configured, but no next run is currently reported.";
+  const winner = latestSession?.winnerUserId ? ` Winner: ${latestSession.winnerUserId}.` : "";
+
+  return {
+    badge: createStatusBadge(statusLabel, dailyTriviaChallenge.blockedReason ? "blocked" : dailyTriviaChallenge.enabled === false ? "neutral" : "active"),
+    detail,
+    meta: `${dailyTriviaChallenge.channelLabel ?? dailyTriviaChallenge.channelId ?? "No channel"}${winner}`,
+  };
+}
+
+function buildMissionFoundItems() {
+  const items = [];
+  const historyEvent = historyReview?.previewEvent;
+  const upcomingFeeds = getEnabledUpcomingFeeds().slice(0, 3);
+  const underusedContentTypes = getUnderusedContentTypes();
+
+  items.push({
+    title: "Today in History",
+    badge: createStatusBadge(historyEvent ? "preview ready" : "no preview", historyEvent ? "active" : "neutral"),
+    detail: historyEvent
+      ? `${historyEvent.title}: ${historyEvent.summary}`
+      : "I do not have a history preview available from the current dashboard data.",
+    meta: historyReview
+      ? `Date ${historyReview.dateKey} - pool ${historyReview.totalEventsForDate}`
+      : "History review is unavailable.",
+    actionLabel: "Open Today in History",
+    navigation: createMissionNavigation("push", "post-now-history"),
+  });
+
+  const dailyTrivia = getDailyTriviaStatusSummary();
+  items.push({
+    title: "Daily Trivia",
+    badge: dailyTrivia.badge,
+    detail: dailyTrivia.detail,
+    meta: dailyTrivia.meta,
+    actionLabel: "Open Daily Trivia",
+    navigation: createMissionNavigation("channels", "automation-daily-trivia"),
+  });
+
+  items.push({
+    title: "Upcoming Scheduled Posts",
+    badge: createStatusBadge(upcomingFeeds.length > 0 ? `${upcomingFeeds.length} upcoming` : "none queued", upcomingFeeds.length > 0 ? "active" : "neutral"),
+    detail: upcomingFeeds.length > 0
+      ? upcomingFeeds
+          .map((feed) => `${feed.contentType} in ${feed.channelLabel ?? getChannelLabel(feed.channelId)} every ${feed.cadenceMinutes}m`)
+          .join(" | ")
+      : "I do not see upcoming enabled managed feeds yet.",
+    meta: upcomingFeeds.length > 0
+      ? `Next: ${formatTimestamp(upcomingFeeds[0].nextRunAt ?? upcomingFeeds[0].nextEligibleAt)} (${formatRelativeTime(upcomingFeeds[0].nextRunAt ?? upcomingFeeds[0].nextEligibleAt)})`
+      : "Try adding scheduled posts when you want recurring content.",
+    actionLabel: "Open Scheduled Posts",
+    navigation: createMissionNavigation("channels", "automation-scheduled-posts"),
+  });
+
+  items.push({
+    title: "Saved Messages",
+    badge: createStatusBadge(`${composerTemplates.length} saved`, composerTemplates.length > 0 ? "active" : "neutral"),
+    detail: composerTemplates.length > 0
+      ? `Saved drafts ready: ${composerTemplates.slice(0, 3).map((template) => template.name).join(", ")}${composerTemplates.length > 3 ? ", ..." : ""}`
+      : "No saved message templates are available yet.",
+    meta: composerTemplates.length > 0 ? "Reuse a saved message from Post Now." : "Save messages from Post Now when you want reusable copy.",
+    actionLabel: "Open Saved Messages",
+    navigation: createMissionNavigation("push", "post-now-saved-messages"),
+  });
+
+  items.push({
+    title: "Content Source Ideas",
+    badge: createStatusBadge(underusedContentTypes.length > 0 ? "ideas ready" : "not enough metrics", underusedContentTypes.length > 0 ? "active" : "neutral"),
+    detail: underusedContentTypes.length > 0
+      ? `Lightly used content types: ${underusedContentTypes.map(([contentType, count]) => `${contentType} (${count})`).join(", ")}.`
+      : "I do not have enough provider usage history to suggest an underused content type yet.",
+    meta: "Based on content provider usage metrics already loaded by the dashboard.",
+    actionLabel: "Open Generate Content",
+    navigation: createMissionNavigation("push", "post-now-generated-content"),
+  });
+
+  if (dogSystemEnabled && dogState) {
+    const lowFlags = Object.entries(dogState.lowFlags ?? {}).filter(([, isLow]) => isLow).map(([name]) => name);
+    items.push({
+      title: "Community Game",
+      badge: createStatusBadge(lowFlags.length > 0 ? "needs attention" : dogState.imageKey ?? "available", lowFlags.length > 0 ? "blocked" : "active"),
+      detail: lowFlags.length > 0
+        ? `Cdawg Dog could use attention on ${lowFlags.join(", ")}.`
+        : `Cdawg Dog is ${dogState.imageKey ?? "available"} right now.`,
+      meta: `Updated ${formatTimestamp(dogState.updatedAt)} (${formatRelativeTime(dogState.updatedAt)})`,
+      actionLabel: "Open Community Game",
+      navigation: createMissionNavigation("channels", "automation-community-game"),
+    });
+  }
+
+  return items;
+}
+
+function createMissionFoundCard(item) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("h3");
+  const detail = document.createElement("p");
+  const meta = document.createElement("small");
+  const action = document.createElement("button");
+
+  card.className = "mission-found-card";
+  header.className = "mission-action-card-header";
+  title.textContent = item.title;
+  detail.textContent = item.detail;
+  meta.textContent = item.meta;
+  action.type = "button";
+  action.className = "secondary";
+  action.textContent = item.actionLabel;
+  action.addEventListener("click", () => navigateMissionAction(item.navigation));
+
+  header.append(title, item.badge);
+  card.append(header, detail, meta, action);
+  return card;
+}
+
+function renderMissionFoundItems() {
+  if (!missionFoundList) {
+    return;
+  }
+
+  const foundItems = buildMissionFoundItems();
+  const usefulItems = foundItems.filter((item) => !/no preview|not enough metrics|none queued|0 saved|not configured/i.test(item.badge.textContent ?? ""));
+
+  if (missionFoundCount) {
+    missionFoundCount.textContent = `${usefulItems.length} find${usefulItems.length === 1 ? "" : "s"}`;
+    missionFoundCount.className = `status-badge ${usefulItems.length > 0 ? "active" : "neutral"}`;
+  }
+  missionFoundList.replaceChildren();
+
+  if (foundItems.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Post Now.";
+    missionFoundList.append(emptyState);
+    return;
+  }
+
+  if (usefulItems.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "mission-found-empty channel-operation-empty";
+    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Post Now.";
+    missionFoundList.append(emptyState);
+  }
+
+  for (const item of foundItems) {
+    missionFoundList.append(createMissionFoundCard(item));
+  }
+}
+
 function renderMissionControl() {
   if (!missionActionList) {
     return;
@@ -1521,6 +1742,8 @@ function renderMissionControl() {
       : "No next scheduled activity is available from the currently loaded state.";
     missionNextActivity.append(emptyState);
   }
+
+  renderMissionFoundItems();
 
   missionActionList.replaceChildren();
   if (actionNeeded.length === 0) {

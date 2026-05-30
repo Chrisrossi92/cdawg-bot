@@ -1119,7 +1119,8 @@ small {
 
 .mission-briefing-copy,
 .mission-next-activity,
-.mission-action-panel {
+.mission-action-panel,
+.mission-found-panel {
   padding: 14px;
   border: 1px solid rgba(120, 185, 255, 0.22);
   border-radius: var(--radius-card);
@@ -1136,7 +1137,8 @@ small {
 }
 
 .mission-briefing-copy h3,
-.mission-action-card h3 {
+.mission-action-card h3,
+.mission-found-card h3 {
   margin: 0;
 }
 
@@ -1146,7 +1148,8 @@ small {
 }
 
 .mission-briefing-copy p,
-.mission-action-card p {
+.mission-action-card p,
+.mission-found-card p {
   margin: 0;
   color: var(--muted);
   line-height: 1.45;
@@ -1164,18 +1167,21 @@ small {
   gap: 8px;
 }
 
-.mission-action-panel {
+.mission-action-panel,
+.mission-found-panel {
   display: grid;
   gap: 12px;
 }
 
-.mission-action-list {
+.mission-action-list,
+.mission-found-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
 }
 
-.mission-action-card {
+.mission-action-card,
+.mission-found-card {
   display: grid;
   gap: 9px;
   align-content: start;
@@ -1186,6 +1192,18 @@ small {
   background: rgba(5, 12, 22, 0.42);
 }
 
+.mission-found-card {
+  border-color: rgba(45, 212, 255, 0.22);
+  background:
+    linear-gradient(135deg, rgba(45, 212, 255, 0.07), transparent 38%),
+    rgba(5, 12, 22, 0.42);
+}
+
+.mission-found-card:hover {
+  border-color: rgba(124, 92, 255, 0.32);
+  box-shadow: 0 14px 32px rgba(2, 8, 23, 0.22);
+}
+
 .mission-action-card-header {
   display: flex;
   align-items: flex-start;
@@ -1193,19 +1211,26 @@ small {
   gap: 10px;
 }
 
-.mission-action-card h3 {
+.mission-action-card h3,
+.mission-found-card h3 {
   font-size: 14px;
   line-height: 1.25;
 }
 
-.mission-action-card small {
+.mission-action-card small,
+.mission-found-card small {
   font-size: 11px;
 }
 
-.mission-action-card button {
+.mission-action-card button,
+.mission-found-card button {
   justify-self: start;
   padding: 8px 10px;
   font-size: 12px;
+}
+
+.mission-found-empty {
+  grid-column: 1 / -1;
 }
 
 .mission-severity-action-needed {
