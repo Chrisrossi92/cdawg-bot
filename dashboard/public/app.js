@@ -1214,6 +1214,163 @@ function createMissionNavigation(tab, section) {
   };
 }
 
+function createChannelProfileMissionNavigation(channelId) {
+  return {
+    tab: "overview",
+    section: "channel-setup-assistant",
+    channelSetupChannelId: channelId,
+  };
+}
+
+function isChannelProfileRoleRecommended(profile) {
+  return profile.accessMode === "opt-in" || profile.accessMode === "private";
+}
+
+function getChannelProfileLabel(profile) {
+  return getChannelLabel(profile.channelId);
+}
+
+function formatChannelProfileList(profiles, getLabel = getChannelProfileLabel) {
+  const labels = profiles.slice(0, 3).map(getLabel);
+  const remainingCount = profiles.length - labels.length;
+
+  return remainingCount > 0 ? `${labels.join(", ")} and ${remainingCount} more` : labels.join(", ");
+}
+
+function getRoleAccessPanelForProfile(profile) {
+  if (!profile.suggestedRoleId) {
+    return null;
+  }
+
+  return roleAccessPanels.find((panel) => panel.roleId === profile.suggestedRoleId) ?? null;
+}
+
+function getRoleFollowupForProfile(profile) {
+  if (!profile.suggestedRoleId) {
+    return null;
+  }
+
+  return roleFollowups.find((followup) => followup.roleId === profile.suggestedRoleId) ?? null;
+}
+
+function getFeedsForProfile(profile) {
+  return feeds.filter((feed) => feed.channelId === profile.channelId);
+}
+
+function getAutomationStatusForProfile(profile) {
+  return channelAutomationStatuses.find((status) => status.channelId === profile.channelId) ?? null;
+}
+
+function buildChannelProfileMissionOpportunities() {
+  const opportunities = [];
+  const roleBasedProfiles = channelProfiles.filter(isChannelProfileRoleRecommended);
+  const profilesWithoutSuggestedRole = roleBasedProfiles.filter((profile) => !profile.suggestedRoleId);
+  const profilesWithMissingRole = roleBasedProfiles.filter(
+    (profile) => profile.suggestedRoleId && guildMetadataLoaded && !metadataHasRole(profile.suggestedRoleId),
+  );
+  const profilesWithoutSignupPanel = roleBasedProfiles.filter(
+    (profile) => profile.suggestedRoleId && !profilesWithMissingRole.includes(profile) && !getRoleAccessPanelForProfile(profile),
+  );
+  const profilesWithoutFollowup = roleBasedProfiles.filter(
+    (profile) => profile.suggestedRoleId && !profilesWithMissingRole.includes(profile) && !getRoleFollowupForProfile(profile),
+  );
+  const profilesWithoutPreferredFeed = channelProfiles.filter((profile) => {
+    const preferredContentTypes = Array.isArray(profile.preferredContentTypes) ? profile.preferredContentTypes : [];
+
+    if (preferredContentTypes.length === 0) {
+      return false;
+    }
+
+    return !getFeedsForProfile(profile).some((feed) => feed.enabled !== false && preferredContentTypes.includes(feed.contentType));
+  });
+  const profilesWithBlockedAutomation = channelProfiles
+    .map((profile) => ({
+      profile,
+      status: getAutomationStatusForProfile(profile),
+    }))
+    .filter(({ status }) => status?.blockedReason === "disabled" || status?.blockedReason === "silenced" || status?.skipNextSendPending === true);
+  const profilesWithUnsureAccess = channelProfiles.filter((profile) => profile.accessMode === "unsure");
+
+  if (profilesWithoutSuggestedRole.length > 0) {
+    opportunities.push({
+      name: "Channel profiles missing roles",
+      detail: `${formatChannelProfileList(profilesWithoutSuggestedRole)} ${profilesWithoutSuggestedRole.length === 1 ? "is" : "are"} marked for opt-in or private access but do not have a suggested role.`,
+      severity: "action needed",
+      source: "/api/channel-profiles + saved profile access mode",
+      actionLabel: "Review Profile",
+      navigation: createChannelProfileMissionNavigation(profilesWithoutSuggestedRole[0].channelId),
+    });
+  }
+
+  if (profilesWithMissingRole.length > 0) {
+    opportunities.push({
+      name: "Channel profiles reference missing roles",
+      detail: `${formatChannelProfileList(profilesWithMissingRole, (profile) => `${getChannelProfileLabel(profile)} -> ${profile.suggestedRoleId}`)} ${profilesWithMissingRole.length === 1 ? "references" : "reference"} a role not found in Discord metadata.`,
+      severity: "action needed",
+      source: "/api/channel-profiles + /api/discord/guild-metadata",
+      actionLabel: "Review Profile",
+      navigation: createChannelProfileMissionNavigation(profilesWithMissingRole[0].channelId),
+    });
+  }
+
+  if (profilesWithoutSignupPanel.length > 0) {
+    opportunities.push({
+      name: "Profile roles need signup buttons",
+      detail: `${formatChannelProfileList(profilesWithoutSignupPanel)} ${profilesWithoutSignupPanel.length === 1 ? "has" : "have"} a suggested role but no saved role signup button for that role.`,
+      severity: "warning",
+      source: "/api/channel-profiles + /api/role-access-panels",
+      actionLabel: "Open Community",
+      navigation: createMissionNavigation("access", "community-role-signup-buttons"),
+    });
+  }
+
+  if (profilesWithoutFollowup.length > 0) {
+    opportunities.push({
+      name: "Profile roles need follow-ups",
+      detail: `${formatChannelProfileList(profilesWithoutFollowup)} ${profilesWithoutFollowup.length === 1 ? "has" : "have"} a suggested role but no saved follow-up message for that role.`,
+      severity: "warning",
+      source: "/api/channel-profiles + /api/role-followups",
+      actionLabel: "Open Follow-Ups",
+      navigation: createMissionNavigation("access", "community-role-followups"),
+    });
+  }
+
+  if (profilesWithoutPreferredFeed.length > 0) {
+    opportunities.push({
+      name: "Profile content preferences need feeds",
+      detail: `${formatChannelProfileList(profilesWithoutPreferredFeed)} ${profilesWithoutPreferredFeed.length === 1 ? "has" : "have"} preferred content types but no enabled scheduled post for those types.`,
+      severity: "warning",
+      source: "/api/channel-profiles + /api/feeds",
+      actionLabel: "Open Scheduled Posts",
+      navigation: createMissionNavigation("channels", "automation-scheduled-posts"),
+    });
+  }
+
+  if (profilesWithBlockedAutomation.length > 0) {
+    opportunities.push({
+      name: "Profile channels have automation paused",
+      detail: `${formatChannelProfileList(profilesWithBlockedAutomation.map(({ profile }) => profile))} ${profilesWithBlockedAutomation.length === 1 ? "is" : "are"} saved in channel profiles but currently disabled, paused, or set to skip the next post.`,
+      severity: "warning",
+      source: "/api/channel-profiles + /api/channel-automation-status",
+      actionLabel: "Open Automation",
+      navigation: createMissionNavigation("channels", "automation-channel-controls"),
+    });
+  }
+
+  if (profilesWithUnsureAccess.length > 0) {
+    opportunities.push({
+      name: "Channel profiles need access decisions",
+      detail: `${formatChannelProfileList(profilesWithUnsureAccess)} ${profilesWithUnsureAccess.length === 1 ? "still has" : "still have"} access marked as not sure yet.`,
+      severity: "warning",
+      source: "/api/channel-profiles",
+      actionLabel: "Review Profile",
+      navigation: createChannelProfileMissionNavigation(profilesWithUnsureAccess[0].channelId),
+    });
+  }
+
+  return opportunities;
+}
+
 function buildMissionOpportunities() {
   const opportunities = [];
   const recentProblems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");
@@ -1464,6 +1621,8 @@ function buildMissionOpportunities() {
     });
   }
 
+  opportunities.push(...buildChannelProfileMissionOpportunities());
+
   return opportunities;
 }
 
@@ -1536,6 +1695,15 @@ function getMissionStatusTone(opportunities) {
 function navigateMissionAction(navigation) {
   if (!navigation) {
     return;
+  }
+
+  if (navigation.channelSetupChannelId) {
+    openChannelSetupAssistant();
+    if (channelSetupChannel) {
+      channelSetupChannel.value = navigation.channelSetupChannelId;
+      applySavedChannelProfileToAssistant(navigation.channelSetupChannelId);
+      renderChannelSetupAssistant();
+    }
   }
 
   setActiveControlTab(navigation.tab || "overview");
