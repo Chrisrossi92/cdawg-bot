@@ -1856,6 +1856,272 @@ function getChannelSetupFollowupDraft(state) {
   return `Welcome to ${channelLabel}. This space is for ${state.purposeProfile.label.toLowerCase()} conversation, updates, and community prompts.`;
 }
 
+function getChannelSetupPurposeTopic(state) {
+  const topicByPurpose = {
+    genealogy: "genealogy",
+    gaming: "gaming",
+    sports: "sports",
+    news: "news",
+    history: "history",
+    memes: "memes",
+    "general-chat": "general",
+    custom: "general",
+  };
+
+  return topicByPurpose[state.purposeKey] ?? "general";
+}
+
+function getChannelSetupFollowupMessage(state) {
+  const drafts = {
+    genealogy: "Welcome {user} to {channel}! Tell us what family line, mystery, or ancestor you're researching.",
+    gaming: "Welcome {user} to {channel}! Drop your favorite game, build, server, or question to get the conversation going.",
+    sports: "Welcome {user} to {channel}! Tell us your team, hot take, or game you're watching next.",
+    news: "Welcome {user} to {channel}! Share what topics you're following or drop a headline worth discussing.",
+    history: "Welcome {user} to {channel}! Share a time period, event, or mystery you want to explore.",
+    memes: "Welcome {user} to {channel}! Drop a meme, reaction, or cursed thought to break the ice.",
+    "general-chat": "Welcome {user} to {channel}! Jump in and tell everyone what you're into.",
+    custom: "Welcome {user} to {channel}! Introduce yourself and help get the conversation started.",
+  };
+
+  return drafts[state.purposeKey] ?? drafts.custom;
+}
+
+function getChannelSetupDisplayName(state) {
+  const rawName = state.channel?.name || "Channel";
+  const words = rawName
+    .replace(/[-_]+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
+
+  if (words.length === 0) {
+    return "Channel";
+  }
+
+  return words.map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`).join(" ");
+}
+
+function setChannelSetupAssistantStatus(message, tone = "neutral") {
+  if (!channelSetupStatus) {
+    return;
+  }
+
+  channelSetupStatus.textContent = message;
+  channelSetupStatus.className = `status-badge ${tone}`;
+  channelSetupStatus.title = message;
+}
+
+function confirmOverwriteDraft(formName, isDirty) {
+  if (!isDirty) {
+    return true;
+  }
+
+  return window.confirm(`${formName} already has draft content. Overwrite it with the Channel Setup Assistant draft?`);
+}
+
+function isRoleAccessPanelFormDirty() {
+  const value = getRoleAccessPanelFormValue();
+  return Boolean(
+    value.id ||
+      value.title !== "New Button Message" ||
+      value.body !== "Click the button below to get the role." ||
+      value.buttonLabel !== "Get Role" ||
+      value.roleId ||
+      value.targetChannelId ||
+      value.successMessage ||
+      value.alreadyHasRoleMessage ||
+      value.active !== true,
+  );
+}
+
+function isRoleFollowupFormDirty() {
+  const value = getRoleFollowupFormValue();
+  return Boolean(value.id || value.roleId || value.channelId || value.message || value.enabled !== true);
+}
+
+function isFeedFormDirty() {
+  const defaultPreset = channelPresets[0]?.channelId ?? "";
+  return Boolean(
+    feedForm.elements.feedId.value ||
+      feedForm.elements.enabled.value !== "true" ||
+      feedForm.elements.channelId.value ||
+      feedForm.elements.contentType.value !== "prompt" ||
+      feedForm.elements.cadenceMinutes.value !== "60" ||
+      feedForm.elements.topicOverride.value ||
+      feedForm.elements.allowedStartTime.value ||
+      feedForm.elements.allowedEndTime.value ||
+      feedForm.elements.channelPreset.value !== defaultPreset,
+  );
+}
+
+function isManualPushFormDirty() {
+  const defaultPreset = channelPresets[0]?.channelId ?? "";
+  return Boolean(
+    manualPushForm.elements.channelPreset.value !== defaultPreset ||
+      manualPushForm.elements.contentType.value !== "history" ||
+      manualPushForm.elements.topicOverride.value,
+  );
+}
+
+function getSignupChannelCandidateId() {
+  const existingTargetChannelId = roleAccessPanels.find((panel) => panel.targetChannelId && metadataHasChannel(panel.targetChannelId))?.targetChannelId;
+
+  if (existingTargetChannelId) {
+    return existingTargetChannelId;
+  }
+
+  const signupChannel = guildChannels.find((channel) => /role|access|signup|start|welcome|rules/i.test(channel.name));
+  return signupChannel?.id ?? "";
+}
+
+function setPresetOrManualChannel(form, channelId) {
+  const preset = findPresetForChannel(channelId);
+
+  if (preset && form.elements.channelPreset) {
+    form.elements.channelPreset.value = preset.channelId;
+    if (form.elements.channelId) {
+      form.elements.channelId.value = "";
+    }
+    return true;
+  }
+
+  if (form.elements.channelId) {
+    form.elements.channelPreset.value = "";
+    form.elements.channelId.value = channelId;
+    return true;
+  }
+
+  return false;
+}
+
+function getChannelSetupRequiredState(options = {}) {
+  const state = getChannelSetupState();
+
+  if (!state.channelId || !state.channel) {
+    setChannelSetupAssistantStatus("Choose a channel first.", "blocked");
+    return null;
+  }
+
+  if (options.requireRole && !state.roleId) {
+    setChannelSetupAssistantStatus("Choose an existing Discord role before prefilling this draft.", "blocked");
+    return null;
+  }
+
+  if (options.requireRole && !state.role) {
+    setChannelSetupAssistantStatus("The selected role is not available in loaded Discord metadata.", "blocked");
+    return null;
+  }
+
+  return state;
+}
+
+function prefillRoleAccessPanelFromChannelSetup() {
+  const state = getChannelSetupRequiredState({ requireRole: true });
+
+  if (!state || !state.roleRecommended) {
+    setChannelSetupAssistantStatus("Choose opt-in or private access with an existing role before prefilling a role signup button.", "blocked");
+    return;
+  }
+
+  if (!confirmOverwriteDraft("Role Signup Button", isRoleAccessPanelFormDirty())) {
+    setChannelSetupAssistantStatus("Role signup draft was not overwritten.", "neutral");
+    return;
+  }
+
+  const displayName = getChannelSetupDisplayName(state);
+  const currentTargetChannelId = roleAccessPanelForm.elements.targetChannelId.value.trim();
+  const targetChannelId = getSignupChannelCandidateId() || currentTargetChannelId;
+
+  resetRoleAccessPanelForm();
+  roleAccessPanelForm.elements.title.value = `${displayName} Access`;
+  roleAccessPanelForm.elements.body.value = `Click below to get access to #${state.channel.name}.`;
+  roleAccessPanelForm.elements.buttonLabel.value = `Join ${displayName}`;
+  roleAccessPanelForm.elements.roleId.value = state.roleId;
+  roleAccessPanelForm.elements.targetChannelId.value = targetChannelId;
+  roleAccessPanelForm.elements.id.value = "";
+  syncDiscordMetadataSelections();
+  renderRoleAccessPreview();
+  setRoleAccessPanelStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
+  setChannelSetupAssistantStatus("role signup draft filled", "active");
+  navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons"));
+}
+
+function prefillRoleFollowupFromChannelSetup() {
+  const state = getChannelSetupRequiredState({ requireRole: true });
+
+  if (!state) {
+    return;
+  }
+
+  if (!confirmOverwriteDraft("Role Follow-Up", isRoleFollowupFormDirty())) {
+    setChannelSetupAssistantStatus("Follow-up draft was not overwritten.", "neutral");
+    return;
+  }
+
+  resetRoleFollowupForm();
+  roleFollowupForm.elements.id.value = "";
+  roleFollowupForm.elements.roleId.value = state.roleId;
+  roleFollowupForm.elements.channelId.value = state.channelId;
+  roleFollowupForm.elements.enabled.value = "true";
+  roleFollowupForm.elements.message.value = getChannelSetupFollowupMessage(state);
+  syncDiscordMetadataSelections();
+  renderRoleFollowupPreview();
+  setRoleFollowupStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
+  setChannelSetupAssistantStatus("follow-up draft filled", "active");
+  navigateMissionAction(createMissionNavigation("access", "community-role-followups"));
+}
+
+function prefillFeedFromChannelSetup() {
+  const state = getChannelSetupRequiredState();
+
+  if (!state) {
+    return;
+  }
+
+  if (!confirmOverwriteDraft("Scheduled Post", isFeedFormDirty())) {
+    setChannelSetupAssistantStatus("Scheduled post draft was not overwritten.", "neutral");
+    return;
+  }
+
+  resetFeedForm();
+  feedForm.elements.feedId.value = "";
+  feedForm.elements.enabled.value = "false";
+  setPresetOrManualChannel(feedForm, state.channelId);
+  feedForm.elements.contentType.value = state.purposeProfile.contentTypes[0] ?? "prompt";
+  feedForm.elements.topicOverride.value = getChannelSetupPurposeTopic(state);
+  setFeedStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
+  setChannelSetupAssistantStatus("scheduled post draft filled", "active");
+  navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts"));
+}
+
+function prefillManualPushFromChannelSetup() {
+  const state = getChannelSetupRequiredState();
+
+  if (!state) {
+    return;
+  }
+
+  const preset = findPresetForChannel(state.channelId);
+
+  if (!preset) {
+    setChannelSetupAssistantStatus("Generate Content can only prefill saved channel presets. Open Post Now and choose the channel manually.", "blocked");
+    navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
+    return;
+  }
+
+  if (!confirmOverwriteDraft("Generate Content", isManualPushFormDirty())) {
+    setChannelSetupAssistantStatus("Generate Content draft was not overwritten.", "neutral");
+    return;
+  }
+
+  manualPushForm.elements.channelPreset.value = preset.channelId;
+  manualPushForm.elements.contentType.value = state.purposeProfile.contentTypes[0] ?? "prompt";
+  manualPushForm.elements.topicOverride.value = getChannelSetupPurposeTopic(state);
+  syncManualPushPresetSelection(false);
+  setManualPushStatus("Draft filled from Channel Setup Assistant. Review and send only when ready.");
+  setChannelSetupAssistantStatus("generate content draft filled", "active");
+  navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
+}
+
 function createChannelSetupDetail(label, value) {
   const wrapper = document.createElement("div");
   const term = document.createElement("dt");
@@ -4650,10 +4916,10 @@ channelSetupChannel?.addEventListener("change", renderChannelSetupAssistant);
 channelSetupPurpose?.addEventListener("change", renderChannelSetupAssistant);
 channelSetupAccessMode?.addEventListener("change", renderChannelSetupAssistant);
 channelSetupRole?.addEventListener("change", renderChannelSetupAssistant);
-channelSetupOpenRolePanelButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons")));
-channelSetupOpenFollowupsButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("access", "community-role-followups")));
-channelSetupOpenFeedsButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts")));
-channelSetupOpenGenerateButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("push", "post-now-generated-content")));
+channelSetupOpenRolePanelButton?.addEventListener("click", prefillRoleAccessPanelFromChannelSetup);
+channelSetupOpenFollowupsButton?.addEventListener("click", prefillRoleFollowupFromChannelSetup);
+channelSetupOpenFeedsButton?.addEventListener("click", prefillFeedFromChannelSetup);
+channelSetupOpenGenerateButton?.addEventListener("click", prefillManualPushFromChannelSetup);
 channelSetupResetButton?.addEventListener("click", resetChannelSetupAssistant);
 
 configureAutoRefresh();
