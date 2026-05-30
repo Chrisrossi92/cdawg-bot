@@ -26,6 +26,19 @@ import { getChannelAutomationStatuses } from "../systems/channel-automation-stat
 import { getBotMetrics } from "../systems/bot-metrics.js";
 import { getBotSettings, updateBotSettings } from "../systems/bot-settings.js";
 import {
+  channelProfileAccessModes,
+  channelProfileAudiences,
+  channelProfilePurposes,
+  channelProfileTones,
+  deleteChannelProfile,
+  listChannelProfiles,
+  upsertChannelProfile,
+  type ChannelProfileAccessMode,
+  type ChannelProfileAudience,
+  type ChannelProfilePurpose,
+  type ChannelProfileTone,
+} from "../systems/channel-profiles.js";
+import {
   createFeedConfig,
   deleteFeedConfig,
   getFeedConfig,
@@ -186,6 +199,20 @@ type FeedRequestBody = {
   cadenceMinutes?: number;
   topicOverride?: Topic | null;
   allowedWindow?: FeedAllowedWindow | null;
+};
+
+type ChannelProfileRequestBody = {
+  channelId: string;
+  purpose: ChannelProfilePurpose;
+  audience: ChannelProfileAudience;
+  accessMode: ChannelProfileAccessMode;
+  tone: ChannelProfileTone;
+  preferredContentTypes: ContentType[];
+  topicOverride: Topic | null;
+  suggestedRoleId: string | null;
+  signupPanelId: string | null;
+  followupId: string | null;
+  notes: string | null;
 };
 
 type DailyTriviaChallengeRequestBody = {
@@ -819,6 +846,149 @@ function sanitizeFeedRequest(value: unknown, requireId: boolean, requireFullConf
   return {
     ok: true as const,
     value: nextValue,
+  };
+}
+
+function sanitizeChannelProfileRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Channel profile payload must be a JSON object.",
+    };
+  }
+
+  const channelId = typeof value.channelId === "string" ? value.channelId.trim() : "";
+
+  if (!discordSnowflakePattern.test(channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  if (typeof value.purpose !== "string" || !channelProfilePurposes.includes(value.purpose as ChannelProfilePurpose)) {
+    return {
+      ok: false as const,
+      error: `Invalid purpose. Allowed values: ${channelProfilePurposes.join(", ")}.`,
+    };
+  }
+
+  if (typeof value.audience !== "string" || !channelProfileAudiences.includes(value.audience as ChannelProfileAudience)) {
+    return {
+      ok: false as const,
+      error: `Invalid audience. Allowed values: ${channelProfileAudiences.join(", ")}.`,
+    };
+  }
+
+  if (typeof value.accessMode !== "string" || !channelProfileAccessModes.includes(value.accessMode as ChannelProfileAccessMode)) {
+    return {
+      ok: false as const,
+      error: `Invalid access mode. Allowed values: ${channelProfileAccessModes.join(", ")}.`,
+    };
+  }
+
+  if (typeof value.tone !== "string" || !channelProfileTones.includes(value.tone as ChannelProfileTone)) {
+    return {
+      ok: false as const,
+      error: `Invalid tone. Allowed values: ${channelProfileTones.join(", ")}.`,
+    };
+  }
+
+  if (!Array.isArray(value.preferredContentTypes)) {
+    return {
+      ok: false as const,
+      error: "Preferred content types must be an array.",
+    };
+  }
+
+  const preferredContentTypes = [...new Set(value.preferredContentTypes)];
+
+  if (
+    preferredContentTypes.length === 0 ||
+    preferredContentTypes.length > allowedContentTypes.length ||
+    preferredContentTypes.some((entry) => typeof entry !== "string" || !allowedContentTypes.includes(entry as ContentType))
+  ) {
+    return {
+      ok: false as const,
+      error: `Invalid preferred content types. Allowed values: ${allowedContentTypes.join(", ")}.`,
+    };
+  }
+
+  if (value.topicOverride !== null && (typeof value.topicOverride !== "string" || !topics.includes(value.topicOverride as Topic))) {
+    return {
+      ok: false as const,
+      error: `Invalid topic override. Allowed values: ${topics.join(", ")}.`,
+    };
+  }
+
+  if (
+    value.suggestedRoleId !== null &&
+    (typeof value.suggestedRoleId !== "string" || !discordSnowflakePattern.test(value.suggestedRoleId.trim()))
+  ) {
+    return {
+      ok: false as const,
+      error: "Invalid suggested role ID. Expected a Discord snowflake string or null.",
+    };
+  }
+
+  for (const field of ["signupPanelId", "followupId"] as const) {
+    const fieldValue = value[field];
+
+    if (fieldValue !== null && (typeof fieldValue !== "string" || !/^[a-z0-9][a-z0-9_-]{0,63}$/.test(fieldValue.trim()))) {
+      return {
+        ok: false as const,
+        error: `Invalid ${field}. Use lowercase letters, numbers, dashes, underscores, or null.`,
+      };
+    }
+  }
+
+  if (value.notes !== null && (typeof value.notes !== "string" || value.notes.trim().length > 1000)) {
+    return {
+      ok: false as const,
+      error: "Invalid notes. Expected a string up to 1000 characters or null.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId,
+      purpose: value.purpose as ChannelProfilePurpose,
+      audience: value.audience as ChannelProfileAudience,
+      accessMode: value.accessMode as ChannelProfileAccessMode,
+      tone: value.tone as ChannelProfileTone,
+      preferredContentTypes: preferredContentTypes as ContentType[],
+      topicOverride: value.topicOverride as Topic | null,
+      suggestedRoleId: typeof value.suggestedRoleId === "string" ? value.suggestedRoleId.trim() : null,
+      signupPanelId: typeof value.signupPanelId === "string" ? value.signupPanelId.trim() : null,
+      followupId: typeof value.followupId === "string" ? value.followupId.trim() : null,
+      notes: typeof value.notes === "string" && value.notes.trim() ? value.notes.trim() : null,
+    } satisfies ChannelProfileRequestBody,
+  };
+}
+
+function sanitizeChannelProfileDeleteRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Channel profile payload must be a JSON object.",
+    };
+  }
+
+  const channelId = typeof value.channelId === "string" ? value.channelId.trim() : "";
+
+  if (!discordSnowflakePattern.test(channelId)) {
+    return {
+      ok: false as const,
+      error: "Invalid channel ID. Expected a Discord snowflake string.",
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      channelId,
+    },
   };
 }
 
@@ -1711,6 +1881,75 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           ok: true,
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-profiles") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          channelProfiles: listChannelProfiles(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-profiles/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelProfileRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const channelProfile = upsertChannelProfile(validation.value);
+
+        sendJson(response, 200, {
+          channelProfile,
+          channelProfiles: listChannelProfiles(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-profiles/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = sanitizeChannelProfileDeleteRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteChannelProfile(validation.value.channelId);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Channel profile not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          channelProfiles: listChannelProfiles(),
         });
         return;
       }
