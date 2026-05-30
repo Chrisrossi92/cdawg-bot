@@ -129,6 +129,78 @@
                 <p class="channel-operation-empty">Checking content opportunities...</p>
               </div>
             </section>
+
+            <section class="mission-setup-entry">
+              <div>
+                <span class="status-badge active">guided setup</span>
+                <h3>Set Up a Channel</h3>
+                <p>Tell CDawg what a channel is for, and he'll suggest roles, follow-ups, and content ideas.</p>
+              </div>
+              <button id="mission-open-channel-setup" type="button" class="secondary">Set Up a Channel</button>
+            </section>
+
+            <section id="channel-setup-assistant" class="mission-channel-setup" hidden>
+              <div class="ops-snapshot-group-header">
+                <div>
+                  <h3>Channel Setup Assistant</h3>
+                  <p>Plan an existing channel setup without saving, posting, or changing Discord.</p>
+                </div>
+                <span id="channel-setup-status" class="status-badge neutral">draft</span>
+              </div>
+
+              <div class="channel-setup-grid">
+                <form id="channel-setup-form" class="channel-setup-form">
+                  <label>
+                    Channel
+                    <select id="channel-setup-channel" name="channelId">
+                      <option value="">Loading channels...</option>
+                    </select>
+                    <small id="channel-setup-channel-detail">Choose an existing Discord channel.</small>
+                  </label>
+                  <label>
+                    Purpose
+                    <select id="channel-setup-purpose" name="purpose">
+                      <option value="genealogy">Genealogy</option>
+                      <option value="gaming">Gaming</option>
+                      <option value="sports">Sports</option>
+                      <option value="news">News</option>
+                      <option value="history">History</option>
+                      <option value="memes">Memes</option>
+                      <option value="general-chat">General Chat</option>
+                      <option value="custom">Custom</option>
+                    </select>
+                  </label>
+                  <label>
+                    Access Mode
+                    <select id="channel-setup-access-mode" name="accessMode">
+                      <option value="everyone">Everyone can see it</option>
+                      <option value="opt-in">People opt in with a role</option>
+                      <option value="private">Private/admin managed</option>
+                      <option value="announcement">Announcement-only</option>
+                      <option value="unsure">Not sure yet</option>
+                    </select>
+                  </label>
+                  <label id="channel-setup-role-field">
+                    Existing Role
+                    <select id="channel-setup-role" name="roleId">
+                      <option value="">Loading roles...</option>
+                    </select>
+                    <small id="channel-setup-role-detail">Create or choose a Discord role before making this opt-in.</small>
+                  </label>
+                </form>
+
+                <div class="channel-setup-preview">
+                  <div id="channel-setup-plan"></div>
+                  <div class="channel-setup-actions">
+                    <button id="channel-setup-open-role-panel" type="button" class="secondary">Open Role Signup Buttons</button>
+                    <button id="channel-setup-open-followups" type="button" class="secondary">Open Follow-Up Messages</button>
+                    <button id="channel-setup-open-feeds" type="button" class="secondary">Open Scheduled Posts</button>
+                    <button id="channel-setup-open-generate" type="button" class="secondary">Open Generate Content</button>
+                    <button id="channel-setup-reset" type="button" class="ghost">Reset Assistant</button>
+                  </div>
+                </div>
+              </div>
+            </section>
           </section>
 
           <section class="control-block ops-snapshot" aria-label="Bot Status">

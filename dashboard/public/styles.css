@@ -1120,7 +1120,9 @@ small {
 .mission-briefing-copy,
 .mission-next-activity,
 .mission-action-panel,
-.mission-found-panel {
+.mission-found-panel,
+.mission-setup-entry,
+.mission-channel-setup {
   padding: 14px;
   border: 1px solid rgba(120, 185, 255, 0.22);
   border-radius: var(--radius-card);
@@ -1168,9 +1170,129 @@ small {
 }
 
 .mission-action-panel,
-.mission-found-panel {
+.mission-found-panel,
+.mission-channel-setup {
   display: grid;
   gap: 12px;
+}
+
+.mission-setup-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.mission-setup-entry h3 {
+  margin: 8px 0 4px;
+  font-size: 16px;
+}
+
+.mission-setup-entry p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.channel-setup-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.channel-setup-form {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(120, 185, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.38);
+}
+
+.channel-setup-form label {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.channel-setup-preview {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.channel-setup-plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.channel-setup-plan-header h4,
+.channel-setup-plan-section h4 {
+  margin: 0;
+}
+
+.channel-setup-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 12px;
+}
+
+.channel-setup-summary div {
+  padding: 9px;
+  border: 1px solid rgba(120, 185, 255, 0.16);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.channel-setup-summary dt {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.channel-setup-summary dd {
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.channel-setup-plan-section {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.channel-setup-plan-section p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.channel-setup-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.channel-setup-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.channel-setup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mission-action-list,
@@ -2262,8 +2384,15 @@ pre {
   }
 
   .mission-briefing,
-  .mission-briefing-grid {
+  .mission-briefing-grid,
+  .channel-setup-grid,
+  .channel-setup-summary {
     grid-template-columns: 1fr;
+  }
+
+  .mission-setup-entry {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .ops-snapshot-actions {

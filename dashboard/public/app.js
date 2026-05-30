@@ -71,6 +71,23 @@ const missionActionCount = document.querySelector("#mission-action-count");
 const missionActionList = document.querySelector("#mission-action-list");
 const missionFoundCount = document.querySelector("#mission-found-count");
 const missionFoundList = document.querySelector("#mission-found-list");
+const missionOpenChannelSetupButton = document.querySelector("#mission-open-channel-setup");
+const channelSetupAssistant = document.querySelector("#channel-setup-assistant");
+const channelSetupStatus = document.querySelector("#channel-setup-status");
+const channelSetupForm = document.querySelector("#channel-setup-form");
+const channelSetupChannel = document.querySelector("#channel-setup-channel");
+const channelSetupChannelDetail = document.querySelector("#channel-setup-channel-detail");
+const channelSetupPurpose = document.querySelector("#channel-setup-purpose");
+const channelSetupAccessMode = document.querySelector("#channel-setup-access-mode");
+const channelSetupRoleField = document.querySelector("#channel-setup-role-field");
+const channelSetupRole = document.querySelector("#channel-setup-role");
+const channelSetupRoleDetail = document.querySelector("#channel-setup-role-detail");
+const channelSetupPlan = document.querySelector("#channel-setup-plan");
+const channelSetupOpenRolePanelButton = document.querySelector("#channel-setup-open-role-panel");
+const channelSetupOpenFollowupsButton = document.querySelector("#channel-setup-open-followups");
+const channelSetupOpenFeedsButton = document.querySelector("#channel-setup-open-feeds");
+const channelSetupOpenGenerateButton = document.querySelector("#channel-setup-open-generate");
+const channelSetupResetButton = document.querySelector("#channel-setup-reset");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -188,6 +205,57 @@ let roleFollowups = [];
 let composerTemplates = [];
 let activeControlTab = "overview";
 let composerDraftBeforeRewrite = null;
+
+const channelSetupPurposeProfiles = {
+  genealogy: {
+    label: "Genealogy",
+    contentTypes: ["history", "fact", "prompt"],
+    starter: "What family story, record, or research mystery are you working on this week?",
+  },
+  gaming: {
+    label: "Gaming",
+    contentTypes: ["joke", "prompt", "trivia"],
+    starter: "What are you playing right now, and what should the group try next?",
+  },
+  sports: {
+    label: "Sports",
+    contentTypes: ["prompt", "trivia", "fact"],
+    starter: "What matchup, player, or sports story should everyone be watching this week?",
+  },
+  news: {
+    label: "News",
+    contentTypes: ["fact", "prompt"],
+    starter: "What story is worth discussing today, and what context would help people understand it?",
+  },
+  history: {
+    label: "History",
+    contentTypes: ["history", "fact", "prompt"],
+    starter: "What moment in history still feels relevant to this community today?",
+  },
+  memes: {
+    label: "Memes",
+    contentTypes: ["joke", "wyr", "prompt"],
+    starter: "Drop the meme that best describes your week so far.",
+  },
+  "general-chat": {
+    label: "General Chat",
+    contentTypes: ["wyr", "prompt", "joke"],
+    starter: "What is one small win or random thought from your day?",
+  },
+  custom: {
+    label: "Custom",
+    contentTypes: ["prompt"],
+    starter: "What should this channel help people talk about first?",
+  },
+};
+
+const channelSetupAccessLabels = {
+  everyone: "Everyone can see it",
+  "opt-in": "People opt in with a role",
+  private: "Private/admin managed",
+  announcement: "Announcement-only",
+  unsure: "Not sure yet",
+};
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -1694,6 +1762,286 @@ function renderMissionFoundItems() {
   for (const item of foundItems) {
     missionFoundList.append(createMissionFoundCard(item));
   }
+}
+
+function isChannelSetupRoleRecommended(accessMode) {
+  return accessMode === "opt-in" || accessMode === "private";
+}
+
+function renderChannelSetupMetadataOptions() {
+  if (!channelSetupChannel || !channelSetupRole) {
+    return;
+  }
+
+  const previousChannelId = channelSetupChannel.value;
+  const previousRoleId = channelSetupRole.value;
+
+  channelSetupChannel.replaceChildren();
+  const channelPlaceholder = document.createElement("option");
+  channelPlaceholder.value = "";
+  channelPlaceholder.textContent = guildChannels.length > 0 ? "Choose channel..." : "No Discord channels loaded";
+  channelSetupChannel.append(channelPlaceholder);
+
+  for (const channel of guildChannels) {
+    const option = document.createElement("option");
+    option.value = channel.id;
+    option.textContent = `#${channel.name}`;
+    channelSetupChannel.append(option);
+  }
+
+  channelSetupChannel.value = guildChannels.some((channel) => channel.id === previousChannelId) ? previousChannelId : "";
+
+  channelSetupRole.replaceChildren();
+  const rolePlaceholder = document.createElement("option");
+  rolePlaceholder.value = "";
+  rolePlaceholder.textContent = guildRoles.length > 0 ? "Choose role..." : "No Discord roles loaded";
+  channelSetupRole.append(rolePlaceholder);
+
+  for (const role of guildRoles) {
+    const option = document.createElement("option");
+    option.value = role.id;
+    option.textContent = role.name;
+    channelSetupRole.append(option);
+  }
+
+  channelSetupRole.value = guildRoles.some((role) => role.id === previousRoleId) ? previousRoleId : "";
+  renderChannelSetupAssistant();
+}
+
+function getChannelSetupState() {
+  const accessMode = channelSetupAccessMode?.value ?? "everyone";
+  const roleRecommended = isChannelSetupRoleRecommended(accessMode);
+  const channelId = channelSetupChannel?.value ?? "";
+  const roleId = roleRecommended ? channelSetupRole?.value ?? "" : "";
+  const purposeKey = channelSetupPurpose?.value ?? "genealogy";
+  const purposeProfile = channelSetupPurposeProfiles[purposeKey] ?? channelSetupPurposeProfiles.custom;
+
+  return {
+    accessMode,
+    accessLabel: channelSetupAccessLabels[accessMode] ?? "Not sure yet",
+    channel: guildChannels.find((entry) => entry.id === channelId) ?? null,
+    channelId,
+    purposeKey,
+    purposeProfile,
+    role: guildRoles.find((entry) => entry.id === roleId) ?? null,
+    roleId,
+    roleRecommended,
+  };
+}
+
+function getChannelSetupPanelForRole(roleId) {
+  return roleId ? roleAccessPanels.find((panel) => panel.roleId === roleId) ?? null : null;
+}
+
+function getChannelSetupFollowupForRole(roleId) {
+  return roleId ? roleFollowups.find((followup) => followup.roleId === roleId) ?? null : null;
+}
+
+function getChannelSetupFeeds(channelId) {
+  return channelId ? feeds.filter((feed) => feed.channelId === channelId) : [];
+}
+
+function getChannelSetupAutomationStatus(channelId) {
+  return channelId ? channelAutomationStatuses.find((status) => status.channelId === channelId) ?? null : null;
+}
+
+function getChannelSetupFollowupDraft(state) {
+  const channelLabel = state.channel ? `#${state.channel.name}` : "the channel";
+  const roleLabel = state.role ? state.role.name : "this role";
+
+  if (state.roleRecommended) {
+    return `{user} welcome in. You now have access to ${channelLabel} with the ${roleLabel} role. Start by introducing yourself or sharing what brought you here.`;
+  }
+
+  return `Welcome to ${channelLabel}. This space is for ${state.purposeProfile.label.toLowerCase()} conversation, updates, and community prompts.`;
+}
+
+function createChannelSetupDetail(label, value) {
+  const wrapper = document.createElement("div");
+  const term = document.createElement("dt");
+  const description = document.createElement("dd");
+
+  term.textContent = label;
+  description.textContent = value;
+  wrapper.append(term, description);
+  return wrapper;
+}
+
+function createChannelSetupStep(label, detail, complete, warning = false) {
+  const item = document.createElement("li");
+  const badge = createStatusBadge(complete ? "complete" : warning ? "warning" : "next", complete ? "active" : warning ? "blocked" : "neutral");
+  const text = document.createElement("span");
+
+  text.textContent = `${label}: ${detail}`;
+  item.append(badge, text);
+  return item;
+}
+
+function getChannelSetupAutomationWarning(status) {
+  if (!status) {
+    return null;
+  }
+
+  if (status.blockedReason === "disabled") {
+    return "Channel automation is disabled for this channel.";
+  }
+
+  if (status.blockedReason === "silenced") {
+    return "Channel automation is currently paused.";
+  }
+
+  if (status.blockedReason === "cooldown") {
+    return "Channel automation is delayed by cooldown.";
+  }
+
+  if (status.blockedReason === "skip-next" || status.skipNextSendPending === true) {
+    return "This channel has a skip-next automation flag pending.";
+  }
+
+  return null;
+}
+
+function renderChannelSetupAssistant() {
+  if (!channelSetupPlan) {
+    return;
+  }
+
+  const state = getChannelSetupState();
+  const rolePanel = getChannelSetupPanelForRole(state.roleId);
+  const roleFollowup = getChannelSetupFollowupForRole(state.roleId);
+  const channelFeeds = getChannelSetupFeeds(state.channelId);
+  const automationStatus = getChannelSetupAutomationStatus(state.channelId);
+  const automationWarning = getChannelSetupAutomationWarning(automationStatus);
+  const roleMissing = state.roleRecommended && !state.roleId;
+  const contentTypes = state.purposeProfile.contentTypes;
+
+  if (channelSetupStatus) {
+    channelSetupStatus.textContent = state.channelId ? "plan ready" : "draft";
+    channelSetupStatus.className = `status-badge ${state.channelId ? "active" : "neutral"}`;
+  }
+
+  if (channelSetupChannelDetail) {
+    channelSetupChannelDetail.textContent = state.channel
+      ? `#${state.channel.name} - ${state.channel.type}${state.channel.parentId ? ` - Parent ${state.channel.parentId}` : ""}`
+      : "Choose an existing Discord channel.";
+  }
+
+  if (channelSetupRoleField) {
+    channelSetupRoleField.hidden = !state.roleRecommended;
+  }
+
+  if (channelSetupRoleDetail) {
+    channelSetupRoleDetail.textContent = roleMissing
+      ? "Create or choose a Discord role before making this opt-in."
+      : state.role
+        ? `${state.role.name} (${state.role.id})`
+        : "Role is optional for this access mode.";
+  }
+
+  channelSetupPlan.replaceChildren();
+
+  const header = document.createElement("div");
+  const title = document.createElement("h4");
+  const badgeRow = document.createElement("div");
+  const summary = document.createElement("dl");
+  const contentBlock = document.createElement("section");
+  const contentTitle = document.createElement("h4");
+  const contentCopy = document.createElement("p");
+  const stepsBlock = document.createElement("section");
+  const stepsTitle = document.createElement("h4");
+  const steps = document.createElement("ul");
+  const followupBlock = document.createElement("section");
+  const followupTitle = document.createElement("h4");
+  const followupDraft = document.createElement("p");
+  const starterTitle = document.createElement("h4");
+  const starterDraft = document.createElement("p");
+
+  header.className = "channel-setup-plan-header";
+  badgeRow.className = "channel-operation-badges";
+  summary.className = "channel-setup-summary";
+  contentBlock.className = "channel-setup-plan-section";
+  stepsBlock.className = "channel-setup-plan-section";
+  steps.className = "channel-setup-steps";
+  followupBlock.className = "channel-setup-plan-section";
+
+  title.textContent = "Setup Plan Preview";
+  badgeRow.append(
+    createStatusBadge(state.purposeProfile.label, "neutral"),
+    createStatusBadge(state.accessLabel, state.roleRecommended ? "active" : "neutral"),
+  );
+  if (automationWarning) {
+    badgeRow.append(createStatusBadge("automation warning", "blocked"));
+  }
+
+  summary.append(
+    createChannelSetupDetail("Channel", state.channel ? `#${state.channel.name}` : "Choose a channel"),
+    createChannelSetupDetail("Purpose", state.purposeProfile.label),
+    createChannelSetupDetail("Access", state.accessLabel),
+    createChannelSetupDetail("Suggested Role", state.roleRecommended ? state.role ? state.role.name : "Choose an existing role" : "No role needed"),
+  );
+
+  contentTitle.textContent = "Suggested Content Types";
+  contentCopy.textContent = contentTypes.join(", ");
+
+  stepsTitle.textContent = "Recommended Next Steps";
+  steps.append(
+    createChannelSetupStep("Role", roleMissing ? "Create or choose a Discord role before making this opt-in." : state.roleRecommended ? `Use ${state.role?.name ?? "selected role"}.` : "No role needed for this access mode.", !roleMissing),
+    createChannelSetupStep("Role signup button", rolePanel ? `Already exists: ${rolePanel.title}.` : state.roleRecommended ? "Add a role signup button for this role." : "Optional for this access mode.", Boolean(rolePanel) || !state.roleRecommended),
+    createChannelSetupStep("Follow-up welcome message", roleFollowup ? `Already exists for ${getRoleLabel(roleFollowup.roleId)}.` : state.roleRecommended ? "Add a follow-up message after the role is granted." : "Optional for this access mode.", Boolean(roleFollowup) || !state.roleRecommended),
+    createChannelSetupStep("Scheduled content", channelFeeds.length > 0 ? `${channelFeeds.length} scheduled post${channelFeeds.length === 1 ? "" : "s"} already target this channel.` : `Add scheduled ${contentTypes[0]} or ${contentTypes[1] ?? "prompt"} content.`, channelFeeds.length > 0),
+    createChannelSetupStep("One-time post", "Try a one-time post to start the conversation.", false),
+  );
+
+  if (automationWarning) {
+    steps.append(createChannelSetupStep("Automation state", automationWarning, false, true));
+  }
+
+  followupTitle.textContent = "Suggested Follow-Up Message Draft";
+  followupDraft.textContent = getChannelSetupFollowupDraft(state);
+  starterTitle.textContent = "Suggested First Conversation Starter";
+  starterDraft.textContent = state.purposeProfile.starter;
+
+  header.append(title, badgeRow);
+  contentBlock.append(contentTitle, contentCopy);
+  stepsBlock.append(stepsTitle, steps);
+  followupBlock.append(followupTitle, followupDraft, starterTitle, starterDraft);
+  channelSetupPlan.append(header, summary, contentBlock, stepsBlock, followupBlock);
+}
+
+function openChannelSetupAssistant() {
+  if (!channelSetupAssistant) {
+    return;
+  }
+
+  channelSetupAssistant.hidden = false;
+  setActiveControlTab("overview");
+  renderChannelSetupMetadataOptions();
+  window.requestAnimationFrame(() => {
+    channelSetupAssistant.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function resetChannelSetupAssistant() {
+  if (channelSetupChannel) {
+    channelSetupChannel.value = "";
+  }
+
+  if (channelSetupPurpose) {
+    channelSetupPurpose.value = "genealogy";
+  }
+
+  if (channelSetupAccessMode) {
+    channelSetupAccessMode.value = "everyone";
+  }
+
+  if (channelSetupRole) {
+    channelSetupRole.value = "";
+  }
+
+  renderChannelSetupAssistant();
 }
 
 function renderMissionControl() {
@@ -3428,6 +3776,7 @@ async function loadGuildMetadata() {
     guildMetadataLoaded = true;
     discordMetadataWarning.hidden = true;
     renderDiscordMetadataOptions();
+    renderChannelSetupMetadataOptions();
     renderRoleAccessPreview();
     renderRoleAccessPanels();
     renderRoleFollowupPreview();
@@ -3440,6 +3789,7 @@ async function loadGuildMetadata() {
     guildMetadataLoaded = false;
     discordMetadataWarning.hidden = false;
     renderDiscordMetadataOptions();
+    renderChannelSetupMetadataOptions();
     renderOpsSnapshot();
   }
 }
@@ -3451,10 +3801,12 @@ async function loadFeeds() {
     feeds = Array.isArray(data.feeds) ? data.feeds : [];
     renderAutomationMaster();
     renderFeeds();
+    renderChannelSetupAssistant();
     setPrettyJson(feedsOutput, data);
   } catch (error) {
     feeds = [];
     renderFeeds();
+    renderChannelSetupAssistant();
     feedsOutput.textContent = `Failed to load feeds.\n${error.message}`;
   }
 }
@@ -3464,11 +3816,13 @@ async function loadRoleAccessPanels() {
     const data = await fetchJson("/api/role-access-panels");
     roleAccessPanels = Array.isArray(data.roleAccessPanels) ? data.roleAccessPanels : [];
     renderRoleAccessPanels();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     setPrettyJson(roleAccessPanelsOutput, data);
   } catch (error) {
     roleAccessPanels = [];
     renderRoleAccessPanels();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     roleAccessPanelsOutput.textContent = `Failed to load role signup buttons.\n${error.message}`;
     setRoleAccessPanelStatus(`Role signup buttons failed to load: ${error.message}`, "error");
@@ -3480,11 +3834,13 @@ async function loadRoleFollowups() {
     const data = await fetchJson("/api/role-followups");
     roleFollowups = Array.isArray(data.roleFollowups) ? data.roleFollowups : [];
     renderRoleFollowups();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     setPrettyJson(roleFollowupsOutput, data);
   } catch (error) {
     roleFollowups = [];
     renderRoleFollowups();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     roleFollowupsOutput.textContent = `Failed to load role follow-ups.\n${error.message}`;
     setRoleFollowupStatus(`Follow-up load failed: ${error.message}`, "error");
@@ -3557,11 +3913,13 @@ async function loadChannelOperations() {
     channelAutomationStatuses = Array.isArray(data.channelAutomationStatuses) ? data.channelAutomationStatuses : [];
     renderAutomationMaster();
     renderChannelOperations();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     setPrettyJson(channelOperationsOutput, data);
   } catch (error) {
     channelAutomationStatuses = [];
     renderChannelOperations();
+    renderChannelSetupAssistant();
     renderOpsSnapshot();
     channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
   }
@@ -4287,11 +4645,23 @@ channelOperationsFilter.addEventListener("change", renderChannelOperations);
 channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
+missionOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
+channelSetupChannel?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupPurpose?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupAccessMode?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupRole?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupOpenRolePanelButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons")));
+channelSetupOpenFollowupsButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("access", "community-role-followups")));
+channelSetupOpenFeedsButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts")));
+channelSetupOpenGenerateButton?.addEventListener("click", () => navigateMissionAction(createMissionNavigation("push", "post-now-generated-content")));
+channelSetupResetButton?.addEventListener("click", resetChannelSetupAssistant);
+
 configureAutoRefresh();
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
 renderOpsSnapshot();
 renderAutomationActivity();
+renderChannelSetupMetadataOptions();
 loadComposerDraft();
 renderRoleAccessPreview();
 renderRoleFollowupPreview();
