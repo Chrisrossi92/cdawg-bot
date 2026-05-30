@@ -58,6 +58,17 @@ const taskPostNowButton = document.querySelector("#task-post-now");
 const taskCommunityButton = document.querySelector("#task-community");
 const taskRecentProblemsButton = document.querySelector("#task-recent-problems");
 const taskSettingsButton = document.querySelector("#task-settings");
+const missionRefreshDashboardButton = document.querySelector("#mission-refresh-dashboard");
+const missionBriefingStatus = document.querySelector("#mission-briefing-status");
+const missionBriefingTitle = document.querySelector("#mission-briefing-title");
+const missionBriefingSummary = document.querySelector("#mission-briefing-summary");
+const missionSystemHealth = document.querySelector("#mission-system-health");
+const missionAutomationSummary = document.querySelector("#mission-automation-summary");
+const missionOpportunityCount = document.querySelector("#mission-opportunity-count");
+const missionProblemCount = document.querySelector("#mission-problem-count");
+const missionNextActivity = document.querySelector("#mission-next-activity");
+const missionActionCount = document.querySelector("#mission-action-count");
+const missionActionList = document.querySelector("#mission-action-list");
 
 const healthCards = document.querySelector("#health-cards");
 const healthOutput = document.querySelector("#health-output");
@@ -1087,6 +1098,444 @@ function renderCommunityHealth() {
   setOpsCardState(communityMissingChannelCard, getCountTone(missingChannelCount));
 }
 
+function getProviderFailureCount() {
+  const failures = lastMetricsSnapshot?.contentProviders?.apiFailureCounts;
+
+  if (!failures || typeof failures !== "object") {
+    return 0;
+  }
+
+  return Object.values(failures).reduce((total, value) => total + (typeof value === "number" ? value : 0), 0);
+}
+
+function createMissionNavigation(tab, section) {
+  return {
+    tab,
+    section,
+  };
+}
+
+function buildMissionOpportunities() {
+  const opportunities = [];
+  const recentProblems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");
+  const panelsMissingRole = roleAccessPanels.filter((panel) => hasMissingRole(panel.roleId));
+  const panelsMissingChannel = roleAccessPanels.filter((panel) => hasMissingChannel(panel.targetChannelId));
+  const inactivePanels = roleAccessPanels.filter((panel) => panel.active === false);
+  const followupsMissingRole = roleFollowups.filter((followup) => hasMissingRole(followup.roleId));
+  const followupsMissingChannel = roleFollowups.filter((followup) => hasMissingChannel(followup.channelId));
+  const disabledFollowups = roleFollowups.filter((followup) => followup.enabled === false);
+  const disabledChannels = channelAutomationStatuses.filter((status) => status.blockedReason === "disabled");
+  const pausedChannels = channelAutomationStatuses.filter((status) => status.blockedReason === "silenced");
+  const delayedChannels = channelAutomationStatuses.filter((status) => status.blockedReason === "cooldown");
+  const skipNextChannels = channelAutomationStatuses.filter(
+    (status) => status.blockedReason === "skip-next" || status.skipNextSendPending === true,
+  );
+  const blockedFeeds = feeds.filter((feed) => Boolean(feed.blockedReason));
+  const feedWarnings = feeds.flatMap((feed) => (feed.overlapWarnings ?? []).map((warning) => ({ feed, warning })));
+  const providerFailureCount = getProviderFailureCount();
+
+  if (lastHealthSnapshot && lastHealthSnapshot.ok !== true) {
+    opportunities.push({
+      name: "API unavailable",
+      detail: "The dashboard could not confirm that the API is online.",
+      severity: "action needed",
+      source: "/health",
+      actionLabel: "Open Settings",
+      navigation: createMissionNavigation("settings"),
+    });
+  }
+
+  if (lastHealthSnapshot && lastHealthSnapshot.botReady !== true) {
+    opportunities.push({
+      name: "Bot not ready",
+      detail: "Discord connection is not reporting ready.",
+      severity: "action needed",
+      source: "/health",
+      actionLabel: "Open Settings",
+      navigation: createMissionNavigation("settings"),
+    });
+  }
+
+  if (!guildMetadataLoaded) {
+    opportunities.push({
+      name: "Discord metadata unavailable",
+      detail: "Role and channel validation is limited until Discord metadata loads.",
+      severity: "warning",
+      source: "/api/discord/guild-metadata",
+      actionLabel: "Refresh Dashboard",
+      navigation: createMissionNavigation("overview"),
+    });
+  }
+
+  if (automationMaster.globalAutomationEnabled === false) {
+    opportunities.push({
+      name: "Automatic posting is off",
+      detail: "Scheduled posts and background chat replies are blocked globally.",
+      severity: "action needed",
+      source: "/api/settings",
+      actionLabel: "Open Settings",
+      navigation: createMissionNavigation("settings"),
+    });
+  }
+
+  if (panelsMissingRole.length > 0) {
+    opportunities.push({
+      name: "Role signup buttons missing roles",
+      detail: `${panelsMissingRole.length} role signup button${panelsMissingRole.length === 1 ? "" : "s"} need a valid Discord role.`,
+      severity: "action needed",
+      source: "/api/role-access-panels + /api/discord/guild-metadata",
+      actionLabel: "Open Community",
+      navigation: createMissionNavigation("access", "community-role-signup-buttons"),
+    });
+  }
+
+  if (panelsMissingChannel.length > 0) {
+    opportunities.push({
+      name: "Role signup buttons missing channels",
+      detail: `${panelsMissingChannel.length} role signup button${panelsMissingChannel.length === 1 ? "" : "s"} need a valid destination channel.`,
+      severity: "action needed",
+      source: "/api/role-access-panels + /api/discord/guild-metadata",
+      actionLabel: "Open Community",
+      navigation: createMissionNavigation("access", "community-role-signup-buttons"),
+    });
+  }
+
+  if (followupsMissingRole.length > 0) {
+    opportunities.push({
+      name: "Follow-ups missing roles",
+      detail: `${followupsMissingRole.length} follow-up${followupsMissingRole.length === 1 ? "" : "s"} need a valid trigger role.`,
+      severity: "action needed",
+      source: "/api/role-followups + /api/discord/guild-metadata",
+      actionLabel: "Open Follow-Ups",
+      navigation: createMissionNavigation("access", "community-role-followups"),
+    });
+  }
+
+  if (followupsMissingChannel.length > 0) {
+    opportunities.push({
+      name: "Follow-ups missing channels",
+      detail: `${followupsMissingChannel.length} follow-up${followupsMissingChannel.length === 1 ? "" : "s"} need a valid destination channel.`,
+      severity: "action needed",
+      source: "/api/role-followups + /api/discord/guild-metadata",
+      actionLabel: "Open Follow-Ups",
+      navigation: createMissionNavigation("access", "community-role-followups"),
+    });
+  }
+
+  if (recentProblems.length > 0) {
+    opportunities.push({
+      name: "Recent automation problems",
+      detail: `${recentProblems.length} recent automation event${recentProblems.length === 1 ? "" : "s"} need review.`,
+      severity: "action needed",
+      source: "/api/automation-activity",
+      actionLabel: "View Problems",
+      navigation: createMissionNavigation("overview", "dashboard-recent-problems"),
+    });
+  }
+
+  if (blockedFeeds.some((feed) => feed.blockedReason === "trivia-ineligible")) {
+    opportunities.push({
+      name: "Trivia feed ineligible",
+      detail: "At least one trivia feed cannot use its current channel/topic setup.",
+      severity: "action needed",
+      source: "/api/feeds",
+      actionLabel: "Open Scheduled Posts",
+      navigation: createMissionNavigation("channels", "automation-scheduled-posts"),
+    });
+  }
+
+  if (providerFailureCount > 0) {
+    opportunities.push({
+      name: "Provider failures recorded",
+      detail: `${providerFailureCount} provider API failure${providerFailureCount === 1 ? "" : "s"} are recorded in metrics.`,
+      severity: "warning",
+      source: "/api/metrics",
+      actionLabel: "Open Settings",
+      navigation: createMissionNavigation("settings"),
+    });
+  }
+
+  if (disabledChannels.length > 0) {
+    opportunities.push({
+      name: "Channel automation disabled",
+      detail: `${disabledChannels.length} channel${disabledChannels.length === 1 ? "" : "s"} have automatic posting turned off.`,
+      severity: "warning",
+      source: "/api/channel-automation-status",
+      actionLabel: "Open Automation",
+      navigation: createMissionNavigation("channels", "automation-channel-controls"),
+    });
+  }
+
+  if (pausedChannels.length > 0) {
+    opportunities.push({
+      name: "Channels paused",
+      detail: `${pausedChannels.length} channel${pausedChannels.length === 1 ? "" : "s"} are paused.`,
+      severity: "warning",
+      source: "/api/channel-automation-status",
+      actionLabel: "Open Automation",
+      navigation: createMissionNavigation("channels", "automation-channel-controls"),
+    });
+  }
+
+  if (delayedChannels.length > 0) {
+    opportunities.push({
+      name: "Channels delayed",
+      detail: `${delayedChannels.length} channel${delayedChannels.length === 1 ? "" : "s"} are waiting on cooldown.`,
+      severity: "warning",
+      source: "/api/channel-automation-status",
+      actionLabel: "Open Automation",
+      navigation: createMissionNavigation("channels", "automation-channel-controls"),
+    });
+  }
+
+  if (skipNextChannels.length > 0) {
+    opportunities.push({
+      name: "Skip-next pending",
+      detail: `${skipNextChannels.length} channel${skipNextChannels.length === 1 ? "" : "s"} will skip the next scheduled post.`,
+      severity: "warning",
+      source: "/api/channel-automation-status",
+      actionLabel: "Open Automation",
+      navigation: createMissionNavigation("channels", "automation-channel-controls"),
+    });
+  }
+
+  if (blockedFeeds.filter((feed) => feed.blockedReason !== "trivia-ineligible").length > 0) {
+    opportunities.push({
+      name: "Scheduled posts blocked",
+      detail: `${blockedFeeds.length} feed${blockedFeeds.length === 1 ? "" : "s"} are blocked by automation, timing, or channel state.`,
+      severity: "warning",
+      source: "/api/feeds",
+      actionLabel: "Open Scheduled Posts",
+      navigation: createMissionNavigation("channels", "automation-scheduled-posts"),
+    });
+  }
+
+  if (feedWarnings.length > 0) {
+    opportunities.push({
+      name: "Feed schedule warnings",
+      detail: `${feedWarnings.length} feed warning${feedWarnings.length === 1 ? "" : "s"} found for cadence or overlap.`,
+      severity: "warning",
+      source: "/api/feeds",
+      actionLabel: "Open Scheduled Posts",
+      navigation: createMissionNavigation("channels", "automation-scheduled-posts"),
+    });
+  }
+
+  if (dailyTriviaChallenge?.blockedReason) {
+    opportunities.push({
+      name: "Daily trivia blocked",
+      detail: `Daily trivia is blocked by ${getBlockedReasonLabel(dailyTriviaChallenge.blockedReason)}.`,
+      severity: dailyTriviaChallenge.blockedReason === "trivia-ineligible" ? "action needed" : "warning",
+      source: "/api/daily-trivia",
+      actionLabel: "Open Daily Trivia",
+      navigation: createMissionNavigation("channels", "automation-daily-trivia"),
+    });
+  }
+
+  if (dailyTriviaChallenge && dailyTriviaChallenge.enabled === false) {
+    opportunities.push({
+      name: "Daily trivia disabled",
+      detail: "Daily trivia is configured but turned off.",
+      severity: "warning",
+      source: "/api/daily-trivia",
+      actionLabel: "Open Daily Trivia",
+      navigation: createMissionNavigation("channels", "automation-daily-trivia"),
+    });
+  }
+
+  if (disabledFollowups.length > 0) {
+    opportunities.push({
+      name: "Follow-ups disabled",
+      detail: `${disabledFollowups.length} role follow-up${disabledFollowups.length === 1 ? "" : "s"} are saved but inactive.`,
+      severity: "warning",
+      source: "/api/role-followups",
+      actionLabel: "Open Follow-Ups",
+      navigation: createMissionNavigation("access", "community-role-followups"),
+    });
+  }
+
+  if (inactivePanels.length > 0) {
+    opportunities.push({
+      name: "Role signup buttons inactive",
+      detail: `${inactivePanels.length} role signup button${inactivePanels.length === 1 ? "" : "s"} are saved but inactive.`,
+      severity: "warning",
+      source: "/api/role-access-panels",
+      actionLabel: "Open Community",
+      navigation: createMissionNavigation("access", "community-role-signup-buttons"),
+    });
+  }
+
+  return opportunities;
+}
+
+function getMissionBriefingTitle(opportunities, recentProblems) {
+  if (lastHealthSnapshot?.ok !== true || lastHealthSnapshot?.botReady !== true) {
+    return "CDawg needs a systems check.";
+  }
+
+  if (opportunities.some((item) => item.severity === "action needed")) {
+    return "CDawg found items that need attention.";
+  }
+
+  if (recentProblems.length > 0) {
+    return "CDawg spotted recent automation problems.";
+  }
+
+  if (opportunities.length > 0) {
+    return "CDawg has a few recommendations ready.";
+  }
+
+  return "CDawg is standing by.";
+}
+
+function getMissionBriefingSummary(opportunities, recentProblems, nextAutomation) {
+  const actionCount = opportunities.filter((item) => item.severity === "action needed").length;
+  const warningCount = opportunities.filter((item) => item.severity === "warning").length;
+  const nextText = nextAutomation
+    ? `Next scheduled activity is ${nextAutomation.label ?? nextAutomation.channelId} ${formatRelativeTime(nextAutomation.nextEligibleSendAt)}.`
+    : "No next scheduled activity is currently available.";
+
+  if (actionCount > 0 || warningCount > 0) {
+    return `${actionCount} action-needed and ${warningCount} warning-level item${actionCount + warningCount === 1 ? "" : "s"} are in the queue. ${nextText}`;
+  }
+
+  if (recentProblems.length > 0) {
+    return `${recentProblems.length} recent problem${recentProblems.length === 1 ? "" : "s"} need review. ${nextText}`;
+  }
+
+  return `System health is clear from the currently loaded dashboard data. ${nextText}`;
+}
+
+function getMissionSeverityTone(severity) {
+  if (severity === "action needed") {
+    return "blocked";
+  }
+
+  if (severity === "warning") {
+    return "neutral";
+  }
+
+  return "active";
+}
+
+function getMissionStatusTone(opportunities) {
+  if (lastHealthSnapshot?.ok !== true || lastHealthSnapshot?.botReady !== true) {
+    return "blocked";
+  }
+
+  if (opportunities.some((item) => item.severity === "action needed")) {
+    return "blocked";
+  }
+
+  if (opportunities.length > 0) {
+    return "neutral";
+  }
+
+  return "active";
+}
+
+function navigateMissionAction(navigation) {
+  if (!navigation) {
+    return;
+  }
+
+  setActiveControlTab(navigation.tab || "overview");
+
+  if (navigation.section) {
+    window.requestAnimationFrame(() => {
+      document.querySelector(`#${navigation.section}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  }
+}
+
+function createMissionActionCard(opportunity) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("h3");
+  const badge = createStatusBadge(opportunity.severity, getMissionSeverityTone(opportunity.severity));
+  const detail = document.createElement("p");
+  const source = document.createElement("small");
+  const action = document.createElement("button");
+
+  card.className = `mission-action-card mission-severity-${opportunity.severity.replace(/\s+/g, "-")}`;
+  header.className = "mission-action-card-header";
+  title.textContent = opportunity.name;
+  detail.textContent = opportunity.detail;
+  source.textContent = `Source: ${opportunity.source}`;
+  action.type = "button";
+  action.className = "secondary";
+  action.textContent = opportunity.actionLabel;
+  action.addEventListener("click", () => navigateMissionAction(opportunity.navigation));
+
+  header.append(title, badge);
+  card.append(header, detail, source, action);
+  return card;
+}
+
+function renderMissionControl() {
+  if (!missionActionList) {
+    return;
+  }
+
+  const opportunities = buildMissionOpportunities();
+  const actionNeeded = opportunities.filter((item) => item.severity === "action needed" || item.severity === "warning");
+  const recentProblems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");
+  const nextAutomation = getNextAutomationCandidate();
+  const activeCount = channelAutomationStatuses.filter((status) => !status.blockedReason).length;
+  const blockedCount = channelAutomationStatuses.filter((status) => status.blockedReason || status.skipNextSendPending === true).length;
+  const statusTone = getMissionStatusTone(actionNeeded);
+
+  missionBriefingStatus.textContent =
+    statusTone === "active" ? "systems clear" : statusTone === "blocked" ? "attention needed" : "review recommended";
+  missionBriefingStatus.className = `status-badge ${statusTone}`;
+  missionBriefingTitle.textContent = getMissionBriefingTitle(actionNeeded, recentProblems);
+  missionBriefingSummary.textContent = getMissionBriefingSummary(actionNeeded, recentProblems, nextAutomation);
+  missionSystemHealth.textContent =
+    lastHealthSnapshot?.ok === true && lastHealthSnapshot?.botReady === true
+      ? "Online"
+      : lastHealthSnapshot
+        ? "Needs Check"
+        : "Loading";
+  missionAutomationSummary.textContent = automationMaster.globalAutomationEnabled === false
+    ? "Master OFF"
+    : `${activeCount} active / ${blockedCount} blocked`;
+  missionOpportunityCount.textContent = String(actionNeeded.length);
+  missionProblemCount.textContent = String(recentProblems.length);
+  missionActionCount.textContent = `${actionNeeded.length} item${actionNeeded.length === 1 ? "" : "s"}`;
+  missionActionCount.className = `status-badge ${actionNeeded.length > 0 ? "blocked" : "active"}`;
+
+  missionNextActivity.replaceChildren();
+  if (nextAutomation) {
+    missionNextActivity.append(
+      createAutomationDetailLine("Next scheduled activity", `${nextAutomation.label ?? nextAutomation.channelId} - ${formatTimestamp(nextAutomation.nextEligibleSendAt)} (${formatRelativeTime(nextAutomation.nextEligibleSendAt)})`, nextAutomation.blockedReason ? "blocked" : "ok"),
+      createAutomationDetailLine("Posting mode", getAutomationModeLabel(nextAutomation.automationMode)),
+    );
+  } else {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = automationMaster.globalAutomationEnabled === false
+      ? "Automatic Posting is OFF, so no next scheduled activity is eligible."
+      : "No next scheduled activity is available from the currently loaded state.";
+    missionNextActivity.append(emptyState);
+  }
+
+  missionActionList.replaceChildren();
+  if (actionNeeded.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No action-needed or warning-level opportunities found.";
+    missionActionList.append(emptyState);
+    return;
+  }
+
+  for (const opportunity of actionNeeded.slice(0, 8)) {
+    missionActionList.append(createMissionActionCard(opportunity));
+  }
+}
+
 function renderOpsSnapshot() {
   const hasHealthSnapshot = Boolean(lastHealthSnapshot);
   const apiOnline = lastHealthSnapshot?.ok === true;
@@ -1156,6 +1605,7 @@ function renderOpsSnapshot() {
   }
 
   renderCommunityHealth();
+  renderMissionControl();
 }
 
 function renderMetricList(target, entries) {
@@ -2696,10 +3146,12 @@ async function loadMetrics() {
     renderMetricList(providerFallbackList, sortCounterEntries(metrics.contentProviders.fallbackToLocalCounts));
     renderMetricList(providerFailureList, sortCounterEntries(metrics.contentProviders.apiFailureCounts));
     renderSettingsSummary();
+    renderMissionControl();
     setPrettyJson(metricsOutput, data);
   } catch (error) {
     lastMetricsSnapshot = null;
     renderSettingsSummary();
+    renderMissionControl();
     metricsOutput.textContent = `Failed to load metrics.\n${error.message}`;
   }
 }
@@ -2709,10 +3161,12 @@ async function loadAutomationActivity() {
     const data = await fetchJson("/api/automation-activity?limit=50");
     automationActivityItems = Array.isArray(data.items) ? data.items : [];
     renderAutomationActivity();
+    renderMissionControl();
     setPrettyJson(automationActivityOutput, data);
   } catch (error) {
     automationActivityItems = [];
     renderAutomationActivity();
+    renderMissionControl();
     automationActivityOutput.textContent = `Failed to load automation activity.\n${error.message}`;
   }
 }
@@ -3476,6 +3930,7 @@ async function reloadAll() {
     loadRoleFollowups(),
     loadComposerTemplates(),
   ]);
+  renderMissionControl();
 }
 
 function configureAutoRefresh() {
@@ -3584,6 +4039,7 @@ postRoleAccessPanelFormButton.addEventListener("click", () => void postCurrentRo
 resetRoleFollowupFormButton.addEventListener("click", resetRoleFollowupForm);
 deleteRoleFollowupFormButton.addEventListener("click", () => void deleteCurrentRoleFollowup());
 refreshAllButton.addEventListener("click", () => void reloadAll());
+missionRefreshDashboardButton.addEventListener("click", () => void reloadAll());
 automationMasterButton.addEventListener("click", () => void toggleAutomationMaster());
 opsRefreshDashboardButton.addEventListener("click", () => void reloadAll());
 opsJumpChannelsButton.addEventListener("click", () => setActiveControlTab("channels"));

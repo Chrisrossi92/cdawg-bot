@@ -72,6 +72,55 @@
 
       <section class="panel control-center">
         <section class="control-tab-panel" data-tab-panel="overview">
+          <section class="control-block mission-control" aria-label="Mission Control">
+            <div class="subpanel-header">
+              <div>
+                <h3>Mission Control</h3>
+                <p>CDawg briefing and the highest-priority items that need attention.</p>
+              </div>
+              <button id="mission-refresh-dashboard" type="button">Refresh Dashboard</button>
+            </div>
+
+            <section class="mission-briefing">
+              <div class="mission-briefing-copy">
+                <span id="mission-briefing-status" class="status-badge neutral">loading</span>
+                <h3 id="mission-briefing-title">Building CDawg briefing...</h3>
+                <p id="mission-briefing-summary">Checking system health, automation, opportunities, and recent problems.</p>
+              </div>
+              <div class="mission-briefing-grid">
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">System Health</span>
+                  <strong id="mission-system-health">Loading</strong>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Automation</span>
+                  <strong id="mission-automation-summary">Loading</strong>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Opportunities</span>
+                  <strong id="mission-opportunity-count">0</strong>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Problems</span>
+                  <strong id="mission-problem-count">0</strong>
+                </article>
+              </div>
+              <div id="mission-next-activity" class="mission-next-activity">
+                <p class="channel-operation-empty">Loading next scheduled activity...</p>
+              </div>
+            </section>
+
+            <section class="mission-action-panel">
+              <div class="ops-snapshot-group-header">
+                <h3>Action Needed</h3>
+                <span id="mission-action-count" class="status-badge neutral">0 items</span>
+              </div>
+              <div id="mission-action-list" class="mission-action-list">
+                <p class="channel-operation-empty">Checking action-needed items...</p>
+              </div>
+            </section>
+          </section>
+
           <section class="control-block ops-snapshot" aria-label="Bot Status">
             <div class="subpanel-header">
               <div>
