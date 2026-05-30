@@ -66,6 +66,8 @@ const missionSystemHealth = document.querySelector("#mission-system-health");
 const missionAutomationSummary = document.querySelector("#mission-automation-summary");
 const missionOpportunityCount = document.querySelector("#mission-opportunity-count");
 const missionProblemCount = document.querySelector("#mission-problem-count");
+const missionProfileCount = document.querySelector("#mission-profile-count");
+const missionProfileMissingRoleCount = document.querySelector("#mission-profile-missing-role-count");
 const missionNextActivity = document.querySelector("#mission-next-activity");
 const missionActionCount = document.querySelector("#mission-action-count");
 const missionActionList = document.querySelector("#mission-action-list");
@@ -79,9 +81,16 @@ const channelSetupChannel = document.querySelector("#channel-setup-channel");
 const channelSetupChannelDetail = document.querySelector("#channel-setup-channel-detail");
 const channelSetupPurpose = document.querySelector("#channel-setup-purpose");
 const channelSetupAccessMode = document.querySelector("#channel-setup-access-mode");
+const channelSetupAudience = document.querySelector("#channel-setup-audience");
+const channelSetupTone = document.querySelector("#channel-setup-tone");
 const channelSetupRoleField = document.querySelector("#channel-setup-role-field");
 const channelSetupRole = document.querySelector("#channel-setup-role");
 const channelSetupRoleDetail = document.querySelector("#channel-setup-role-detail");
+const channelSetupContentTypes = Array.from(document.querySelectorAll("[name='preferredContentTypes']"));
+const channelSetupTopic = document.querySelector("#channel-setup-topic");
+const channelSetupNotes = document.querySelector("#channel-setup-notes");
+const channelSetupSaveProfileButton = document.querySelector("#channel-setup-save-profile");
+const channelSetupDeleteProfileButton = document.querySelector("#channel-setup-delete-profile");
 const channelSetupPlan = document.querySelector("#channel-setup-plan");
 const channelSetupOpenRolePanelButton = document.querySelector("#channel-setup-open-role-panel");
 const channelSetupOpenFollowupsButton = document.querySelector("#channel-setup-open-followups");
@@ -203,6 +212,7 @@ let feeds = [];
 let roleAccessPanels = [];
 let roleFollowups = [];
 let composerTemplates = [];
+let channelProfiles = [];
 let activeControlTab = "overview";
 let composerDraftBeforeRewrite = null;
 
@@ -256,6 +266,25 @@ const channelSetupAccessLabels = {
   announcement: "Announcement-only",
   unsure: "Not sure yet",
 };
+
+const channelSetupAudienceLabels = {
+  everyone: "Everyone",
+  members: "Members",
+  "role-members": "Role members",
+  admins: "Admins",
+  custom: "Custom",
+};
+
+const channelSetupToneLabels = {
+  friendly: "Friendly",
+  informational: "Informational",
+  playful: "Playful",
+  serious: "Serious",
+  supportive: "Supportive",
+  custom: "Custom",
+};
+
+const allowedChannelSetupTopics = new Set(["general", "palworld", "history", "genealogy", "pokemon", "harry-potter", "true-crime", "music", "valheim"]);
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -1804,7 +1833,102 @@ function renderChannelSetupMetadataOptions() {
     channelSetupRole.append(option);
   }
 
-  channelSetupRole.value = guildRoles.some((role) => role.id === previousRoleId) ? previousRoleId : "";
+  if (previousRoleId && !guildRoles.some((role) => role.id === previousRoleId)) {
+    ensureChannelSetupRoleOption(previousRoleId);
+  }
+
+  channelSetupRole.value = previousRoleId && Array.from(channelSetupRole.options).some((option) => option.value === previousRoleId) ? previousRoleId : "";
+  renderChannelSetupAssistant();
+}
+
+function getSavedChannelProfile(channelId) {
+  return channelId ? channelProfiles.find((profile) => profile.channelId === channelId) ?? null : null;
+}
+
+function setChannelSetupPreferredContentTypes(contentTypes) {
+  const selectedTypes = new Set(contentTypes);
+
+  for (const input of channelSetupContentTypes) {
+    input.checked = selectedTypes.has(input.value);
+  }
+}
+
+function getChannelSetupPreferredContentTypes() {
+  return channelSetupContentTypes.filter((input) => input.checked).map((input) => input.value);
+}
+
+function applyChannelSetupPurposeDefaults() {
+  const purposeKey = channelSetupPurpose?.value ?? "genealogy";
+  const purposeProfile = channelSetupPurposeProfiles[purposeKey] ?? channelSetupPurposeProfiles.custom;
+
+  setChannelSetupPreferredContentTypes(purposeProfile.contentTypes);
+
+  if (channelSetupTopic) {
+    channelSetupTopic.value = getChannelSetupPurposeTopic({ purposeKey });
+  }
+}
+
+function ensureChannelSetupRoleOption(roleId) {
+  if (!roleId || !channelSetupRole || Array.from(channelSetupRole.options).some((option) => option.value === roleId)) {
+    return;
+  }
+
+  const option = document.createElement("option");
+  option.value = roleId;
+  option.textContent = `Saved role ${roleId}`;
+  channelSetupRole.append(option);
+}
+
+function applySavedChannelProfileToAssistant(channelId) {
+  const profile = getSavedChannelProfile(channelId);
+
+  if (!profile) {
+    setChannelSetupAssistantStatus(channelId ? "new profile draft" : "draft", "neutral");
+    return;
+  }
+
+  if (channelSetupPurpose) {
+    channelSetupPurpose.value = profile.purpose || "genealogy";
+  }
+
+  if (channelSetupAudience) {
+    channelSetupAudience.value = profile.audience || "everyone";
+  }
+
+  if (channelSetupAccessMode) {
+    channelSetupAccessMode.value = profile.accessMode || "everyone";
+  }
+
+  if (channelSetupTone) {
+    channelSetupTone.value = profile.tone || "friendly";
+  }
+
+  ensureChannelSetupRoleOption(profile.suggestedRoleId);
+
+  if (channelSetupRole) {
+    channelSetupRole.value = profile.suggestedRoleId || "";
+  }
+
+  setChannelSetupPreferredContentTypes(Array.isArray(profile.preferredContentTypes) ? profile.preferredContentTypes : []);
+
+  if (channelSetupTopic) {
+    channelSetupTopic.value = profile.topicOverride || "";
+  }
+
+  if (channelSetupNotes) {
+    channelSetupNotes.value = profile.notes || "";
+  }
+
+  setChannelSetupAssistantStatus("saved profile loaded", "active");
+}
+
+function handleChannelSetupChannelChange() {
+  applySavedChannelProfileToAssistant(channelSetupChannel?.value ?? "");
+  renderChannelSetupAssistant();
+}
+
+function handleChannelSetupPurposeChange() {
+  applyChannelSetupPurposeDefaults();
   renderChannelSetupAssistant();
 }
 
@@ -1815,17 +1939,27 @@ function getChannelSetupState() {
   const roleId = roleRecommended ? channelSetupRole?.value ?? "" : "";
   const purposeKey = channelSetupPurpose?.value ?? "genealogy";
   const purposeProfile = channelSetupPurposeProfiles[purposeKey] ?? channelSetupPurposeProfiles.custom;
+  const preferredContentTypes = getChannelSetupPreferredContentTypes();
+  const savedProfile = getSavedChannelProfile(channelId);
 
   return {
+    audience: channelSetupAudience?.value ?? "everyone",
+    audienceLabel: channelSetupAudienceLabels[channelSetupAudience?.value] ?? "Everyone",
     accessMode,
     accessLabel: channelSetupAccessLabels[accessMode] ?? "Not sure yet",
     channel: guildChannels.find((entry) => entry.id === channelId) ?? null,
     channelId,
+    savedProfile,
     purposeKey,
     purposeProfile,
+    preferredContentTypes: preferredContentTypes.length > 0 ? preferredContentTypes : purposeProfile.contentTypes,
     role: guildRoles.find((entry) => entry.id === roleId) ?? null,
     roleId,
     roleRecommended,
+    tone: channelSetupTone?.value ?? "friendly",
+    toneLabel: channelSetupToneLabels[channelSetupTone?.value] ?? "Friendly",
+    topicOverride: channelSetupTopic?.value.trim() || null,
+    notes: channelSetupNotes?.value.trim() || null,
   };
 }
 
@@ -2122,6 +2256,112 @@ function prefillManualPushFromChannelSetup() {
   navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
 }
 
+function buildChannelProfilePayload() {
+  const state = getChannelSetupState();
+  const rolePanel = getChannelSetupPanelForRole(state.roleId);
+  const roleFollowup = getChannelSetupFollowupForRole(state.roleId);
+
+  return {
+    channelId: state.channelId,
+    purpose: state.purposeKey,
+    audience: state.audience,
+    accessMode: state.accessMode,
+    tone: state.tone,
+    preferredContentTypes: state.preferredContentTypes,
+    topicOverride: state.topicOverride,
+    suggestedRoleId: state.roleId || null,
+    signupPanelId: rolePanel?.id ?? null,
+    followupId: roleFollowup?.id ?? null,
+    notes: state.notes,
+  };
+}
+
+function validateChannelProfilePayload(payload) {
+  if (!payload.channelId) {
+    return "Choose a channel before saving a profile.";
+  }
+
+  if (!Array.isArray(payload.preferredContentTypes) || payload.preferredContentTypes.length === 0) {
+    return "Choose at least one preferred content type.";
+  }
+
+  if (payload.topicOverride && !allowedChannelSetupTopics.has(payload.topicOverride)) {
+    return "Choose a valid topic override or leave it blank.";
+  }
+
+  if (payload.notes && payload.notes.length > 1000) {
+    return "Notes must be 1000 characters or fewer.";
+  }
+
+  return null;
+}
+
+async function saveChannelSetupProfile() {
+  const payload = buildChannelProfilePayload();
+  const validationError = validateChannelProfilePayload(payload);
+
+  if (validationError) {
+    setChannelSetupAssistantStatus(validationError, "blocked");
+    return;
+  }
+
+  setChannelSetupAssistantStatus("saving profile...", "neutral");
+
+  try {
+    const data = await fetchJson("/api/channel-profiles/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    channelProfiles = Array.isArray(data.channelProfiles) ? data.channelProfiles : [];
+    applySavedChannelProfileToAssistant(payload.channelId);
+    renderChannelSetupAssistant();
+    renderMissionControl();
+    setChannelSetupAssistantStatus("channel profile saved", "active");
+  } catch (error) {
+    setChannelSetupAssistantStatus(`Profile save failed: ${error.message}`, "blocked");
+  }
+}
+
+async function deleteChannelSetupProfile() {
+  const state = getChannelSetupState();
+
+  if (!state.channelId || !state.savedProfile) {
+    setChannelSetupAssistantStatus("Choose a saved channel profile before deleting.", "blocked");
+    return;
+  }
+
+  const channelLabel = state.channel ? `#${state.channel.name}` : state.channelId;
+
+  if (!window.confirm(`Delete CDawg's saved memory for ${channelLabel}? This does not change Discord.`)) {
+    return;
+  }
+
+  setChannelSetupAssistantStatus("deleting profile...", "neutral");
+
+  try {
+    const data = await fetchJson("/api/channel-profiles/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channelId: state.channelId,
+      }),
+    });
+
+    channelProfiles = Array.isArray(data.channelProfiles) ? data.channelProfiles : [];
+    resetChannelSetupAssistant({ preserveChannel: true });
+    renderMissionControl();
+    setChannelSetupAssistantStatus("channel profile deleted", "active");
+  } catch (error) {
+    setChannelSetupAssistantStatus(`Profile delete failed: ${error.message}`, "blocked");
+  }
+}
+
 function createChannelSetupDetail(label, value) {
   const wrapper = document.createElement("div");
   const term = document.createElement("dt");
@@ -2179,10 +2419,10 @@ function renderChannelSetupAssistant() {
   const automationStatus = getChannelSetupAutomationStatus(state.channelId);
   const automationWarning = getChannelSetupAutomationWarning(automationStatus);
   const roleMissing = state.roleRecommended && !state.roleId;
-  const contentTypes = state.purposeProfile.contentTypes;
+  const contentTypes = state.preferredContentTypes;
 
   if (channelSetupStatus) {
-    channelSetupStatus.textContent = state.channelId ? "plan ready" : "draft";
+    channelSetupStatus.textContent = state.savedProfile ? "saved profile" : state.channelId ? "plan ready" : "draft";
     channelSetupStatus.className = `status-badge ${state.channelId ? "active" : "neutral"}`;
   }
 
@@ -2202,6 +2442,10 @@ function renderChannelSetupAssistant() {
       : state.role
         ? `${state.role.name} (${state.role.id})`
         : "Role is optional for this access mode.";
+  }
+
+  if (channelSetupDeleteProfileButton) {
+    channelSetupDeleteProfileButton.hidden = !state.savedProfile;
   }
 
   channelSetupPlan.replaceChildren();
@@ -2242,8 +2486,12 @@ function renderChannelSetupAssistant() {
   summary.append(
     createChannelSetupDetail("Channel", state.channel ? `#${state.channel.name}` : "Choose a channel"),
     createChannelSetupDetail("Purpose", state.purposeProfile.label),
+    createChannelSetupDetail("Audience", state.audienceLabel),
     createChannelSetupDetail("Access", state.accessLabel),
+    createChannelSetupDetail("Tone", state.toneLabel),
+    createChannelSetupDetail("Topic", state.topicOverride ?? getChannelSetupPurposeTopic(state)),
     createChannelSetupDetail("Suggested Role", state.roleRecommended ? state.role ? state.role.name : "Choose an existing role" : "No role needed"),
+    createChannelSetupDetail("Memory", state.savedProfile ? "Saved profile exists" : "Unsaved profile draft"),
   );
 
   contentTitle.textContent = "Suggested Content Types";
@@ -2269,6 +2517,13 @@ function renderChannelSetupAssistant() {
 
   header.append(title, badgeRow);
   contentBlock.append(contentTitle, contentCopy);
+  if (state.notes) {
+    const notesTitle = document.createElement("h4");
+    const notesCopy = document.createElement("p");
+    notesTitle.textContent = "Saved Notes";
+    notesCopy.textContent = state.notes;
+    contentBlock.append(notesTitle, notesCopy);
+  }
   stepsBlock.append(stepsTitle, steps);
   followupBlock.append(followupTitle, followupDraft, starterTitle, starterDraft);
   channelSetupPlan.append(header, summary, contentBlock, stepsBlock, followupBlock);
@@ -2290,8 +2545,10 @@ function openChannelSetupAssistant() {
   });
 }
 
-function resetChannelSetupAssistant() {
-  if (channelSetupChannel) {
+function resetChannelSetupAssistant(options = {}) {
+  const currentChannelId = channelSetupChannel?.value ?? "";
+
+  if (channelSetupChannel && !options.preserveChannel) {
     channelSetupChannel.value = "";
   }
 
@@ -2303,8 +2560,30 @@ function resetChannelSetupAssistant() {
     channelSetupAccessMode.value = "everyone";
   }
 
+  if (channelSetupAudience) {
+    channelSetupAudience.value = "everyone";
+  }
+
+  if (channelSetupTone) {
+    channelSetupTone.value = "friendly";
+  }
+
   if (channelSetupRole) {
     channelSetupRole.value = "";
+  }
+
+  setChannelSetupPreferredContentTypes(channelSetupPurposeProfiles.genealogy.contentTypes);
+
+  if (channelSetupTopic) {
+    channelSetupTopic.value = "genealogy";
+  }
+
+  if (channelSetupNotes) {
+    channelSetupNotes.value = "";
+  }
+
+  if (options.preserveChannel && channelSetupChannel) {
+    channelSetupChannel.value = currentChannelId;
   }
 
   renderChannelSetupAssistant();
@@ -2339,6 +2618,15 @@ function renderMissionControl() {
     : `${activeCount} active / ${blockedCount} blocked`;
   missionOpportunityCount.textContent = String(actionNeeded.length);
   missionProblemCount.textContent = String(recentProblems.length);
+  if (missionProfileCount) {
+    missionProfileCount.textContent = String(channelProfiles.length);
+  }
+  if (missionProfileMissingRoleCount) {
+    const profilesMissingRole = channelProfiles.filter(
+      (profile) => (profile.accessMode === "opt-in" || profile.accessMode === "private") && !profile.suggestedRoleId,
+    );
+    missionProfileMissingRoleCount.textContent = String(profilesMissingRole.length);
+  }
   missionActionCount.textContent = `${actionNeeded.length} item${actionNeeded.length === 1 ? "" : "s"}`;
   missionActionCount.className = `status-badge ${actionNeeded.length > 0 ? "blocked" : "active"}`;
 
@@ -4113,6 +4401,21 @@ async function loadRoleFollowups() {
   }
 }
 
+async function loadChannelProfiles() {
+  try {
+    const data = await fetchJson("/api/channel-profiles");
+    channelProfiles = Array.isArray(data.channelProfiles) ? data.channelProfiles : [];
+    applySavedChannelProfileToAssistant(channelSetupChannel?.value ?? "");
+    renderChannelSetupAssistant();
+    renderMissionControl();
+  } catch (error) {
+    channelProfiles = [];
+    renderChannelSetupAssistant();
+    renderMissionControl();
+    setChannelSetupAssistantStatus(`Channel profiles failed to load: ${error.message}`, "blocked");
+  }
+}
+
 async function loadComposerTemplates() {
   try {
     const data = await fetchJson("/api/composer/templates");
@@ -4775,6 +5078,7 @@ async function reloadAll() {
     loadFeeds(),
     loadRoleAccessPanels(),
     loadRoleFollowups(),
+    loadChannelProfiles(),
     loadComposerTemplates(),
   ]);
   renderMissionControl();
@@ -4912,10 +5216,19 @@ channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 missionOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
-channelSetupChannel?.addEventListener("change", renderChannelSetupAssistant);
-channelSetupPurpose?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupChannel?.addEventListener("change", handleChannelSetupChannelChange);
+channelSetupPurpose?.addEventListener("change", handleChannelSetupPurposeChange);
 channelSetupAccessMode?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupAudience?.addEventListener("change", renderChannelSetupAssistant);
+channelSetupTone?.addEventListener("change", renderChannelSetupAssistant);
 channelSetupRole?.addEventListener("change", renderChannelSetupAssistant);
+for (const input of channelSetupContentTypes) {
+  input.addEventListener("change", renderChannelSetupAssistant);
+}
+channelSetupTopic?.addEventListener("input", renderChannelSetupAssistant);
+channelSetupNotes?.addEventListener("input", renderChannelSetupAssistant);
+channelSetupSaveProfileButton?.addEventListener("click", () => void saveChannelSetupProfile());
+channelSetupDeleteProfileButton?.addEventListener("click", () => void deleteChannelSetupProfile());
 channelSetupOpenRolePanelButton?.addEventListener("click", prefillRoleAccessPanelFromChannelSetup);
 channelSetupOpenFollowupsButton?.addEventListener("click", prefillRoleFollowupFromChannelSetup);
 channelSetupOpenFeedsButton?.addEventListener("click", prefillFeedFromChannelSetup);
@@ -4928,6 +5241,7 @@ renderAutomationMaster();
 renderOpsSnapshot();
 renderAutomationActivity();
 renderChannelSetupMetadataOptions();
+applyChannelSetupPurposeDefaults();
 loadComposerDraft();
 renderRoleAccessPreview();
 renderRoleFollowupPreview();
