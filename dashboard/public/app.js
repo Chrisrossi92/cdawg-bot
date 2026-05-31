@@ -1521,6 +1521,7 @@ function buildChannelSetupCompleteness(profile) {
 function buildChannelSetupProfileFromState(state) {
   return {
     channelId: state.channelId,
+    channelName: getChannelLabel(state.channelId),
     purpose: state.purposeKey,
     audience: state.audience,
     accessMode: state.accessMode,

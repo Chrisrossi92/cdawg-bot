@@ -48,6 +48,7 @@ export type ChannelProfileTone = (typeof channelProfileTones)[number];
 
 export type ChannelProfile = {
   channelId: string;
+  channelName: string | null;
   purpose: ChannelProfilePurpose;
   audience: ChannelProfileAudience;
   accessMode: ChannelProfileAccessMode;
@@ -130,6 +131,7 @@ function sanitizeProfile(value: unknown): ChannelProfile | null {
 
   return {
     channelId,
+    channelName: sanitizeNullableString(value.channelName),
     purpose,
     audience,
     accessMode,
@@ -213,6 +215,7 @@ export function upsertChannelProfile(input: ChannelProfileInput) {
   const currentProfile = getChannelProfile(input.channelId);
   const nextProfile: ChannelProfile = {
     channelId: input.channelId.trim(),
+    channelName: input.channelName?.trim() || null,
     purpose: input.purpose,
     audience: input.audience,
     accessMode: input.accessMode,

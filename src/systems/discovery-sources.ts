@@ -932,6 +932,10 @@ export function rerankDiscoveryItems(sourceId?: string | null) {
   return activeDiscoveryItemStore.items;
 }
 
+export function getDiscoveryRerankDebug(items: DiscoveryItem[] = activeDiscoveryItemStore.items) {
+  return createDiscoveryRerankDebug(items);
+}
+
 export function deleteDiscoveryItem(id: string) {
   const currentItem = activeDiscoveryItemStore.items.find((item) => item.id === id);
 
@@ -1002,6 +1006,7 @@ function getOverlappingTokens(leftTokens: Set<string>, rightTokens: Set<string>)
 
 function getProfilePurposeTokens(profile: ChannelProfile) {
   return getTokenSet([
+    profile.channelName,
     profile.purpose,
     ...(purposeKeywordMap[profile.purpose] ?? []),
     profile.topicOverride,
@@ -1011,6 +1016,7 @@ function getProfilePurposeTokens(profile: ChannelProfile) {
 
 function getProfileSourceTokens(profile: ChannelProfile) {
   return getTokenSet([
+    profile.channelName,
     profile.purpose,
     profile.topicOverride,
     ...(purposeKeywordMap[profile.purpose] ?? []),
@@ -1053,7 +1059,7 @@ function getDiscoveryFreshnessScore(item: DiscoveryItem) {
 }
 
 function getSuggestedChannelName(profile: ChannelProfile) {
-  return profile.topicOverride ? `#${profile.topicOverride}` : `#${profile.purpose}`;
+  return profile.channelName || (profile.topicOverride ? `#${profile.topicOverride}` : `#${profile.purpose}`);
 }
 
 function scoreDiscoveryItemForProfile(item: DiscoveryItem, profile: ChannelProfile) {
@@ -1108,9 +1114,7 @@ function scoreDiscoveryItemForProfile(item: DiscoveryItem, profile: ChannelProfi
 }
 
 function rankDiscoveryItem(item: DiscoveryItem): DiscoveryItem {
-  const rankedProfiles = reloadChannelProfiles()
-    .map((profile) => scoreDiscoveryItemForProfile(item, profile))
-    .sort((left, right) => right.score - left.score || left.profile.channelId.localeCompare(right.profile.channelId));
+  const rankedProfiles = getRankedProfileMatches(item, reloadChannelProfiles());
   const bestMatch = rankedProfiles[0];
 
   if (!bestMatch || bestMatch.score < 40) {
@@ -1134,6 +1138,52 @@ function rankDiscoveryItem(item: DiscoveryItem): DiscoveryItem {
     suggestedChannelName,
     suggestedReason: `Matched ${suggestedChannelName} because ${reasonDetails}.`,
     score: bestMatch.score,
+  };
+}
+
+function getRankedProfileMatches(item: DiscoveryItem, profiles: ChannelProfile[]) {
+  return profiles
+    .map((profile) => scoreDiscoveryItemForProfile(item, profile))
+    .sort((left, right) => right.score - left.score || left.profile.channelId.localeCompare(right.profile.channelId));
+}
+
+function createDiscoveryRerankDebug(items: DiscoveryItem[]) {
+  const profiles = reloadChannelProfiles();
+
+  return {
+    profileCount: profiles.length,
+    profiles: profiles.map((profile) => ({
+      channelId: profile.channelId,
+      channelName: profile.channelName,
+      purpose: profile.purpose,
+      topicOverride: profile.topicOverride,
+      preferredContentTypes: profile.preferredContentTypes,
+    })),
+    topCandidatesForUnmatchedItems: items
+      .filter((item) => !item.suggestedChannelId)
+      .slice(0, 25)
+      .map((item) => {
+        const topCandidate = getRankedProfileMatches(item, profiles)[0] ?? null;
+
+        return {
+          itemId: item.id,
+          sourceName: item.sourceName,
+          title: item.title,
+          tags: item.tags,
+          score: item.score,
+          topCandidate: topCandidate
+            ? {
+                channelId: topCandidate.profile.channelId,
+                channelName: topCandidate.profile.channelName,
+                purpose: topCandidate.profile.purpose,
+                topicOverride: topCandidate.profile.topicOverride,
+                preferredContentTypes: topCandidate.profile.preferredContentTypes,
+                score: topCandidate.score,
+                matchedParts: topCandidate.matchedParts,
+              }
+            : null,
+        };
+      }),
   };
 }
 

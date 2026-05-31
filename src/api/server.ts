@@ -80,6 +80,7 @@ import { getRecentAutomationActivity } from "../systems/automation-activity.js";
 import {
   deleteDiscoveryItem,
   deleteDiscoverySource,
+  getDiscoveryRerankDebug,
   listDiscoveryItems,
   listDiscoverySources,
   refreshRssDiscoverySources,
@@ -218,6 +219,7 @@ type FeedRequestBody = {
 
 type ChannelProfileRequestBody = {
   channelId: string;
+  channelName: string | null;
   purpose: ChannelProfilePurpose;
   audience: ChannelProfileAudience;
   accessMode: ChannelProfileAccessMode;
@@ -964,10 +966,15 @@ function sanitizeChannelProfileRequest(value: unknown) {
     };
   }
 
+  const channelName = "channelName" in value && typeof value.channelName === "string" && value.channelName.trim()
+    ? value.channelName.trim().slice(0, 120)
+    : null;
+
   return {
     ok: true as const,
     value: {
       channelId,
+      channelName,
       purpose: value.purpose as ChannelProfilePurpose,
       audience: value.audience as ChannelProfileAudience,
       accessMode: value.accessMode as ChannelProfileAccessMode,
@@ -2093,6 +2100,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           ok: true,
           items,
+          debug: getDiscoveryRerankDebug(items),
         });
         return;
       }
