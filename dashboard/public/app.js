@@ -228,6 +228,8 @@ let roleAccessPanels = [];
 let roleFollowups = [];
 let composerTemplates = [];
 let channelProfiles = [];
+let discoveryItems = [];
+let discoveryItemsLoadError = null;
 let activeControlTab = "overview";
 let activeContentStudioMode = "generate";
 let selectedDiscoveryCardId = null;
@@ -2143,6 +2145,31 @@ function getDiscoverySourceLabel(card) {
   return card?.sourceName || card?.source || "Discovery";
 }
 
+function isSafeDiscoveryUrl(value) {
+  if (!value || typeof value !== "string") {
+    return false;
+  }
+
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function getSameOriginDiscoveryThumbnailUrl(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+
+  try {
+    const url = new URL(value, window.location.href);
+    return url.origin === window.location.origin ? url.href : null;
+  } catch {
+    return null;
+  }
+}
+
 function getDiscoveryThumbnailLabel(card) {
   if (card?.thumbnailKind === "video") {
     return "Video Preview";
@@ -2175,9 +2202,11 @@ function createDiscoveryThumbnail(card, options = {}) {
     media.dataset.thumbnailKind = card.thumbnailKind;
   }
 
-  if (card.thumbnailUrl) {
+  const thumbnailUrl = getSameOriginDiscoveryThumbnailUrl(card.thumbnailUrl);
+
+  if (thumbnailUrl) {
     const image = document.createElement("img");
-    image.src = card.thumbnailUrl;
+    image.src = thumbnailUrl;
     image.alt = "";
     image.loading = "lazy";
     media.append(image);
@@ -2259,8 +2288,39 @@ function buildMockContentDiscoveryCards() {
   ];
 }
 
+function mapPersistedDiscoveryItemToCard(item) {
+  const sourceType = typeof item.sourceType === "string" ? item.sourceType : "local";
+  const sourceName = typeof item.sourceName === "string" && item.sourceName.trim() ? item.sourceName.trim() : sourceType;
+  const suggestedChannelId = typeof item.suggestedChannelId === "string" && item.suggestedChannelId.trim() ? item.suggestedChannelId.trim() : null;
+
+  return {
+    id: `persisted:${item.id}`,
+    source: sourceType,
+    sourceName,
+    title: typeof item.title === "string" ? item.title : "Untitled discovery item",
+    description: typeof item.description === "string" ? item.description : "",
+    thumbnailUrl: getSameOriginDiscoveryThumbnailUrl(item.thumbnailUrl),
+    thumbnailKind: typeof item.thumbnailKind === "string" && item.thumbnailKind.trim() ? item.thumbnailKind.trim() : sourceType,
+    sourceUrl: isSafeDiscoveryUrl(item.sourceUrl) ? item.sourceUrl : null,
+    isMock: item.isMock === true,
+    demoLabel: item.isMock === true ? "Demo Preview" : null,
+    suggestedChannel: createSuggestedChannel(suggestedChannelId, "Choose when reviewing"),
+    suggestedReason: typeof item.suggestedReason === "string" ? item.suggestedReason : "Loaded from persisted discovery items.",
+    suggestedContentType: typeof item.suggestedContentType === "string" ? item.suggestedContentType : "prompt",
+    actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
+    score: typeof item.score === "number" && Number.isFinite(item.score) ? item.score : 0,
+    discoveredAt: typeof item.discoveredAt === "number" && Number.isFinite(item.discoveredAt) ? item.discoveredAt : 0,
+  };
+}
+
+function buildPersistedDiscoveryCards() {
+  return discoveryItems
+    .map(mapPersistedDiscoveryItemToCard)
+    .sort((left, right) => right.score - left.score || right.discoveredAt - left.discoveredAt || left.title.localeCompare(right.title));
+}
+
 function buildContentDiscoveryCards() {
-  const cards = [];
+  const cards = [...buildPersistedDiscoveryCards()];
   const historyEvent = historyReview?.previewEvent;
   const upcomingFeeds = getEnabledUpcomingFeeds().slice(0, 3);
   const underusedContentTypes = getUnderusedContentTypes();
@@ -2552,7 +2612,7 @@ function createContentDiscoveryReviewDetail(card) {
   generateButton.textContent = "Generate Related Content";
   generateButton.addEventListener("click", () => prepareDiscoveryGeneration(card));
 
-  if (card.sourceUrl && !card.isMock) {
+  if (isSafeDiscoveryUrl(card.sourceUrl) && !card.isMock) {
     const sourceButton = document.createElement("button");
     sourceButton.type = "button";
     sourceButton.className = "secondary";
@@ -2609,6 +2669,13 @@ function renderContentDiscoveryReview() {
   intro.textContent = "Choose a discovery card to review before preparing a message or generated content.";
   contentDiscoveryReviewPanel.append(intro);
 
+  if (discoveryItemsLoadError) {
+    const warning = document.createElement("p");
+    warning.className = "channel-operation-empty";
+    warning.textContent = `Persisted discovery items failed to load. Showing local suggestions only. ${discoveryItemsLoadError}`;
+    contentDiscoveryReviewPanel.append(warning);
+  }
+
   if (discoveryCards.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
@@ -2643,7 +2710,9 @@ function renderMissionFoundItems() {
   if (discoveryCards.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "mission-found-empty channel-operation-empty";
-    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
+    emptyState.textContent = discoveryItemsLoadError
+      ? `Persisted discovery items failed to load. Local suggestions are still available where possible. ${discoveryItemsLoadError}`
+      : "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
     missionFoundList.append(emptyState);
     if (activeContentStudioMode === "discovery") {
       renderContentDiscoveryReview();
@@ -2655,6 +2724,13 @@ function renderMissionFoundItems() {
     visibleLimit: 3,
     summaryLabel: (count) => `View all ${count} finds`,
   });
+
+  if (discoveryItemsLoadError) {
+    const warning = document.createElement("p");
+    warning.className = "mission-found-empty channel-operation-empty";
+    warning.textContent = `Persisted discovery items failed to load. Showing local suggestions only. ${discoveryItemsLoadError}`;
+    missionFoundList.append(warning);
+  }
 
   if (activeContentStudioMode === "discovery") {
     renderContentDiscoveryReview();
@@ -5526,6 +5602,26 @@ async function loadChannelProfiles() {
   }
 }
 
+async function loadDiscoveryItems() {
+  try {
+    const data = await fetchJson("/api/discovery/items");
+    discoveryItems = Array.isArray(data.items) ? data.items : [];
+    discoveryItemsLoadError = null;
+    renderMissionControl();
+    if (activeContentStudioMode === "discovery") {
+      renderContentDiscoveryReview();
+    }
+  } catch (error) {
+    discoveryItems = [];
+    discoveryItemsLoadError = error.message;
+    console.warn(`[discovery] persisted discovery items failed to load: ${error.message}`);
+    renderMissionControl();
+    if (activeContentStudioMode === "discovery") {
+      renderContentDiscoveryReview();
+    }
+  }
+}
+
 async function loadComposerTemplates() {
   try {
     const data = await fetchJson("/api/composer/templates");
@@ -6189,6 +6285,7 @@ async function reloadAll() {
     loadRoleAccessPanels(),
     loadRoleFollowups(),
     loadChannelProfiles(),
+    loadDiscoveryItems(),
     loadComposerTemplates(),
   ]);
   renderMissionControl();
