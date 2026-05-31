@@ -1507,6 +1507,59 @@ small {
     rgba(5, 12, 22, 0.42);
 }
 
+.mission-discovery-card {
+  gap: 12px;
+  border-color: rgba(45, 212, 255, 0.34);
+  background:
+    linear-gradient(135deg, rgba(45, 212, 255, 0.12), transparent 42%),
+    linear-gradient(180deg, rgba(10, 27, 45, 0.82), rgba(5, 12, 22, 0.62));
+}
+
+.mission-discovery-card-header,
+.mission-discovery-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mission-discovery-card-heading {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.mission-discovery-context {
+  display: grid;
+  gap: 5px 10px;
+  grid-template-columns: minmax(110px, auto) minmax(0, 1fr);
+  margin: 0;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.mission-discovery-context dt,
+.mission-discovery-context dd {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.mission-discovery-context dt {
+  color: var(--muted-soft);
+  font-weight: 800;
+}
+
+.mission-discovery-context dd {
+  color: var(--text);
+}
+
+.mission-discovery-actions {
+  align-items: center;
+}
+
 .mission-found-card:hover {
   border-color: rgba(124, 92, 255, 0.32);
   box-shadow: 0 14px 32px rgba(2, 8, 23, 0.22);
@@ -2863,6 +2916,8 @@ pre {
   }
 
   .mission-action-card-header,
+  .mission-discovery-card-header,
+  .mission-discovery-actions,
   .mission-profile-card-header {
     align-items: stretch;
     flex-direction: column;
