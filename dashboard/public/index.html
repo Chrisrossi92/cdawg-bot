@@ -104,6 +104,10 @@
                   <span class="ops-status-label">Problems</span>
                   <strong id="mission-problem-count">0</strong>
                 </article>
+              </div>
+              <details class="mission-briefing-details">
+                <summary>Profile statistics</summary>
+                <div class="mission-briefing-grid mission-briefing-grid-secondary">
                 <article class="ops-status-card neutral">
                   <span class="ops-status-label">Channel Profiles</span>
                   <strong id="mission-profile-count">0</strong>
@@ -121,6 +125,7 @@
                   <strong id="mission-profile-missing-role-count">0</strong>
                 </article>
               </div>
+              </details>
               <div id="mission-next-activity" class="mission-next-activity">
                 <p class="channel-operation-empty">Loading next scheduled activity...</p>
               </div>
@@ -146,13 +151,12 @@
               </div>
             </section>
 
-            <section class="mission-profile-panel">
+            <section class="mission-activity-panel">
               <div class="ops-snapshot-group-header">
-                <h3>Channels CDawg Understands</h3>
-                <span id="mission-channel-profiles-count" class="status-badge neutral">0 profiles</span>
+                <h3>Recent Activity</h3>
               </div>
-              <div id="mission-channel-profiles-list" class="mission-profile-list">
-                <p class="channel-operation-empty">Checking saved channel profiles...</p>
+              <div id="automation-activity-list" class="automation-activity-list">
+                <p class="channel-operation-empty">No recent activity yet.</p>
               </div>
             </section>
 
@@ -272,8 +276,26 @@
             </section>
           </section>
 
-          <section class="control-block ops-snapshot" aria-label="Bot Status">
-            <div class="subpanel-header">
+          <details class="control-block disclosure-block ops-snapshot" aria-label="Operational Details">
+            <summary>
+              <div>
+                <h3>Operational Details</h3>
+                <p>Bot status, profile details, common tasks, and deeper operational summaries.</p>
+              </div>
+              <span class="status-badge neutral">collapsed</span>
+            </summary>
+
+            <section class="mission-profile-panel">
+              <div class="ops-snapshot-group-header">
+                <h3>Channels CDawg Understands</h3>
+                <span id="mission-channel-profiles-count" class="status-badge neutral">0 profiles</span>
+              </div>
+              <div id="mission-channel-profiles-list" class="mission-profile-list">
+                <p class="channel-operation-empty">Checking saved channel profiles...</p>
+              </div>
+            </section>
+
+            <div class="subpanel-header disclosure-subheader">
               <div>
                 <h3>Bot Status</h3>
                 <p>Check bot health, activity, and warnings.</p>
@@ -393,15 +415,6 @@
 
               <section class="ops-snapshot-group ops-snapshot-group-wide">
                 <div class="ops-snapshot-group-header">
-                  <h3>Recent Activity</h3>
-                </div>
-                <div id="automation-activity-list" class="automation-activity-list">
-                  <p class="channel-operation-empty">No recent activity yet.</p>
-                </div>
-              </section>
-
-              <section class="ops-snapshot-group ops-snapshot-group-wide">
-                <div class="ops-snapshot-group-header">
                   <h3>Common Tasks</h3>
                 </div>
                 <div class="common-task-grid">
@@ -433,11 +446,19 @@
                 </div>
               </section>
             </div>
-          </section>
+          </details>
 
-          <div class="overview-layout">
-            <section class="control-block">
-              <div class="subpanel-header">
+          <details class="control-block disclosure-block overview-layout">
+            <summary>
+              <div>
+                <h3>Statistics</h3>
+                <p>Activity stats, source usage, and raw dashboard payloads.</p>
+              </div>
+              <span class="status-badge neutral">collapsed</span>
+            </summary>
+
+            <section class="statistics-panel">
+              <div class="subpanel-header disclosure-subheader">
                 <div>
                   <h3>Activity Stats</h3>
                   <p>Longer-term command and content source stats.</p>
@@ -480,20 +501,17 @@
                 </section>
               </div>
 
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
+              <details class="details-block control-debug-details developer-details">
+                <summary>Developer Details</summary>
+                <h4>Health</h4>
                 <pre id="health-output">Loading...</pre>
-              </details>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
+                <h4>Metrics</h4>
                 <pre id="metrics-output">Loading...</pre>
-              </details>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
+                <h4>Automation Activity</h4>
                 <pre id="automation-activity-output">Loading...</pre>
               </details>
             </section>
-          </div>
+          </details>
         </section>
 
         <section class="control-tab-panel" data-tab-panel="channels" hidden>
