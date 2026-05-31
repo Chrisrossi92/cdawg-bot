@@ -2278,7 +2278,18 @@ function getDiscoveryScoreLabel(score) {
 }
 
 function formatDiscoveryReason(reason) {
-  return typeof reason === "string" ? formatDiscordMessagePreview(reason) : "";
+  if (typeof reason !== "string") {
+    return "";
+  }
+
+  try {
+    return reason
+      .replace(/<#(\d{17,20})>/g, (_match, channelId) => getChannelLabel(channelId))
+      .replace(/<@&(\d{17,20})>/g, (_match, roleId) => `@${getRoleLabel(roleId)}`);
+  } catch (error) {
+    console.warn(`[discovery] reason formatting failed: ${error.message}`);
+    return reason;
+  }
 }
 
 function createDiscoveryCardId(source, key) {
