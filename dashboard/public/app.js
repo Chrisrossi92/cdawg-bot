@@ -67,12 +67,16 @@ const missionAutomationSummary = document.querySelector("#mission-automation-sum
 const missionOpportunityCount = document.querySelector("#mission-opportunity-count");
 const missionProblemCount = document.querySelector("#mission-problem-count");
 const missionProfileCount = document.querySelector("#mission-profile-count");
+const missionProfileCompleteCount = document.querySelector("#mission-profile-complete-count");
+const missionProfileIncompleteCount = document.querySelector("#mission-profile-incomplete-count");
 const missionProfileMissingRoleCount = document.querySelector("#mission-profile-missing-role-count");
 const missionNextActivity = document.querySelector("#mission-next-activity");
 const missionActionCount = document.querySelector("#mission-action-count");
 const missionActionList = document.querySelector("#mission-action-list");
 const missionFoundCount = document.querySelector("#mission-found-count");
 const missionFoundList = document.querySelector("#mission-found-list");
+const missionChannelProfilesCount = document.querySelector("#mission-channel-profiles-count");
+const missionChannelProfilesList = document.querySelector("#mission-channel-profiles-list");
 const missionOpenChannelSetupButton = document.querySelector("#mission-open-channel-setup");
 const channelSetupAssistant = document.querySelector("#channel-setup-assistant");
 const channelSetupStatus = document.querySelector("#channel-setup-status");
@@ -1261,6 +1265,173 @@ function getAutomationStatusForProfile(profile) {
   return channelAutomationStatuses.find((status) => status.channelId === profile.channelId) ?? null;
 }
 
+function getEnabledPreferredFeedsForProfile(profile) {
+  const preferredContentTypes = Array.isArray(profile.preferredContentTypes) ? profile.preferredContentTypes : [];
+
+  return getFeedsForProfile(profile).filter((feed) => feed.enabled !== false && preferredContentTypes.includes(feed.contentType));
+}
+
+function getChannelProfileAutomationIssue(status) {
+  if (!status) {
+    return "Automation status is not available for this channel yet.";
+  }
+
+  if (status.blockedReason === "disabled") {
+    return "Automatic posting is turned off for this channel.";
+  }
+
+  if (status.blockedReason === "silenced") {
+    return "Automatic posting is currently paused for this channel.";
+  }
+
+  if (status.blockedReason === "cooldown") {
+    return "Automatic posting is delayed by cooldown.";
+  }
+
+  if (status.blockedReason === "skip-next" || status.skipNextSendPending === true) {
+    return "This channel is set to skip the next scheduled post.";
+  }
+
+  return null;
+}
+
+function createCompletenessPart(label, complete, missingPiece, navigation, actionLabel) {
+  return {
+    label,
+    complete,
+    missingPiece,
+    navigation,
+    actionLabel,
+  };
+}
+
+function buildChannelSetupCompleteness(profile) {
+  const roleRecommended = isChannelProfileRoleRecommended(profile);
+  const hasSuggestedRole = Boolean(profile.suggestedRoleId);
+  const suggestedRoleMissing = hasSuggestedRole && guildMetadataLoaded && !metadataHasRole(profile.suggestedRoleId);
+  const rolePanel = getRoleAccessPanelForProfile(profile);
+  const roleFollowup = getRoleFollowupForProfile(profile);
+  const preferredContentTypes = Array.isArray(profile.preferredContentTypes) ? profile.preferredContentTypes : [];
+  const enabledPreferredFeeds = getEnabledPreferredFeedsForProfile(profile);
+  const automationStatus = getAutomationStatusForProfile(profile);
+  const automationIssue = getChannelProfileAutomationIssue(automationStatus);
+  const profileNavigation = createChannelProfileMissionNavigation(profile.channelId);
+
+  const parts = [
+    createCompletenessPart(
+      "Role Setup",
+      !roleRecommended || (hasSuggestedRole && !suggestedRoleMissing),
+      !roleRecommended
+        ? null
+        : !hasSuggestedRole
+          ? "Choose an existing role for opt-in or private access."
+          : "Choose a role that still exists in Discord metadata.",
+      profileNavigation,
+      "Review Profile",
+    ),
+    createCompletenessPart(
+      "Follow-Up Setup",
+      !roleRecommended || Boolean(roleFollowup),
+      roleRecommended ? "Add a role follow-up message for the suggested role." : null,
+      createMissionNavigation("access", "community-role-followups"),
+      "Open Follow-Ups",
+    ),
+    createCompletenessPart(
+      "Content Setup",
+      preferredContentTypes.length > 0 && enabledPreferredFeeds.length > 0,
+      preferredContentTypes.length === 0
+        ? "Choose preferred content types for this channel profile."
+        : "Add an enabled scheduled post that matches this profile's preferred content types.",
+      preferredContentTypes.length === 0 ? profileNavigation : createMissionNavigation("channels", "automation-scheduled-posts"),
+      preferredContentTypes.length === 0 ? "Review Profile" : "Open Scheduled Posts",
+    ),
+    createCompletenessPart(
+      "Automation Setup",
+      !automationIssue,
+      automationIssue,
+      createMissionNavigation("channels", "automation-channel-controls"),
+      "Open Automation",
+    ),
+  ];
+
+  if (roleRecommended && hasSuggestedRole && !suggestedRoleMissing && !rolePanel) {
+    parts[0] = {
+      ...parts[0],
+      complete: false,
+      missingPiece: parts[0].missingPiece ?? "Add a role signup button for the suggested role.",
+      navigation: createMissionNavigation("access", "community-role-signup-buttons"),
+      actionLabel: "Open Community",
+    };
+  }
+
+  const completeCount = parts.filter((part) => part.complete).length;
+  const missingPieces = parts.filter((part) => !part.complete && part.missingPiece).map((part) => part.missingPiece);
+  const nextPart = parts.find((part) => !part.complete);
+
+  return {
+    score: Math.round((completeCount / parts.length) * 100),
+    parts,
+    missingPieces,
+    recommendedNextStep: nextPart
+      ? {
+          label: nextPart.missingPiece,
+          actionLabel: nextPart.actionLabel,
+          navigation: nextPart.navigation,
+        }
+      : {
+          label: "Channel setup is complete from the currently loaded profile data.",
+          actionLabel: "Review Profile",
+          navigation: profileNavigation,
+        },
+  };
+}
+
+function buildChannelSetupProfileFromState(state) {
+  return {
+    channelId: state.channelId,
+    purpose: state.purposeKey,
+    audience: state.audience,
+    accessMode: state.accessMode,
+    tone: state.tone,
+    preferredContentTypes: state.preferredContentTypes,
+    topicOverride: state.topicOverride,
+    suggestedRoleId: state.roleId || null,
+    signupPanelId: null,
+    followupId: null,
+    notes: state.notes,
+  };
+}
+
+function getChannelProfilePurposeLabel(profile) {
+  return channelSetupPurposeProfiles[profile.purpose]?.label ?? profile.purpose ?? "Custom";
+}
+
+function getChannelProfileAccessLabel(profile) {
+  return channelSetupAccessLabels[profile.accessMode] ?? profile.accessMode ?? "Not set";
+}
+
+function getChannelProfileToneLabel(profile) {
+  return channelSetupToneLabels[profile.tone] ?? profile.tone ?? "Not set";
+}
+
+function getChannelProfileCommandItems() {
+  return channelProfiles
+    .map((profile) => ({
+      profile,
+      completeness: buildChannelSetupCompleteness(profile),
+    }))
+    .sort((left, right) => {
+      const leftComplete = left.completeness.score >= 100;
+      const rightComplete = right.completeness.score >= 100;
+
+      if (leftComplete !== rightComplete) {
+        return leftComplete ? 1 : -1;
+      }
+
+      return left.completeness.score - right.completeness.score || getChannelProfileLabel(left.profile).localeCompare(getChannelProfileLabel(right.profile));
+    });
+}
+
 function buildChannelProfileMissionOpportunities() {
   const opportunities = [];
   const roleBasedProfiles = channelProfiles.filter(isChannelProfileRoleRecommended);
@@ -1290,6 +1461,13 @@ function buildChannelProfileMissionOpportunities() {
     }))
     .filter(({ status }) => status?.blockedReason === "disabled" || status?.blockedReason === "silenced" || status?.skipNextSendPending === true);
   const profilesWithUnsureAccess = channelProfiles.filter((profile) => profile.accessMode === "unsure");
+  const incompleteProfiles = channelProfiles
+    .map((profile) => ({
+      profile,
+      completeness: buildChannelSetupCompleteness(profile),
+    }))
+    .filter(({ completeness }) => completeness.score < 100)
+    .sort((left, right) => left.completeness.score - right.completeness.score || getChannelProfileLabel(left.profile).localeCompare(getChannelProfileLabel(right.profile)));
 
   if (profilesWithoutSuggestedRole.length > 0) {
     opportunities.push({
@@ -1365,6 +1543,18 @@ function buildChannelProfileMissionOpportunities() {
       source: "/api/channel-profiles",
       actionLabel: "Review Profile",
       navigation: createChannelProfileMissionNavigation(profilesWithUnsureAccess[0].channelId),
+    });
+  }
+
+  if (incompleteProfiles.length > 0) {
+    const { profile, completeness } = incompleteProfiles[0];
+    opportunities.push({
+      name: "Channel setup incomplete",
+      detail: `${getChannelProfileLabel(profile)} is ${completeness.score}% complete. Next step: ${completeness.recommendedNextStep.label}`,
+      severity: completeness.score < 50 ? "action needed" : "warning",
+      source: "/api/channel-profiles + role panels + follow-ups + feeds + automation status",
+      actionLabel: completeness.recommendedNextStep.actionLabel,
+      navigation: completeness.recommendedNextStep.navigation,
     });
   }
 
@@ -1961,6 +2151,99 @@ function renderMissionFoundItems() {
   }
 }
 
+function createMissionProfileCard(item) {
+  const { profile, completeness } = item;
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("h3");
+  const badges = document.createElement("div");
+  const meta = document.createElement("dl");
+  const contentTypes = document.createElement("p");
+  const nextStep = document.createElement("p");
+  const actions = document.createElement("div");
+  const reviewButton = document.createElement("button");
+  const improveButton = document.createElement("button");
+
+  card.className = "mission-profile-card";
+  if (completeness.score >= 100) {
+    card.classList.add("is-complete");
+  }
+
+  header.className = "mission-profile-card-header";
+  badges.className = "channel-operation-badges";
+  meta.className = "mission-profile-meta";
+  contentTypes.className = "mission-profile-content-types";
+  nextStep.className = "mission-profile-next-step";
+  actions.className = "mission-profile-actions";
+
+  title.textContent = getChannelProfileLabel(profile);
+  badges.append(
+    createStatusBadge(`${completeness.score}% complete`, completeness.score >= 100 ? "active" : completeness.score < 50 ? "blocked" : "neutral"),
+    createStatusBadge(`${completeness.missingPieces.length} missing`, completeness.missingPieces.length > 0 ? "neutral" : "active"),
+  );
+
+  meta.append(
+    createChannelSetupDetail("Purpose", getChannelProfilePurposeLabel(profile)),
+    createChannelSetupDetail("Access", getChannelProfileAccessLabel(profile)),
+    createChannelSetupDetail("Tone", getChannelProfileToneLabel(profile)),
+  );
+
+  contentTypes.textContent = `Preferred content: ${Array.isArray(profile.preferredContentTypes) && profile.preferredContentTypes.length > 0 ? profile.preferredContentTypes.join(", ") : "not set"}`;
+  nextStep.textContent = `Next step: ${completeness.recommendedNextStep.label}`;
+
+  reviewButton.type = "button";
+  reviewButton.className = "secondary";
+  reviewButton.textContent = "Review Setup";
+  reviewButton.addEventListener("click", () => navigateMissionAction(createChannelProfileMissionNavigation(profile.channelId)));
+
+  improveButton.type = "button";
+  improveButton.className = "secondary";
+  improveButton.textContent = "Improve Setup";
+  improveButton.addEventListener("click", () => navigateMissionAction(createChannelProfileMissionNavigation(profile.channelId)));
+
+  actions.append(reviewButton, improveButton);
+  header.append(title, badges);
+  card.append(header, meta, contentTypes, nextStep, actions);
+  return card;
+}
+
+function renderMissionChannelProfiles() {
+  if (!missionChannelProfilesList) {
+    return;
+  }
+
+  const items = getChannelProfileCommandItems();
+  const completeCount = items.filter((item) => item.completeness.score >= 100).length;
+  const incompleteCount = items.length - completeCount;
+
+  if (missionChannelProfilesCount) {
+    missionChannelProfilesCount.textContent = `${items.length} profile${items.length === 1 ? "" : "s"}`;
+    missionChannelProfilesCount.className = `status-badge ${items.length > 0 ? "active" : "neutral"}`;
+  }
+
+  if (missionProfileCompleteCount) {
+    missionProfileCompleteCount.textContent = String(completeCount);
+  }
+
+  if (missionProfileIncompleteCount) {
+    missionProfileIncompleteCount.textContent = String(incompleteCount);
+  }
+
+  missionChannelProfilesList.replaceChildren();
+
+  if (items.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "CDawg does not understand any channels yet. Set up your first channel.";
+    missionChannelProfilesList.append(emptyState);
+    return;
+  }
+
+  for (const item of items) {
+    missionChannelProfilesList.append(createMissionProfileCard(item));
+  }
+}
+
 function isChannelSetupRoleRecommended(accessMode) {
   return accessMode === "opt-in" || accessMode === "private";
 }
@@ -2551,6 +2834,35 @@ function createChannelSetupStep(label, detail, complete, warning = false) {
   return item;
 }
 
+function createChannelSetupCompletenessSection(completeness) {
+  const section = document.createElement("section");
+  const title = document.createElement("h4");
+  const score = document.createElement("p");
+  const parts = document.createElement("ul");
+  const missingTitle = document.createElement("h4");
+  const missing = document.createElement("p");
+  const nextTitle = document.createElement("h4");
+  const next = document.createElement("p");
+
+  section.className = "channel-setup-plan-section";
+  parts.className = "channel-setup-steps";
+
+  title.textContent = "Setup Completeness";
+  score.textContent = `${completeness.score}% complete`;
+
+  for (const part of completeness.parts) {
+    parts.append(createChannelSetupStep(part.label, part.complete ? "Ready." : part.missingPiece, part.complete, !part.complete));
+  }
+
+  missingTitle.textContent = "Missing Pieces";
+  missing.textContent = completeness.missingPieces.length > 0 ? completeness.missingPieces.join(" ") : "No missing pieces found from the currently loaded dashboard data.";
+  nextTitle.textContent = "Recommended Next Step";
+  next.textContent = completeness.recommendedNextStep.label;
+
+  section.append(title, score, parts, missingTitle, missing, nextTitle, next);
+  return section;
+}
+
 function getChannelSetupAutomationWarning(status) {
   if (!status) {
     return null;
@@ -2588,6 +2900,7 @@ function renderChannelSetupAssistant() {
   const automationWarning = getChannelSetupAutomationWarning(automationStatus);
   const roleMissing = state.roleRecommended && !state.roleId;
   const contentTypes = state.preferredContentTypes;
+  const completeness = state.channelId ? buildChannelSetupCompleteness(buildChannelSetupProfileFromState(state)) : null;
 
   if (channelSetupStatus) {
     channelSetupStatus.textContent = state.savedProfile ? "saved profile" : state.channelId ? "plan ready" : "draft";
@@ -2694,7 +3007,14 @@ function renderChannelSetupAssistant() {
   }
   stepsBlock.append(stepsTitle, steps);
   followupBlock.append(followupTitle, followupDraft, starterTitle, starterDraft);
-  channelSetupPlan.append(header, summary, contentBlock, stepsBlock, followupBlock);
+  channelSetupPlan.append(
+    header,
+    summary,
+    ...(completeness ? [createChannelSetupCompletenessSection(completeness)] : []),
+    contentBlock,
+    stepsBlock,
+    followupBlock,
+  );
 }
 
 function openChannelSetupAssistant() {
@@ -2768,6 +3088,9 @@ function renderMissionControl() {
   const nextAutomation = getNextAutomationCandidate();
   const activeCount = channelAutomationStatuses.filter((status) => !status.blockedReason).length;
   const blockedCount = channelAutomationStatuses.filter((status) => status.blockedReason || status.skipNextSendPending === true).length;
+  const profileCommandItems = getChannelProfileCommandItems();
+  const completeProfileCount = profileCommandItems.filter((item) => item.completeness.score >= 100).length;
+  const incompleteProfileCount = profileCommandItems.length - completeProfileCount;
   const statusTone = getMissionStatusTone(actionNeeded);
 
   missionBriefingStatus.textContent =
@@ -2788,6 +3111,12 @@ function renderMissionControl() {
   missionProblemCount.textContent = String(recentProblems.length);
   if (missionProfileCount) {
     missionProfileCount.textContent = String(channelProfiles.length);
+  }
+  if (missionProfileCompleteCount) {
+    missionProfileCompleteCount.textContent = String(completeProfileCount);
+  }
+  if (missionProfileIncompleteCount) {
+    missionProfileIncompleteCount.textContent = String(incompleteProfileCount);
   }
   if (missionProfileMissingRoleCount) {
     const profilesMissingRole = channelProfiles.filter(
@@ -2814,6 +3143,7 @@ function renderMissionControl() {
   }
 
   renderMissionFoundItems();
+  renderMissionChannelProfiles();
 
   missionActionList.replaceChildren();
   if (actionNeeded.length === 0) {

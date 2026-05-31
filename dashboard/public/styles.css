@@ -1121,6 +1121,7 @@ small {
 .mission-next-activity,
 .mission-action-panel,
 .mission-found-panel,
+.mission-profile-panel,
 .mission-setup-entry,
 .mission-channel-setup {
   padding: 14px;
@@ -1171,6 +1172,7 @@ small {
 
 .mission-action-panel,
 .mission-found-panel,
+.mission-profile-panel,
 .mission-channel-setup {
   display: grid;
   gap: 12px;
@@ -1334,14 +1336,16 @@ small {
 }
 
 .mission-action-list,
-.mission-found-list {
+.mission-found-list,
+.mission-profile-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 10px;
 }
 
 .mission-action-card,
-.mission-found-card {
+.mission-found-card,
+.mission-profile-card {
   display: grid;
   gap: 9px;
   align-content: start;
@@ -1364,7 +1368,12 @@ small {
   box-shadow: 0 14px 32px rgba(2, 8, 23, 0.22);
 }
 
-.mission-action-card-header {
+.mission-profile-card.is-complete {
+  opacity: 0.78;
+}
+
+.mission-action-card-header,
+.mission-profile-card-header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -1372,9 +1381,11 @@ small {
 }
 
 .mission-action-card h3,
-.mission-found-card h3 {
+.mission-found-card h3,
+.mission-profile-card h3 {
   font-size: 14px;
   line-height: 1.25;
+  margin: 0;
 }
 
 .mission-action-card small,
@@ -1383,10 +1394,51 @@ small {
 }
 
 .mission-action-card button,
-.mission-found-card button {
+.mission-found-card button,
+.mission-profile-card button {
   justify-self: start;
   padding: 8px 10px;
   font-size: 12px;
+}
+
+.mission-profile-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.mission-profile-meta div {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.mission-profile-meta dt {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.mission-profile-meta dd {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+
+.mission-profile-content-types,
+.mission-profile-next-step {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.mission-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mission-found-empty {
@@ -2424,7 +2476,8 @@ pre {
   .mission-briefing,
   .mission-briefing-grid,
   .channel-setup-grid,
-  .channel-setup-summary {
+  .channel-setup-summary,
+  .mission-profile-meta {
     grid-template-columns: 1fr;
   }
 
@@ -2519,7 +2572,8 @@ pre {
     grid-template-columns: 1fr;
   }
 
-  .mission-action-card-header {
+  .mission-action-card-header,
+  .mission-profile-card-header {
     align-items: stretch;
     flex-direction: column;
   }
