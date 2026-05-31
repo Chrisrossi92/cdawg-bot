@@ -1932,6 +1932,35 @@ function createMissionActionCard(opportunity) {
   return card;
 }
 
+function appendCompressedCardList(container, items, createCard, options) {
+  const visibleLimit = options.visibleLimit ?? 3;
+  const visibleItems = items.slice(0, visibleLimit);
+  const overflowItems = items.slice(visibleLimit);
+
+  for (const item of visibleItems) {
+    container.append(createCard(item));
+  }
+
+  if (overflowItems.length === 0) {
+    return;
+  }
+
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const overflowList = document.createElement("div");
+
+  details.className = "mission-overflow-details";
+  summary.textContent = options.summaryLabel(items.length);
+  overflowList.className = options.listClassName ?? "mission-overflow-list";
+
+  for (const item of overflowItems) {
+    overflowList.append(createCard(item));
+  }
+
+  details.append(summary, overflowList);
+  container.append(details);
+}
+
 function getEnabledUpcomingFeeds() {
   return feeds
     .filter((feed) => feed.enabled !== false)
@@ -2146,9 +2175,10 @@ function renderMissionFoundItems() {
     missionFoundList.append(emptyState);
   }
 
-  for (const item of foundItems) {
-    missionFoundList.append(createMissionFoundCard(item));
-  }
+  appendCompressedCardList(missionFoundList, foundItems, createMissionFoundCard, {
+    visibleLimit: 3,
+    summaryLabel: (count) => `View all ${count} finds`,
+  });
 }
 
 function createMissionProfileCard(item) {
@@ -3154,9 +3184,10 @@ function renderMissionControl() {
     return;
   }
 
-  for (const opportunity of actionNeeded.slice(0, 8)) {
-    missionActionList.append(createMissionActionCard(opportunity));
-  }
+  appendCompressedCardList(missionActionList, actionNeeded, createMissionActionCard, {
+    visibleLimit: 3,
+    summaryLabel: (count) => `View all ${count} action items`,
+  });
 }
 
 function renderOpsSnapshot() {
@@ -3507,9 +3538,11 @@ function renderAutomationActivity() {
     emptyState.textContent = "No recent activity yet.";
     automationActivityList.append(emptyState);
   } else {
-    for (const item of automationActivityItems.slice(0, 8)) {
-      automationActivityList.append(createAutomationActivityItem(item));
-    }
+    appendCompressedCardList(automationActivityList, automationActivityItems, createAutomationActivityItem, {
+      visibleLimit: 3,
+      summaryLabel: () => "View all recent activity",
+      listClassName: "mission-overflow-list automation-activity-overflow-list",
+    });
   }
 
   const errorItems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");

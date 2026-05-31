@@ -1462,6 +1462,31 @@ small {
   gap: 10px;
 }
 
+.mission-overflow-details {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.mission-overflow-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mission-overflow-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.automation-activity-list .mission-overflow-list {
+  grid-template-columns: 1fr;
+}
+
 .mission-action-card,
 .mission-found-card,
 .mission-profile-card {

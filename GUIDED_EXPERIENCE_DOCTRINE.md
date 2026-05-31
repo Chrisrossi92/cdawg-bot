@@ -6,6 +6,19 @@ CDawg should guide the user instead of forcing them to hunt through settings. Th
 
 Guidance does not mean hiding complexity. It means sequencing complexity so the user sees the right detail at the right time.
 
+Golden Rule:
+
+> CDawg should reduce decisions, not create them.
+
+The user should not need to start by choosing a feature. The user should be able to start with an outcome:
+
+- I want a genealogy community.
+- I want more activity.
+- I want sports highlights.
+- I want people to opt in.
+
+CDawg translates intent into implementation details such as role panels, follow-ups, feed configuration, channel profiles, and automation settings.
+
 ## Design Principles
 
 ### Start With the Briefing
@@ -29,6 +42,24 @@ Empty states should explain what CDawg does not know yet and what the user can d
 ### Keep Admin Usability First
 
 The interface can have personality, but it must remain readable, predictable, and efficient. Community operators need to scan, compare, and act quickly.
+
+### Progressive Disclosure
+
+Only show what is needed for the next decision.
+
+Default surfaces should show:
+
+- Recommendations.
+- Opportunities.
+- Guidance.
+
+Default surfaces should hide:
+
+- Advanced forms.
+- Technical settings.
+- Debug data.
+
+Hidden details should remain available through expandable panels, modals, assistant flows, or explicit advanced controls.
 
 ## Recommendation Quality Bar
 
@@ -79,6 +110,24 @@ Use only when the user has reviewed the proposed change and the product has clea
 
 Long-term only. Requires strong trust, audit trails, undo or rollback where possible, and clear boundaries.
 
+## Guidance Flow
+
+Every meaningful action should follow this path:
+
+Guidance -> Preview -> Approval -> Execution -> Feedback
+
+Guidance explains the reason and recommended path.
+
+Preview shows the proposed content, configuration, or operation before anything changes.
+
+Approval requires the user to explicitly confirm the change.
+
+Execution performs only the approved action.
+
+Feedback reports what happened and what to do next.
+
+There should be no hidden automation and no autonomous mutations without explicit approval.
+
 ## Copy Doctrine
 
 CDawg copy should be friendly, direct, and specific.
@@ -106,3 +155,12 @@ Mission Control should prioritize:
 5. Recent activity.
 
 Configuration screens should remain available, but Mission Control should increasingly become the place where users discover why those screens matter.
+
+The future workspace model should separate intent from internals:
+
+- Mission Control for briefing, action needed, things found, recommendations, and activity.
+- Community Builder for channel profiles, access models, signup systems, and follow-ups.
+- Content Studio for discovery, generated content, saved messages, and future external sources.
+- Settings for advanced controls, diagnostics, and automation tuning.
+
+The experience should feel more like Jarvis, Mission Control, and a Community Operating System than a Discord Admin Panel or settings dashboard.

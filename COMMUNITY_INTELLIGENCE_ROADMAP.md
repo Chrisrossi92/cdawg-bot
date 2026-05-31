@@ -6,6 +6,10 @@ Community Intelligence is CDawg's ability to understand the health, momentum, an
 
 The goal is not surveillance or vanity analytics. The goal is to help a community owner make better decisions: where to post, what to revive, what is working, and what needs attention.
 
+The product philosophy is decision reduction. CDawg should not expose analytics for their own sake. It should convert signals into guidance, recommendations, and safe next actions.
+
+Community owners should be able to express outcomes such as "I want more activity" or "I want a genealogy community," and CDawg should use intelligence layers to translate that intent into channel profiles, content suggestions, access models, and workflow recommendations.
+
 ## Intelligence Layers
 
 ### Layer 1: Operational Health
@@ -59,6 +63,8 @@ Signals:
 - Channel role workflows.
 - Channel failures or blocked states.
 
+Channel Profiles become the memory layer for channel health. They should define the expected purpose, audience, access model, tone, preferred content types, topic override, and related role workflows. Health signals should be interpreted against that profile instead of treating every channel as generic.
+
 ### Layer 5: Strategic Recommendations
 
 Answers what the owner should do next.
@@ -110,6 +116,10 @@ Outputs:
 - Per-channel health labels.
 - Channel-specific recommendations.
 - Better scheduled-content suggestions.
+- Content matching based on purpose, tone, and preferred content types.
+- Future AI adaptation context.
+- Future discovery source routing.
+- Future channel-aware personality.
 
 ### Phase 3: Trend Awareness
 
@@ -142,6 +152,19 @@ Outputs:
 - Drafted action plans.
 - Suggested content calendars.
 
+### Phase 6: Assistant Adaptation and Personality
+
+Use Channel Profiles and observed outcomes to adapt recommendations and tone while preserving explicit user approval.
+
+Outputs:
+
+- Channel-aware recommendation ranking.
+- Channel-specific content discovery priorities.
+- Personality guidance by channel.
+- Safer assistant memory for future workflows.
+
+This phase should follow the assistant evolution ladder: rules, completeness, recommendations, discovery, adaptation, personality.
+
 ## Data Gaps
 
 Likely future gaps include:
@@ -162,3 +185,7 @@ These should be filled only as the Mission Control and Channel Profile UX proves
 - Do not use AI where deterministic metrics are enough.
 - Make confidence and data limitations visible.
 - Do not create pressure to over-automate community interaction.
+- Only show data needed for the next decision by default.
+- Hide technical settings and debug data until requested.
+- No autonomous mutations without explicit approval.
+- Every meaningful action should follow Guidance -> Preview -> Approval -> Execution -> Feedback.

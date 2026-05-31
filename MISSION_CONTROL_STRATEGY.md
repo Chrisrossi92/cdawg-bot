@@ -6,6 +6,10 @@ Mission Control is the primary CDawg dashboard experience. It is the place where
 
 The rest of the dashboard remains important, but those pages should increasingly act as detailed tools that Mission Control routes users into.
 
+Mission Control should reduce decisions, not create them. It should lead with outcomes, recommendations, and safe next steps rather than asking users to understand configuration internals.
+
+Users should be able to express intent such as "I want people to opt in" or "I want more activity" and have Mission Control route them toward the correct guided workflow.
+
 ## Core Sections
 
 ### CDawg Briefing
@@ -56,6 +60,18 @@ A concise feed of automation, posting, role, trivia, and system events.
 
 This should help users understand what CDawg has done recently and whether failures or blocked states are repeating.
 
+## Workspace Relationship
+
+Mission Control is the operating homepage in the future workspace model.
+
+It should route to:
+
+- Community Builder for Channel Profiles, Access Models, Signup Systems, and Follow-Ups.
+- Content Studio for Content Discovery, Generate Content, Saved Messages, and future Reddit, YouTube, and RSS sources.
+- Settings for Advanced Controls, Diagnostics, and Automation tuning.
+
+Mission Control should not become a dense configuration page. It should present the next useful decision and route the user to the right focused workspace.
+
 ## Data Doctrine
 
 Mission Control should first use data already loaded through dashboard state and existing endpoints.
@@ -81,6 +97,8 @@ New APIs should be added only after the frontend-derived model proves what data 
 
 Mission Control recommendations should be deterministic before AI-assisted.
 
+Recommendations should be outcome-oriented. They should not say "configure a feed" when the user intent is "make this channel active." CDawg can explain the implementation detail after the user chooses the outcome.
+
 Good deterministic opportunities include:
 
 - Missing role referenced by a panel.
@@ -103,6 +121,19 @@ Above the fold should show:
 3. Things I Found For You.
 
 Bot Status and lower-level operational metrics can remain available below Mission Control, but they should not be the first thing the user has to interpret.
+
+Default Mission Control should show recommendations, opportunities, and guidance.
+
+It should hide advanced forms, technical settings, and debug data until requested.
+
+The default experience should answer:
+
+- What is happening?
+- What needs attention?
+- What did CDawg find?
+- What should I do next?
+
+It should not force the user to choose from every possible control.
 
 ## Implementation Strategy
 
@@ -130,6 +161,14 @@ Channel Profile derived model.
 
 Optional AI-assisted summaries after deterministic recommendations are stable.
 
+### Slice 7
+
+Workspace simplification: move configuration-heavy surfaces into Community Builder, Content Studio, and Settings while keeping Mission Control focused on guidance.
+
+### Slice 8
+
+Assistant ladder expansion: evolve from rules and completeness checks into recommendations, discovery, adaptation, and channel-aware personality.
+
 ## Guardrails
 
 - No direct posting from Mission Control until reviewed workflows exist.
@@ -137,3 +176,5 @@ Optional AI-assisted summaries after deterministic recommendations are stable.
 - No new backend dependency for the MVP.
 - Keep recommendations explainable.
 - Keep configuration pages intact.
+- Every meaningful action should follow Guidance -> Preview -> Approval -> Execution -> Feedback.
+- No autonomous mutations without explicit approval.

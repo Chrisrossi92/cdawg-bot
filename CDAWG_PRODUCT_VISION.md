@@ -17,6 +17,23 @@ CDawg helps community owners answer four questions:
 
 The dashboard should make those answers visible without requiring users to inspect every configuration page.
 
+## Golden Rule
+
+CDawg should reduce decisions, not create them.
+
+The goal is not to expose every feature. The goal is to help the user move from intent to outcome with the fewest necessary decisions.
+
+Users should be able to start with outcomes such as:
+
+- I want a genealogy community.
+- I want more activity.
+- I want sports highlights.
+- I want people to opt in.
+
+CDawg translates those intents into implementation details: channel profiles, access models, signup systems, follow-ups, content recommendations, and scheduled activity.
+
+Users should not need to understand role panels, follow-ups, feed configuration, or automation internals before CDawg can help them.
+
 ## Product Pillars
 
 ### Mission Control First
@@ -37,11 +54,30 @@ Channels are the natural operating unit of a Discord community. CDawg should und
 
 The long-term goal is for each channel to have a profile that helps CDawg recommend better content and safer automation.
 
+Channel Profiles become CDawg's memory layer. Recommendations, content matching, future AI adaptation, future discovery sources, and future personalities should increasingly derive from channel profiles.
+
 ### Human-in-Control Automation
 
 CDawg should automate routine engagement, but the admin remains in control. Risky actions should be reviewable, reversible, or navigation-only until trust is earned.
 
 The system should prefer suggestions, previews, and guided workflows before direct mutations.
+
+Every meaningful action should follow this path:
+
+Guidance -> Preview -> Approval -> Execution -> Feedback
+
+There should be no hidden automation and no autonomous mutations without explicit approval.
+
+## Future Workspace Model
+
+The long-term dashboard should organize around outcome-driven workspaces:
+
+- Mission Control: Briefing, Action Needed, Things I Found For You, Recommendations, Activity.
+- Community Builder: Channel Profiles, Access Models, Signup Systems, Follow-Ups.
+- Content Studio: Content Discovery, Generate Content, Saved Messages, future Reddit, YouTube, and RSS sources.
+- Settings: Advanced Controls, Diagnostics, Automation.
+
+Mission Control remains the primary workspace. Settings should be a supporting surface for advanced controls, not the place users must start.
 
 ## Near-Term Product Shape
 
@@ -59,6 +95,17 @@ The near-term product should focus on:
 The long-term direction is a Jarvis-style community operator: an assistant that can brief the owner, explain community changes, draft plans, prepare content, identify risks, and eventually execute approved actions.
 
 This does not mean adding AI everywhere. AI should be used where interpretation, summarization, planning, or natural-language assistance creates real value beyond deterministic rules.
+
+The dashboard should eventually feel more like Jarvis, Mission Control, and a Community Operating System, and less like a Discord Admin Panel or settings dashboard.
+
+## Assistant Evolution Ladder
+
+1. Rules: CDawg detects simple deterministic conditions.
+2. Completeness: CDawg identifies missing setup pieces.
+3. Recommendations: CDawg ranks safe next actions.
+4. Discovery: CDawg finds useful content and opportunities.
+5. Adaptation: CDawg adjusts based on channel profiles and outcomes.
+6. Personality: CDawg develops channel-aware voice while remaining admin-safe.
 
 ## Product Boundaries
 
