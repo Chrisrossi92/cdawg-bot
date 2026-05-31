@@ -165,6 +165,13 @@ const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"
 const contentStudioModeButtons = Array.from(document.querySelectorAll("[data-content-studio-mode-target]"));
 const contentStudioPanels = Array.from(document.querySelectorAll("[data-content-studio-panel]"));
 const contentDiscoveryReviewPanel = document.querySelector("#content-discovery-review-panel");
+const rssDiscoverySourcesList = document.querySelector("#rss-discovery-sources-list");
+const rssDiscoverySourceForm = document.querySelector("#rss-discovery-source-form");
+const addRssDiscoverySourceButton = document.querySelector("#add-rss-discovery-source");
+const refreshEnabledRssDiscoverySourcesButton = document.querySelector("#refresh-enabled-rss-discovery-sources");
+const cancelRssDiscoverySourceButton = document.querySelector("#cancel-rss-discovery-source");
+const deleteRssDiscoverySourceButton = document.querySelector("#delete-rss-discovery-source");
+const rssDiscoverySourceStatus = document.querySelector("#rss-discovery-source-status");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -228,6 +235,8 @@ let roleAccessPanels = [];
 let roleFollowups = [];
 let composerTemplates = [];
 let channelProfiles = [];
+let discoverySources = [];
+let discoverySourcesLoadError = null;
 let discoveryItems = [];
 let discoveryItemsLoadError = null;
 let activeControlTab = "overview";
@@ -2692,6 +2701,285 @@ function renderContentDiscoveryReview() {
   }
 
   contentDiscoveryReviewPanel.append(list);
+}
+
+function setRssDiscoverySourceStatus(message, kind = "neutral") {
+  if (!rssDiscoverySourceStatus) {
+    return;
+  }
+
+  rssDiscoverySourceStatus.textContent = message;
+  rssDiscoverySourceStatus.className = `form-status ${kind}`;
+}
+
+function getRssDiscoverySources() {
+  return discoverySources.filter((source) => source?.type === "rss");
+}
+
+function getDiscoverySourceChannelLabel(channelId) {
+  const channel = guildChannels.find((entry) => entry.id === channelId);
+  return channel ? `#${channel.name}` : channelId;
+}
+
+function renderDiscoverySourceChannelOptions(selectedChannelIds = []) {
+  if (!rssDiscoverySourceForm) {
+    return;
+  }
+
+  const select = rssDiscoverySourceForm.elements.preferredChannelIds;
+  const selectedValues = new Set(selectedChannelIds);
+  select.replaceChildren();
+
+  if (guildChannels.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No channel metadata loaded";
+    option.disabled = true;
+    select.append(option);
+    return;
+  }
+
+  for (const channel of guildChannels) {
+    const option = document.createElement("option");
+    option.value = channel.id;
+    option.textContent = `#${channel.name}`;
+    option.selected = selectedValues.has(channel.id);
+    select.append(option);
+  }
+}
+
+function resetRssDiscoverySourceForm() {
+  if (!rssDiscoverySourceForm) {
+    return;
+  }
+
+  rssDiscoverySourceForm.reset();
+  rssDiscoverySourceForm.elements.id.value = "";
+  rssDiscoverySourceForm.hidden = true;
+  if (deleteRssDiscoverySourceButton) {
+    deleteRssDiscoverySourceButton.hidden = true;
+  }
+  renderDiscoverySourceChannelOptions();
+}
+
+function showRssDiscoverySourceForm(source = null) {
+  if (!rssDiscoverySourceForm) {
+    return;
+  }
+
+  rssDiscoverySourceForm.hidden = false;
+  rssDiscoverySourceForm.elements.id.value = source?.id ?? "";
+  rssDiscoverySourceForm.elements.name.value = source?.name ?? "";
+  rssDiscoverySourceForm.elements.url.value = source?.url ?? "";
+  rssDiscoverySourceForm.elements.enabled.value = String(source?.enabled !== false);
+  rssDiscoverySourceForm.elements.defaultTags.value = Array.isArray(source?.defaultTags) ? source.defaultTags.join(", ") : "";
+  renderDiscoverySourceChannelOptions(Array.isArray(source?.preferredChannelIds) ? source.preferredChannelIds : []);
+  if (deleteRssDiscoverySourceButton) {
+    deleteRssDiscoverySourceButton.hidden = !source?.id;
+  }
+  setRssDiscoverySourceStatus(source ? "Editing RSS source. Use manual refresh when ready." : "New RSS source. Save it, then refresh manually when ready.");
+}
+
+function getRssDiscoverySourceFormPayload() {
+  const form = rssDiscoverySourceForm;
+  const name = form.elements.name.value.trim();
+  const url = form.elements.url.value.trim();
+  const selectedChannelIds = Array.from(form.elements.preferredChannelIds.selectedOptions)
+    .map((option) => option.value)
+    .filter(Boolean);
+  const defaultTags = form.elements.defaultTags.value
+    .split(",")
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean);
+
+  if (!name) {
+    return {
+      ok: false,
+      error: "Name is required.",
+    };
+  }
+
+  if (!isSafeDiscoveryUrl(url)) {
+    return {
+      ok: false,
+      error: "RSS URL must be a valid https URL.",
+    };
+  }
+
+  if (defaultTags.some((tag) => !/^[a-z0-9][a-z0-9_-]{0,39}$/.test(tag))) {
+    return {
+      ok: false,
+      error: "Tags must use lowercase letters, numbers, dashes, or underscores.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(form.elements.id.value ? { id: form.elements.id.value } : {}),
+      type: "rss",
+      enabled: form.elements.enabled.value === "true",
+      name,
+      url,
+      defaultTags: [...new Set(defaultTags)],
+      preferredChannelIds: [...new Set(selectedChannelIds)],
+      lastRefreshAt: null,
+      lastError: null,
+    },
+  };
+}
+
+function createDiscoverySourceCard(source) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const title = document.createElement("h3");
+  const badge = createStatusBadge(source.enabled === false ? "Disabled" : "Enabled", source.enabled === false ? "neutral" : "active");
+  const url = document.createElement("p");
+  const meta = document.createElement("p");
+  const status = document.createElement("p");
+  const actions = document.createElement("div");
+
+  card.className = "channel-operation-card compact discovery-source-card";
+  header.className = "channel-operation-card-header";
+  actions.className = "channel-operation-actions";
+  title.textContent = source.name;
+  url.textContent = source.url || "No URL set";
+  meta.textContent = [
+    `Tags: ${Array.isArray(source.defaultTags) && source.defaultTags.length > 0 ? source.defaultTags.join(", ") : "none"}`,
+    `Preferred channels: ${Array.isArray(source.preferredChannelIds) && source.preferredChannelIds.length > 0 ? source.preferredChannelIds.map(getDiscoverySourceChannelLabel).join(", ") : "none"}`,
+  ].join(" | ");
+  status.textContent = [
+    source.lastRefreshAt ? `Last refresh: ${formatTimestamp(source.lastRefreshAt)} (${formatRelativeTime(source.lastRefreshAt)})` : "Not refreshed yet",
+    source.lastError ? `Last error: ${source.lastError}` : null,
+  ]
+    .filter(Boolean)
+    .join(" | ");
+
+  actions.append(
+    createChannelActionButton("Refresh Source", () => void refreshRssDiscoverySources(source.id), source.enabled === false),
+    createChannelActionButton("Edit", () => showRssDiscoverySourceForm(source)),
+    createChannelActionButton("Delete", () => void deleteRssDiscoverySource(source.id)),
+  );
+  header.append(title, badge);
+  card.append(header, url, meta, status, actions);
+  return card;
+}
+
+function renderDiscoverySources() {
+  if (!rssDiscoverySourcesList) {
+    return;
+  }
+
+  rssDiscoverySourcesList.replaceChildren();
+
+  if (discoverySourcesLoadError) {
+    const error = document.createElement("p");
+    error.className = "channel-operation-empty";
+    error.textContent = `Discovery sources failed to load. ${discoverySourcesLoadError}`;
+    rssDiscoverySourcesList.append(error);
+    return;
+  }
+
+  const rssSources = getRssDiscoverySources();
+
+  if (rssSources.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No RSS sources configured yet.";
+    rssDiscoverySourcesList.append(emptyState);
+    return;
+  }
+
+  for (const source of rssSources) {
+    rssDiscoverySourcesList.append(createDiscoverySourceCard(source));
+  }
+}
+
+function getDiscoveryRefreshSummary(data) {
+  const results = Array.isArray(data.results) ? data.results : [];
+
+  if (results.length === 0) {
+    return "No RSS sources were refreshed.";
+  }
+
+  const succeeded = results.filter((result) => result.ok).length;
+  const itemCount = results.reduce((total, result) => total + (Number.isFinite(result.itemCount) ? result.itemCount : 0), 0);
+  const failedResults = results.filter((result) => !result.ok);
+  const failureSummary = failedResults.length > 0
+    ? ` ${failedResults.length} failed: ${failedResults.map((result) => result.error || result.sourceId).join("; ")}`
+    : "";
+
+  return `Manual refresh complete: ${succeeded}/${results.length} source${results.length === 1 ? "" : "s"} refreshed, ${itemCount} discovery item${itemCount === 1 ? "" : "s"} loaded.${failureSummary}`;
+}
+
+async function refreshRssDiscoverySources(sourceId = null) {
+  setRssDiscoverySourceStatus(sourceId ? "Refreshing RSS source manually..." : "Refreshing enabled RSS sources manually...");
+
+  try {
+    const data = await fetchJson("/api/discovery/refresh", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(sourceId ? { sourceId } : {}),
+    });
+    await Promise.all([loadDiscoverySources(), loadDiscoveryItems()]);
+    setRssDiscoverySourceStatus(getDiscoveryRefreshSummary(data), data.ok === false ? "error" : "success");
+  } catch (error) {
+    await Promise.all([loadDiscoverySources(), loadDiscoveryItems()]);
+    setRssDiscoverySourceStatus(`Manual RSS refresh failed: ${error.message}`, "error");
+  }
+}
+
+async function submitRssDiscoverySource(event) {
+  event.preventDefault();
+  const payload = getRssDiscoverySourceFormPayload();
+
+  if (!payload.ok) {
+    setRssDiscoverySourceStatus(payload.error, "error");
+    return;
+  }
+
+  try {
+    const data = await fetchJson("/api/discovery/sources/upsert", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload.value),
+    });
+    discoverySources = Array.isArray(data.sources) ? data.sources : [];
+    discoverySourcesLoadError = null;
+    renderDiscoverySources();
+    showRssDiscoverySourceForm(data.source);
+    setRssDiscoverySourceStatus("RSS source saved. Refresh manually when ready.", "success");
+  } catch (error) {
+    setRssDiscoverySourceStatus(`RSS source save failed: ${error.message}`, "error");
+  }
+}
+
+async function deleteRssDiscoverySource(sourceId = rssDiscoverySourceForm?.elements.id.value) {
+  if (!sourceId) {
+    setRssDiscoverySourceStatus("Choose an RSS source before deleting.", "error");
+    return;
+  }
+
+  try {
+    const data = await fetchJson("/api/discovery/sources/delete", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ id: sourceId }),
+    });
+    discoverySources = Array.isArray(data.sources) ? data.sources : discoverySources.filter((source) => source.id !== sourceId);
+    discoverySourcesLoadError = null;
+    renderDiscoverySources();
+    resetRssDiscoverySourceForm();
+    setRssDiscoverySourceStatus("RSS source deleted.", "success");
+  } catch (error) {
+    setRssDiscoverySourceStatus(`RSS source delete failed: ${error.message}`, "error");
+  }
 }
 
 function renderMissionFoundItems() {
@@ -5522,6 +5810,7 @@ async function loadGuildMetadata() {
     renderRoleFollowupPreview();
     renderRoleFollowups();
     renderComposerTemplates();
+    renderDiscoverySourceChannelOptions(rssDiscoverySourceForm?.hidden === false ? Array.from(rssDiscoverySourceForm.elements.preferredChannelIds.selectedOptions).map((option) => option.value) : []);
     renderOpsSnapshot();
   } catch (error) {
     guildRoles = [];
@@ -5530,6 +5819,7 @@ async function loadGuildMetadata() {
     discordMetadataWarning.hidden = false;
     renderDiscordMetadataOptions();
     renderChannelSetupMetadataOptions();
+    renderDiscoverySourceChannelOptions();
     renderOpsSnapshot();
   }
 }
@@ -5619,6 +5909,20 @@ async function loadDiscoveryItems() {
     if (activeContentStudioMode === "discovery") {
       renderContentDiscoveryReview();
     }
+  }
+}
+
+async function loadDiscoverySources() {
+  try {
+    const data = await fetchJson("/api/discovery/sources");
+    discoverySources = Array.isArray(data.sources) ? data.sources : [];
+    discoverySourcesLoadError = null;
+    renderDiscoverySources();
+  } catch (error) {
+    discoverySources = [];
+    discoverySourcesLoadError = error.message;
+    console.warn(`[discovery] discovery sources failed to load: ${error.message}`);
+    renderDiscoverySources();
   }
 }
 
@@ -6285,6 +6589,7 @@ async function reloadAll() {
     loadRoleAccessPanels(),
     loadRoleFollowups(),
     loadChannelProfiles(),
+    loadDiscoverySources(),
     loadDiscoveryItems(),
     loadComposerTemplates(),
   ]);
@@ -6328,6 +6633,29 @@ for (const button of contentStudioModeButtons) {
     }
     setActiveContentStudioMode(targetMode);
   });
+}
+
+if (addRssDiscoverySourceButton) {
+  addRssDiscoverySourceButton.addEventListener("click", () => showRssDiscoverySourceForm());
+}
+
+if (refreshEnabledRssDiscoverySourcesButton) {
+  refreshEnabledRssDiscoverySourcesButton.addEventListener("click", () => void refreshRssDiscoverySources());
+}
+
+if (cancelRssDiscoverySourceButton) {
+  cancelRssDiscoverySourceButton.addEventListener("click", () => {
+    resetRssDiscoverySourceForm();
+    setRssDiscoverySourceStatus("RSS source edit cancelled.");
+  });
+}
+
+if (deleteRssDiscoverySourceButton) {
+  deleteRssDiscoverySourceButton.addEventListener("click", () => void deleteRssDiscoverySource());
+}
+
+if (rssDiscoverySourceForm) {
+  rssDiscoverySourceForm.addEventListener("submit", (event) => void submitRssDiscoverySource(event));
 }
 
 apiConfigForm.addEventListener("submit", async (event) => {

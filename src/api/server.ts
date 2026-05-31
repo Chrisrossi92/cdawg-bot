@@ -82,10 +82,12 @@ import {
   deleteDiscoverySource,
   listDiscoveryItems,
   listDiscoverySources,
+  refreshRssDiscoverySources,
   upsertDiscoveryItems,
   upsertDiscoverySource,
   validateDiscoveryItemDeleteRequest,
   validateDiscoveryItemsInput,
+  validateDiscoveryRefreshRequest,
   validateDiscoverySourceDeleteRequest,
   validateDiscoverySourceInput,
 } from "../systems/discovery-sources.js";
@@ -2032,6 +2034,38 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
           ok: true,
           sources: listDiscoverySources(),
         });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/refresh") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoveryRefreshRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const result = await refreshRssDiscoverySources(validation.value.sourceId);
+
+        if (!result.ok && result.code === "SOURCE_NOT_FOUND") {
+          sendJson(response, 404, result);
+          return;
+        }
+
+        if (!result.ok && result.code === "SOURCE_NOT_RSS") {
+          sendJson(response, 400, result);
+          return;
+        }
+
+        sendJson(response, 200, result);
         return;
       }
 

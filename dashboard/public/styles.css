@@ -2103,6 +2103,33 @@ small {
   align-content: start;
 }
 
+.content-discovery-sources-panel {
+  margin-top: 4px;
+}
+
+.content-discovery-sources-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.content-discovery-sources-header h4,
+.content-discovery-sources-header p {
+  margin: 0;
+}
+
+.content-discovery-sources-header p {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.discovery-source-form {
+  margin: 12px 0;
+}
+
 .automation-detail-line {
   display: flex;
   align-items: baseline;
@@ -3073,6 +3100,7 @@ pre {
   .mission-discovery-actions,
   .content-discovery-review-header,
   .content-discovery-review-actions,
+  .content-discovery-sources-header,
   .mission-profile-card-header {
     align-items: stretch;
     flex-direction: column;

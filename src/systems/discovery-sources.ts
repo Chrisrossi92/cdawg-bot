@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ContentType } from "../lib/content-provider.js";
@@ -59,6 +60,13 @@ type DiscoveryItemStore = {
   items: DiscoveryItem[];
 };
 
+export type DiscoveryRefreshResult = {
+  sourceId: string;
+  ok: boolean;
+  itemCount: number;
+  error: string | null;
+};
+
 type ValidationResult<T> =
   | {
       ok: true;
@@ -87,6 +95,10 @@ const maxReasonLength = 500;
 const maxErrorLength = 500;
 const maxExternalIdLength = 240;
 const maxThumbnailKindLength = 40;
+const rssFetchTimeoutMs = 8000;
+const rssMaxRedirects = 3;
+const rssMaxItemsPerSource = 20;
+const rssUnsafePattern = /\b(?:adult|casino|gambling|nsfw|porn|sex|viagra|xxx|crypto giveaway|free money|work from home)\b/i;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -141,6 +153,77 @@ function isHttpsUrl(value: string) {
   } catch {
     return false;
   }
+}
+
+function normalizeHttpsUrl(value: string) {
+  try {
+    const url = new URL(value.trim());
+    if (url.protocol !== "https:") {
+      return null;
+    }
+
+    for (const key of [...url.searchParams.keys()]) {
+      if (/^utm_/i.test(key) || ["fbclid", "gclid"].includes(key.toLowerCase())) {
+        url.searchParams.delete(key);
+      }
+    }
+
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+function hashDiscoveryValue(value: string) {
+  return crypto.createHash("sha256").update(value).digest("hex").slice(0, 24);
+}
+
+function decodeXmlEntities(value: string) {
+  return value
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)))
+    .replace(/&#x([a-f0-9]+);/gi, (_match, code) => String.fromCharCode(Number.parseInt(code, 16)));
+}
+
+function stripHtml(value: string) {
+  return decodeXmlEntities(value)
+    .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+    .replace(/<script\b[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style\b[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function clampText(value: string, maxLength: number) {
+  const sanitizedValue = stripHtml(value);
+  return sanitizedValue.length > maxLength ? sanitizedValue.slice(0, maxLength - 1).trimEnd() : sanitizedValue;
+}
+
+function getXmlTagValue(block: string, tagName: string) {
+  const match = block.match(new RegExp(`<${tagName}(?:\\s[^>]*)?>([\\s\\S]*?)<\\/${tagName}>`, "i"));
+  return match?.[1] ?? null;
+}
+
+function getXmlAttributeValue(block: string, tagName: string, attributeName: string) {
+  const tagMatch = block.match(new RegExp(`<${tagName}\\b([^>]*)>`, "i"));
+  const attributes = tagMatch?.[1] ?? "";
+  const attributeMatch = attributes.match(new RegExp(`${attributeName}=["']([^"']+)["']`, "i"));
+  return attributeMatch?.[1] ? decodeXmlEntities(attributeMatch[1]) : null;
+}
+
+function parseRssDate(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const timestamp = Date.parse(stripHtml(value));
+  return Number.isFinite(timestamp) ? timestamp : null;
 }
 
 function sanitizeOptionalHttpsUrl(value: unknown, fieldName: string): ValidationResult<string | null> {
@@ -577,6 +660,49 @@ export function validateDiscoveryItemDeleteRequest(value: unknown): ValidationRe
   };
 }
 
+export function validateDiscoveryRefreshRequest(value: unknown): ValidationResult<{ sourceId: string | null }> {
+  if (value === null || value === undefined) {
+    return {
+      ok: true,
+      value: {
+        sourceId: null,
+      },
+    };
+  }
+
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Discovery refresh payload must be a JSON object.",
+    };
+  }
+
+  if (value.sourceId === undefined || value.sourceId === null || value.sourceId === "") {
+    return {
+      ok: true,
+      value: {
+        sourceId: null,
+      },
+    };
+  }
+
+  const sourceId = sanitizeString(value.sourceId, 80);
+
+  if (!sourceId || !idPattern.test(sourceId)) {
+    return {
+      ok: false,
+      error: "Invalid discovery source ID.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      sourceId,
+    },
+  };
+}
+
 function sanitizeDiscoverySourceFromDisk(value: unknown): DiscoverySourceConfig | null {
   if (!isRecord(value)) {
     return null;
@@ -800,4 +926,284 @@ export function clearDiscoveryItemsForSource(sourceId: string) {
   }
 
   return previousCount - activeDiscoveryItemStore.items.length;
+}
+
+function updateDiscoverySourceRefreshState(sourceId: string, patch: Pick<DiscoverySourceConfig, "lastRefreshAt" | "lastError">) {
+  const currentSource = activeDiscoverySourceStore.sources.find((source) => source.id === sourceId);
+
+  if (!currentSource) {
+    return null;
+  }
+
+  const nextSource: DiscoverySourceConfig = {
+    ...currentSource,
+    lastRefreshAt: patch.lastRefreshAt,
+    lastError: patch.lastError,
+    updatedAt: Date.now(),
+  };
+
+  activeDiscoverySourceStore = {
+    sources: activeDiscoverySourceStore.sources.map((source) => (source.id === sourceId ? nextSource : source)),
+  };
+  saveJsonFile(SOURCES_DATA_FILE, activeDiscoverySourceStore, "discovery sources");
+  return nextSource;
+}
+
+async function fetchRssText(url: string, redirectCount = 0): Promise<string> {
+  const normalizedUrl = normalizeHttpsUrl(url);
+
+  if (!normalizedUrl) {
+    throw new Error("RSS source URL must be https.");
+  }
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), rssFetchTimeoutMs);
+
+  try {
+    const response = await fetch(normalizedUrl, {
+      headers: {
+        Accept: "application/rss+xml, application/atom+xml, application/xml, text/xml;q=0.9, */*;q=0.1",
+        "User-Agent": "CdawgBotDiscovery/1.0",
+      },
+      redirect: "manual",
+      signal: controller.signal,
+    });
+
+    if (response.status >= 300 && response.status < 400) {
+      if (redirectCount >= rssMaxRedirects) {
+        throw new Error("RSS fetch exceeded redirect limit.");
+      }
+
+      const location = response.headers.get("location");
+
+      if (!location) {
+        throw new Error("RSS redirect did not include a location.");
+      }
+
+      const redirectUrl = normalizeHttpsUrl(new URL(location, normalizedUrl).toString());
+
+      if (!redirectUrl) {
+        throw new Error("RSS redirect target must be https.");
+      }
+
+      return fetchRssText(redirectUrl, redirectCount + 1);
+    }
+
+    if (!response.ok) {
+      throw new Error(`RSS fetch failed with ${response.status}.`);
+    }
+
+    const contentLength = Number(response.headers.get("content-length") ?? 0);
+
+    if (contentLength > 1_000_000) {
+      throw new Error("RSS feed is too large.");
+    }
+
+    const body = await response.text();
+
+    if (body.length > 1_000_000) {
+      throw new Error("RSS feed is too large.");
+    }
+
+    return body;
+  } catch (error) {
+    if ((error as Error).name === "AbortError") {
+      throw new Error("RSS fetch timed out.");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function getRssEntryBlocks(xmlText: string) {
+  const itemMatches = xmlText.match(/<item\b[\s\S]*?<\/item>/gi) ?? [];
+
+  if (itemMatches.length > 0) {
+    return itemMatches;
+  }
+
+  return xmlText.match(/<entry\b[\s\S]*?<\/entry>/gi) ?? [];
+}
+
+function getRssEntryUrl(entryBlock: string) {
+  const rawRssLink = getXmlTagValue(entryBlock, "link");
+  const rawAtomLink = getXmlAttributeValue(entryBlock, "link", "href");
+  const rawUrl = rawRssLink ? stripHtml(rawRssLink) : rawAtomLink;
+  return rawUrl ? normalizeHttpsUrl(rawUrl) : null;
+}
+
+function getRssEntryDescription(entryBlock: string, fallbackTitle: string) {
+  const rawDescription =
+    getXmlTagValue(entryBlock, "description") ??
+    getXmlTagValue(entryBlock, "summary") ??
+    getXmlTagValue(entryBlock, "content") ??
+    getXmlTagValue(entryBlock, "content:encoded") ??
+    fallbackTitle;
+  return clampText(rawDescription, maxDescriptionLength);
+}
+
+function buildRssExternalId(entryBlock: string, sourceUrl: string, title: string, publishedAt: number | null) {
+  const guid = getXmlTagValue(entryBlock, "guid");
+  const id = getXmlTagValue(entryBlock, "id");
+  const rawExternalId = stripHtml(guid ?? id ?? sourceUrl ?? `${title}:${publishedAt ?? ""}`);
+  return hashDiscoveryValue(rawExternalId).slice(0, maxExternalIdLength);
+}
+
+function buildRssDiscoveryItem(source: DiscoverySourceConfig, entryBlock: string, discoveredAt: number): DiscoveryItem | null {
+  const rawTitle = getXmlTagValue(entryBlock, "title");
+  const title = rawTitle ? clampText(rawTitle, maxTitleLength) : "";
+
+  if (!title) {
+    return null;
+  }
+
+  const sourceUrl = getRssEntryUrl(entryBlock);
+
+  if (!sourceUrl) {
+    return null;
+  }
+
+  const description = getRssEntryDescription(entryBlock, title);
+  const unsafeText = `${title} ${description}`;
+
+  if (rssUnsafePattern.test(unsafeText)) {
+    return null;
+  }
+
+  const publishedAt = parseRssDate(getXmlTagValue(entryBlock, "pubDate") ?? getXmlTagValue(entryBlock, "published") ?? getXmlTagValue(entryBlock, "updated"));
+  const externalId = buildRssExternalId(entryBlock, sourceUrl, title, publishedAt);
+  const itemHash = hashDiscoveryValue(`${source.type}:${source.id}:${externalId}`);
+  const freshnessBoost = publishedAt && Date.now() - publishedAt < 7 * 24 * 60 * 60 * 1000 ? 15 : 0;
+  const score = Math.min(100, 60 + freshnessBoost + (source.preferredChannelIds.length > 0 ? 10 : 0) + Math.min(source.defaultTags.length, 3) * 3);
+  const suggestedChannelId = source.preferredChannelIds[0] ?? null;
+  const suggestedReason = suggestedChannelId
+    ? `Loaded from ${source.name} and matched the source's first preferred channel. Review before using.`
+    : `Loaded from ${source.name}. Review before choosing where to use it.`;
+
+  return {
+    id: `rss:${source.id}:${itemHash}`,
+    sourceType: "rss",
+    sourceId: source.id,
+    externalId,
+    sourceName: source.name,
+    title,
+    description: description || title,
+    thumbnailUrl: null,
+    thumbnailKind: "rss",
+    sourceUrl,
+    publishedAt,
+    discoveredAt,
+    suggestedChannelId,
+    suggestedReason,
+    suggestedContentType: "link",
+    tags: source.defaultTags,
+    score,
+    safetyStatus: "needs-review",
+    isMock: false,
+  };
+}
+
+function parseRssDiscoveryItems(source: DiscoverySourceConfig, xmlText: string, discoveredAt: number) {
+  return getRssEntryBlocks(xmlText)
+    .slice(0, rssMaxItemsPerSource)
+    .map((entryBlock) => buildRssDiscoveryItem(source, entryBlock, discoveredAt))
+    .filter((item): item is DiscoveryItem => Boolean(item));
+}
+
+async function refreshSingleRssSource(source: DiscoverySourceConfig): Promise<DiscoveryRefreshResult> {
+  if (source.type !== "rss") {
+    return {
+      sourceId: source.id,
+      ok: false,
+      itemCount: 0,
+      error: "Discovery source is not an RSS source.",
+    };
+  }
+
+  if (!source.url || !normalizeHttpsUrl(source.url)) {
+    const error = "RSS source URL must be https.";
+    updateDiscoverySourceRefreshState(source.id, {
+      lastRefreshAt: Date.now(),
+      lastError: error,
+    });
+    return {
+      sourceId: source.id,
+      ok: false,
+      itemCount: 0,
+      error,
+    };
+  }
+
+  try {
+    const discoveredAt = Date.now();
+    const xmlText = await fetchRssText(source.url);
+    const items = parseRssDiscoveryItems(source, xmlText, discoveredAt);
+    upsertDiscoveryItems(items);
+    updateDiscoverySourceRefreshState(source.id, {
+      lastRefreshAt: discoveredAt,
+      lastError: null,
+    });
+    return {
+      sourceId: source.id,
+      ok: true,
+      itemCount: items.length,
+      error: null,
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message.slice(0, maxErrorLength) : "RSS refresh failed.";
+    updateDiscoverySourceRefreshState(source.id, {
+      lastRefreshAt: Date.now(),
+      lastError: message,
+    });
+    return {
+      sourceId: source.id,
+      ok: false,
+      itemCount: 0,
+      error: message,
+    };
+  }
+}
+
+export async function refreshRssDiscoverySources(sourceId?: string | null) {
+  const sources = sourceId
+    ? activeDiscoverySourceStore.sources.filter((source) => source.id === sourceId)
+    : activeDiscoverySourceStore.sources.filter((source) => source.type === "rss" && source.enabled !== false);
+
+  if (sourceId && sources.length === 0) {
+    return {
+      ok: false,
+      code: "SOURCE_NOT_FOUND" as const,
+      error: "Discovery source not found.",
+      results: [] as DiscoveryRefreshResult[],
+      items: listDiscoveryItems(),
+      sources: listDiscoverySources(),
+    };
+  }
+
+  if (sourceId && sources[0]?.type !== "rss") {
+    return {
+      ok: false,
+      code: "SOURCE_NOT_RSS" as const,
+      error: "Discovery source is not an RSS source.",
+      results: [] as DiscoveryRefreshResult[],
+      items: listDiscoveryItems(),
+      sources: listDiscoverySources(),
+    };
+  }
+
+  const results: DiscoveryRefreshResult[] = [];
+
+  for (const source of sources) {
+    results.push(await refreshSingleRssSource(source));
+  }
+
+  return {
+    ok: results.every((result) => result.ok),
+    code: "OK" as const,
+    results,
+    items: listDiscoveryItems(),
+    sources: listDiscoverySources(),
+  };
 }
