@@ -1800,6 +1800,7 @@ small {
   display: grid;
   gap: 6px;
   min-width: 0;
+  text-align: left;
   padding: 13px;
   border: 1px solid rgba(120, 185, 255, 0.2);
   border-radius: 12px;
@@ -1808,6 +1809,7 @@ small {
     rgba(5, 12, 22, 0.44);
   color: inherit;
   text-decoration: none;
+  box-shadow: none;
   transition:
     border-color var(--transition-base),
     box-shadow var(--transition-base),
@@ -1829,6 +1831,71 @@ small {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.4;
+}
+
+.content-studio-choice-area {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.content-studio-choice-area h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.content-studio-choice-grid {
+  margin-bottom: 0;
+}
+
+.content-studio-choice.is-active {
+  border-color: rgba(45, 212, 255, 0.56);
+  background:
+    linear-gradient(135deg, rgba(45, 212, 255, 0.16), rgba(157, 124, 255, 0.1)),
+    rgba(11, 22, 38, 0.9);
+  box-shadow: var(--glow-cyan);
+}
+
+.content-studio-advanced {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 10px;
+}
+
+.content-studio-advanced summary,
+.content-studio-collapsed-tool summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.content-studio-advanced label {
+  margin-top: 10px;
+}
+
+.content-studio-collapsed-tool label,
+.content-studio-collapsed-tool .message-builder:first-of-type {
+  margin-top: 10px;
+}
+
+.content-studio-saved-heading,
+[data-tab-panel="push"][data-content-studio-mode="write"] .content-studio-saved-panel,
+[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-write-heading,
+[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-write-panel {
+  display: none;
+}
+
+[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-saved-heading {
+  display: grid;
+}
+
+[data-tab-panel="push"][data-content-studio-mode="saved"] .composer-form {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-saved-panel {
+  grid-column: 1 / -1;
 }
 
 .automation-detail-line {

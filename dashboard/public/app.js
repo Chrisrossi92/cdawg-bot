@@ -161,6 +161,8 @@ const followupInsertChannelButton = document.querySelector("[data-followup-inser
 const followupInsertRoleButton = document.querySelector("[data-followup-insert-role]");
 const controlTabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
 const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+const contentStudioModeButtons = Array.from(document.querySelectorAll("[data-content-studio-mode-target]"));
+const contentStudioPanels = Array.from(document.querySelectorAll("[data-content-studio-panel]"));
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -218,6 +220,7 @@ let roleFollowups = [];
 let composerTemplates = [];
 let channelProfiles = [];
 let activeControlTab = "overview";
+let activeContentStudioMode = "generate";
 let composerDraftBeforeRewrite = null;
 
 const channelSetupPurposeProfiles = {
@@ -1899,12 +1902,63 @@ function navigateMissionAction(navigation) {
   setActiveControlTab(navigation.tab || "overview");
 
   if (navigation.section) {
+    setContentStudioModeForSection(navigation.section);
     window.requestAnimationFrame(() => {
       document.querySelector(`#${navigation.section}`)?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
     });
+  }
+}
+
+function getContentStudioModeForSection(sectionId) {
+  if (sectionId === "post-now-generated-content") {
+    return "generate";
+  }
+
+  if (sectionId === "post-now-message") {
+    return "write";
+  }
+
+  if (sectionId === "post-now-saved-messages") {
+    return "saved";
+  }
+
+  if (sectionId === "post-now-history") {
+    return "history";
+  }
+
+  return null;
+}
+
+function setContentStudioModeForSection(sectionId) {
+  const mode = getContentStudioModeForSection(sectionId);
+
+  if (mode) {
+    setActiveContentStudioMode(mode);
+  }
+}
+
+function setActiveContentStudioMode(mode) {
+  const validModes = new Set(["generate", "write", "saved", "history"]);
+  const nextMode = validModes.has(mode) ? mode : "generate";
+  activeContentStudioMode = nextMode;
+
+  for (const button of contentStudioModeButtons) {
+    const isActive = button.dataset.contentStudioModeTarget === nextMode;
+    button.classList.toggle("is-active", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
+  }
+
+  for (const panel of contentStudioPanels) {
+    const panelModes = (panel.dataset.contentStudioPanel || "").split(/\s+/);
+    panel.hidden = !panelModes.includes(nextMode);
+  }
+
+  const pushPanel = document.querySelector("[data-tab-panel='push']");
+  if (pushPanel) {
+    pushPanel.dataset.contentStudioMode = nextMode;
   }
 }
 
@@ -2090,7 +2144,7 @@ function buildMissionFoundItems() {
     detail: composerTemplates.length > 0
       ? `Saved drafts ready: ${composerTemplates.slice(0, 3).map((template) => template.name).join(", ")}${composerTemplates.length > 3 ? ", ..." : ""}`
       : "No saved message templates are available yet.",
-    meta: composerTemplates.length > 0 ? "Reuse a saved message from Post Now." : "Save messages from Post Now when you want reusable copy.",
+    meta: composerTemplates.length > 0 ? "Reuse a saved message from Content Studio." : "Save messages from Content Studio when you want reusable copy.",
     actionLabel: "Open Saved Messages",
     navigation: createMissionNavigation("push", "post-now-saved-messages"),
   });
@@ -2163,7 +2217,7 @@ function renderMissionFoundItems() {
   if (foundItems.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Post Now.";
+    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
     missionFoundList.append(emptyState);
     return;
   }
@@ -2171,7 +2225,7 @@ function renderMissionFoundItems() {
   if (usefulItems.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "mission-found-empty channel-operation-empty";
-    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Post Now.";
+    emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
     missionFoundList.append(emptyState);
   }
 
@@ -2718,7 +2772,7 @@ function prefillManualPushFromChannelSetup() {
   const preset = findPresetForChannel(state.channelId);
 
   if (!preset) {
-    setChannelSetupAssistantStatus("Generate Content can only prefill saved channel presets. Open Post Now and choose the channel manually.", "blocked");
+    setChannelSetupAssistantStatus("Generate Content can only prefill saved channel presets. Open Content Studio and choose the channel manually.", "blocked");
     navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
     return;
   }
@@ -5643,6 +5697,13 @@ for (const button of controlTabButtons) {
   button.addEventListener("click", () => setActiveControlTab(button.dataset.tabTarget || "overview"));
 }
 
+for (const button of contentStudioModeButtons) {
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    setActiveContentStudioMode(button.dataset.contentStudioModeTarget || "generate");
+  });
+}
+
 apiConfigForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   apiBaseUrlInput.value = getApiBaseUrl();
@@ -5767,6 +5828,7 @@ channelSetupOpenGenerateButton?.addEventListener("click", prefillManualPushFromC
 channelSetupResetButton?.addEventListener("click", resetChannelSetupAssistant);
 
 configureAutoRefresh();
+setActiveContentStudioMode(activeContentStudioMode);
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
 renderOpsSnapshot();

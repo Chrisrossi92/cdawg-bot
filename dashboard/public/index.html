@@ -48,7 +48,7 @@
         <div class="control-center-tabs command-bar-tabs" role="tablist" aria-label="Dashboard sections">
           <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Dashboard</button>
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Automation</button>
-          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Post Now</button>
+          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Content Studio</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="composer" aria-selected="false" hidden>Write a Message</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
@@ -453,7 +453,7 @@
                   <article class="common-task-card">
                     <h3>Post Something Now</h3>
                     <p>Send generated content or write a custom bot message.</p>
-                    <button id="task-post-now" type="button" class="secondary">Open Post Now</button>
+                    <button id="task-post-now" type="button" class="secondary">Open Content Studio</button>
                   </article>
                   <article class="common-task-card">
                     <h3>Manage Role Buttons & Messages</h3>
@@ -767,30 +767,51 @@
         <section class="control-tab-panel" data-tab-panel="push" hidden>
           <div class="subpanel-header">
             <div>
-              <h3>Post Now</h3>
-              <p>Use this page when you want the bot to say something immediately.</p>
+              <h3>Content Studio</h3>
+              <p>Choose what you want to prepare, then work in one focused panel.</p>
             </div>
           </div>
-          <div class="automation-section-grid">
-            <a href="#post-now-generated-content" class="automation-section-card">
+          <div class="content-studio-choice-area" aria-label="Content Studio mode selector">
+            <h3>What do you want to do?</h3>
+            <div class="automation-section-grid content-studio-choice-grid">
+              <button type="button" class="automation-section-card content-studio-choice is-active" data-content-studio-mode-target="generate" aria-pressed="true">
+                <strong>Generate Content</strong>
+                <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
+              </button>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="write" aria-pressed="false">
+                <strong>Write a Message</strong>
+                <span>Write and send a custom message from the bot.</span>
+              </button>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="saved" aria-pressed="false">
+                <strong>Use Saved Message</strong>
+                <span>Reuse saved message templates if available.</span>
+              </button>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="history" aria-pressed="false">
+                <strong>Today in History</strong>
+                <span>Preview, pick another item, and send a history post.</span>
+              </button>
+            </div>
+          </div>
+          <div class="automation-section-grid content-studio-anchor-links" hidden>
+            <a href="#post-now-generated-content" class="automation-section-card" data-content-studio-mode-target="generate">
               <strong>Generate Content</strong>
               <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
             </a>
-            <a href="#post-now-history" class="automation-section-card">
+            <a href="#post-now-history" class="automation-section-card" data-content-studio-mode-target="history">
               <strong>Today in History</strong>
               <span>Preview, pick another item, and send a history post.</span>
             </a>
-            <a href="#post-now-message" class="automation-section-card">
+            <a href="#post-now-message" class="automation-section-card" data-content-studio-mode-target="write">
               <strong>Write a Message</strong>
               <span>Write and send a custom message from the bot.</span>
             </a>
-            <a href="#post-now-saved-messages" class="automation-section-card">
+            <a href="#post-now-saved-messages" class="automation-section-card" data-content-studio-mode-target="saved">
               <strong>Saved Messages</strong>
               <span>Reuse saved message templates if available.</span>
             </a>
           </div>
           <div class="tab-stack">
-            <section id="post-now-history" class="control-block">
+            <section id="post-now-history" class="control-block" data-content-studio-panel="history" hidden>
               <div class="subpanel-header">
                 <div>
                   <h3>Today in History</h3>
@@ -812,7 +833,7 @@
               </details>
             </section>
 
-            <section id="post-now-generated-content" class="control-block">
+            <section id="post-now-generated-content" class="control-block" data-content-studio-panel="generate">
               <div class="subpanel-header">
                 <div>
                   <h3>Generate Content</h3>
@@ -822,7 +843,7 @@
               <form id="manual-push-form" class="settings-form command-form compact-send-form">
                 <section class="form-group form-command-panel">
                   <h3>Send Generated Content</h3>
-                  <div class="form-grid form-grid-3">
+                  <div class="form-grid form-grid-3 content-studio-generate-core">
                     <label>
                       Content Type
                       <select name="contentType">
@@ -840,12 +861,15 @@
                       </select>
                       <small id="manual-push-channel-meta">Select a saved channel to use its channel ID.</small>
                     </label>
+                  </div>
+                  <details class="details-block content-studio-advanced">
+                    <summary>Advanced</summary>
                     <label>
                       Topic Override
                       <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
                       <small>Leave blank to use the channel topic mapping.</small>
                     </label>
-                  </div>
+                  </details>
                 </section>
 
                 <div class="settings-actions form-actions-row">
@@ -859,16 +883,20 @@
               </details>
             </section>
 
-            <section id="post-now-message" class="control-block">
+            <section id="post-now-message" class="control-block" data-content-studio-panel="write saved" hidden>
               <div class="subpanel-header">
-                <div>
+                <div class="content-studio-write-heading">
                   <h3>Write a Message</h3>
                   <p>Write and send a custom message from the bot.</p>
+                </div>
+                <div class="content-studio-saved-heading">
+                  <h3>Use Saved Message</h3>
+                  <p>Load, edit, save, or delete saved messages without posting automatically.</p>
                 </div>
               </div>
 
               <form id="composer-form" class="settings-form composer-form editor-layout">
-                <section class="form-group editor-side-panel">
+                <section class="form-group editor-side-panel content-studio-write-panel">
                   <h3>Destination</h3>
                   <label>
                     Discord Channel
@@ -878,24 +906,28 @@
                     <input name="channelId" type="hidden" required />
                     <small>Choose where Cdawg Bot should post this message.</small>
                   </label>
-                  <label>
-                    Optional Role For Quick Insert
-                    <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
-                      <option value="">Loading roles...</option>
-                    </select>
-                    <input name="roleId" type="hidden" />
-                    <small>Used only by the selected role mention chip.</small>
-                  </label>
+                  <details class="content-studio-collapsed-tool">
+                    <summary>Role Insert</summary>
+                    <label>
+                      Optional Role For Quick Insert
+                      <select name="roleIdSelect" data-discord-role-select data-target-input="roleId">
+                        <option value="">Loading roles...</option>
+                      </select>
+                      <input name="roleId" type="hidden" />
+                      <small>Used only by the selected role mention chip.</small>
+                    </label>
+                  </details>
                 </section>
 
-                <section class="form-group composer-message-group editor-main-panel">
+                <section class="form-group composer-message-group editor-main-panel content-studio-write-panel">
                   <h3>Message</h3>
                   <label>
                     Message
                     <textarea name="message" rows="10" maxlength="2000" placeholder="Write the Discord message..." required></textarea>
                     <small id="composer-character-count">0 / 2000 characters</small>
                   </label>
-                  <div class="editor-tools">
+                  <details class="editor-tools content-studio-collapsed-tool">
+                    <summary>Writing Tools</summary>
                     <div class="message-builder">
                       <div class="message-builder-header">Quick inserts</div>
                       <div class="message-builder-actions">
@@ -919,15 +951,15 @@
                         <button id="undo-composer-rewrite" type="button" class="pill-button secondary" disabled>Undo Rewrite</button>
                       </div>
                     </div>
-                  </div>
+                  </details>
                 </section>
 
-                <section class="form-group role-access-preview-panel preview-panel">
+                <section class="form-group role-access-preview-panel preview-panel content-studio-write-panel">
                   <h3>Preview</h3>
                   <div id="composer-preview" class="discord-panel-preview composer-preview"></div>
                 </section>
 
-                <section id="post-now-saved-messages" class="form-group composer-templates-panel editor-tools-panel">
+                <section id="post-now-saved-messages" class="form-group composer-templates-panel editor-tools-panel content-studio-saved-panel">
                   <h3>Saved Messages</h3>
                   <label>
                     Saved message name
@@ -941,7 +973,7 @@
                   <div id="composer-templates-list" class="feed-list composer-templates-list"></div>
                 </section>
 
-                <div class="settings-actions form-actions-row">
+                <div class="settings-actions form-actions-row content-studio-write-panel">
                   <button type="submit">Post Message</button>
                   <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>
                   <button id="clear-composer" type="button" class="secondary">Clear</button>
@@ -961,8 +993,8 @@
           <section class="control-block">
             <div class="subpanel-header">
               <div>
-                <h3>Write a Message moved to Post Now</h3>
-                <p>Custom messages and saved messages now live on the Post Now page.</p>
+                <h3>Write a Message moved to Content Studio</h3>
+                <p>Custom messages and saved messages now live in Content Studio.</p>
               </div>
             </div>
           </section>
