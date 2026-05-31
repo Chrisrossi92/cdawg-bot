@@ -164,6 +164,7 @@ const controlTabButtons = Array.from(document.querySelectorAll("[data-tab-target
 const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
 const contentStudioModeButtons = Array.from(document.querySelectorAll("[data-content-studio-mode-target]"));
 const contentStudioPanels = Array.from(document.querySelectorAll("[data-content-studio-panel]"));
+const contentDiscoveryReviewPanel = document.querySelector("#content-discovery-review-panel");
 
 const passiveMetricsList = document.querySelector("#passive-metrics-list");
 const commandMetricsList = document.querySelector("#command-metrics-list");
@@ -229,6 +230,7 @@ let composerTemplates = [];
 let channelProfiles = [];
 let activeControlTab = "overview";
 let activeContentStudioMode = "generate";
+let selectedDiscoveryCardId = null;
 let composerDraftBeforeRewrite = null;
 
 const channelSetupPurposeProfiles = {
@@ -1921,6 +1923,10 @@ function navigateMissionAction(navigation) {
 }
 
 function getContentStudioModeForSection(sectionId) {
+  if (sectionId === "content-discovery-review") {
+    return "discovery";
+  }
+
   if (sectionId === "post-now-generated-content") {
     return "generate";
   }
@@ -1949,7 +1955,7 @@ function setContentStudioModeForSection(sectionId) {
 }
 
 function setActiveContentStudioMode(mode) {
-  const validModes = new Set(["generate", "write", "saved", "history"]);
+  const validModes = new Set(["discovery", "generate", "write", "saved", "history"]);
   const nextMode = validModes.has(mode) ? mode : "generate";
   activeContentStudioMode = nextMode;
 
@@ -1967,6 +1973,10 @@ function setActiveContentStudioMode(mode) {
   const pushPanel = document.querySelector("[data-tab-panel='push']");
   if (pushPanel) {
     pushPanel.dataset.contentStudioMode = nextMode;
+  }
+
+  if (nextMode === "discovery") {
+    renderContentDiscoveryReview();
   }
 }
 
@@ -2117,6 +2127,12 @@ function createSuggestedChannel(channelId, fallbackLabel = "Not tied to one chan
   };
 }
 
+function createDiscoveryCardId(source, key) {
+  const normalizedSource = String(source || "discovery").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const normalizedKey = String(key || "card").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  return `${normalizedSource}:${normalizedKey || "card"}`;
+}
+
 function buildContentDiscoveryCards() {
   const cards = [];
   const historyEvent = historyReview?.previewEvent;
@@ -2125,13 +2141,16 @@ function buildContentDiscoveryCards() {
 
   if (historyEvent) {
     cards.push({
+      id: createDiscoveryCardId("Today in History", historyEvent.id ?? historyEvent.title),
       source: "Today in History",
       title: historyEvent.title,
       description: historyEvent.summary,
+      thumbnailUrl: null,
+      sourceUrl: null,
       suggestedChannel: createSuggestedChannel(historyReview?.channelId ?? null, historyReview?.channelLabel ?? "History channel"),
       suggestedReason: `Today matches ${historyReview?.dateLabel ?? historyReview?.dateKey ?? "the current date"} and the preview pool has ${historyReview?.totalEventsForDate ?? 0} item${historyReview?.totalEventsForDate === 1 ? "" : "s"}.`,
       suggestedContentType: "history",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "post-now-history"))],
+      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
     });
   }
 
@@ -2139,43 +2158,52 @@ function buildContentDiscoveryCards() {
 
   if (dailyTriviaChallenge) {
     cards.push({
+      id: createDiscoveryCardId("Daily Trivia", dailyTriviaChallenge.channelId ?? dailyTriviaChallenge.channelLabel ?? "ready"),
       source: "Daily Trivia",
       title: dailyTriviaChallenge.latestSession?.active ? "Daily Trivia is active now" : "Daily Trivia is ready",
       description: dailyTrivia.detail,
+      thumbnailUrl: null,
+      sourceUrl: null,
       suggestedChannel: createSuggestedChannel(dailyTriviaChallenge.channelId, dailyTriviaChallenge.channelLabel ?? dailyTriviaChallenge.channelId),
       suggestedReason: dailyTriviaChallenge.blockedReason
         ? `Review the current ${getBlockedReasonLabel(dailyTriviaChallenge.blockedReason)} block before the next trivia run.`
         : "Daily trivia is already configured and has status worth reviewing from Automation.",
       suggestedContentType: "trivia",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("channels", "automation-daily-trivia"))],
+      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
     });
   }
 
   if (upcomingFeeds.length > 0) {
     const nextFeed = upcomingFeeds[0];
     cards.push({
+      id: createDiscoveryCardId("Upcoming Scheduled Posts", upcomingFeeds.map((feed) => feed.id ?? feed.channelId).join("-")),
       source: "Upcoming Scheduled Posts",
       title: `${upcomingFeeds.length} scheduled post${upcomingFeeds.length === 1 ? "" : "s"} coming up`,
       description: upcomingFeeds
         .map((feed) => `${feed.contentType} in ${feed.channelLabel ?? getChannelLabel(feed.channelId)} every ${feed.cadenceMinutes}m`)
         .join(" | "),
+      thumbnailUrl: null,
+      sourceUrl: null,
       suggestedChannel: createSuggestedChannel(nextFeed.channelId, nextFeed.channelLabel ?? nextFeed.channelId),
       suggestedReason: `Next eligible post is ${formatTimestamp(nextFeed.nextRunAt ?? nextFeed.nextEligibleAt)} (${formatRelativeTime(nextFeed.nextRunAt ?? nextFeed.nextEligibleAt)}).`,
       suggestedContentType: nextFeed.contentType,
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("channels", "automation-scheduled-posts"))],
+      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
     });
   }
 
   if (composerTemplates.length > 0) {
     const firstTemplateWithChannel = composerTemplates.find((template) => template.channelId);
     cards.push({
+      id: createDiscoveryCardId("Saved Messages", composerTemplates.map((template) => template.id ?? template.name).join("-")),
       source: "Saved Messages",
       title: `${composerTemplates.length} saved message${composerTemplates.length === 1 ? "" : "s"} ready`,
       description: `Saved drafts: ${composerTemplates.slice(0, 3).map((template) => template.name).join(", ")}${composerTemplates.length > 3 ? ", ..." : ""}`,
+      thumbnailUrl: null,
+      sourceUrl: null,
       suggestedChannel: createSuggestedChannel(firstTemplateWithChannel?.channelId ?? null, firstTemplateWithChannel?.channelId ? undefined : "Choose when reviewing"),
       suggestedReason: "Saved messages are reusable approved copy and can be reviewed in Content Studio before any post action.",
       suggestedContentType: "saved-message",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "post-now-saved-messages"))],
+      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
     });
   }
 
@@ -2184,15 +2212,18 @@ function buildContentDiscoveryCards() {
     const matchingProfile = channelProfiles.find((profile) => Array.isArray(profile.preferredContentTypes) && profile.preferredContentTypes.includes(contentType));
 
     cards.push({
+      id: createDiscoveryCardId("Underused Content Types", contentType),
       source: "Underused Content Types",
       title: `Try more ${contentType}`,
       description: `Lightly used content types: ${underusedContentTypes.map(([entryContentType, entryCount]) => `${entryContentType} (${entryCount})`).join(", ")}.`,
+      thumbnailUrl: null,
+      sourceUrl: null,
       suggestedChannel: createSuggestedChannel(matchingProfile?.channelId ?? null, matchingProfile ? undefined : "Choose when generating"),
       suggestedReason: matchingProfile
         ? `${getChannelLabel(matchingProfile.channelId)} lists ${contentType} as a preferred content type, and provider metrics show it has only ${count} recorded use${count === 1 ? "" : "s"}.`
         : `Provider metrics show ${contentType} has only ${count} recorded use${count === 1 ? "" : "s"}.`,
       suggestedContentType: contentType,
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "post-now-generated-content"))],
+      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
     });
   }
 
@@ -2230,7 +2261,7 @@ function createContentDiscoveryCard(item) {
   action.type = "button";
   action.className = "secondary";
   action.textContent = reviewAction?.label ?? "Review";
-  action.addEventListener("click", () => navigateMissionAction(reviewAction?.navigation));
+  action.addEventListener("click", () => openDiscoveryCardReview(item.id));
 
   heading.append(title, description);
   header.append(heading, sourceBadge);
@@ -2238,6 +2269,211 @@ function createContentDiscoveryCard(item) {
   actions.append(contentTypeBadge, action);
   card.append(header, context, actions);
   return card;
+}
+
+function openDiscoveryCardReview(cardId) {
+  selectedDiscoveryCardId = cardId || null;
+  setActiveControlTab("push");
+  setActiveContentStudioMode("discovery");
+  window.requestAnimationFrame(() => {
+    document.querySelector("#content-discovery-review")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function createDiscoveryReviewListCard(item) {
+  const card = createContentDiscoveryCard(item);
+  const action = card.querySelector("button");
+
+  if (action) {
+    action.textContent = "Select";
+  }
+
+  return card;
+}
+
+function getDiscoveryGeneratedContentType(card) {
+  const supportedTypes = new Set(["history", "joke", "prompt", "fact", "trivia"]);
+  return supportedTypes.has(card?.suggestedContentType) ? card.suggestedContentType : "prompt";
+}
+
+function buildDiscoveryMessageDraft(card) {
+  return [
+    `Found from ${card.source}: ${card.title}`,
+    card.description,
+    `Suggested for ${card.suggestedChannel?.label ?? "a channel"} because ${card.suggestedReason}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
+}
+
+function prepareDiscoveryMessage(card) {
+  if (!card) {
+    return;
+  }
+
+  if (card.suggestedChannel?.id) {
+    composerForm.elements.channelId.value = card.suggestedChannel.id;
+    syncDiscordMetadataSelections();
+  }
+
+  setComposerMessage(buildDiscoveryMessageDraft(card));
+  setComposerStatus("Discovery draft prepared. Review before posting.");
+  setActiveContentStudioMode("write");
+}
+
+function prepareDiscoveryGeneration(card) {
+  if (!card) {
+    return;
+  }
+
+  const suggestedType = getDiscoveryGeneratedContentType(card);
+  manualPushForm.elements.contentType.value = suggestedType;
+
+  if (card.suggestedChannel?.id && channelPresets.some((preset) => preset.channelId === card.suggestedChannel.id)) {
+    manualPushForm.elements.channelPreset.value = card.suggestedChannel.id;
+    syncManualPushPresetSelection(false);
+  }
+
+  manualPushForm.elements.topicOverride.value = card.title || "";
+  setManualPushStatus("Discovery idea prepared. Review before sending.");
+  setActiveContentStudioMode("generate");
+}
+
+function createContentDiscoveryReviewDetail(card) {
+  const wrapper = document.createElement("article");
+  const header = document.createElement("div");
+  const heading = document.createElement("div");
+  const badges = document.createElement("div");
+  const sourceBadge = createStatusBadge(card.source, "active");
+  const contentTypeBadge = createStatusBadge(card.suggestedContentType, "neutral");
+  const title = document.createElement("h3");
+  const description = document.createElement("p");
+  const body = document.createElement("div");
+  const media = document.createElement("div");
+  const details = document.createElement("dl");
+  const channelTerm = document.createElement("dt");
+  const channelDetail = document.createElement("dd");
+  const reasonTerm = document.createElement("dt");
+  const reasonDetail = document.createElement("dd");
+  const typeTerm = document.createElement("dt");
+  const typeDetail = document.createElement("dd");
+  const actions = document.createElement("div");
+  const prepareButton = document.createElement("button");
+  const generateButton = document.createElement("button");
+  const backButton = document.createElement("button");
+
+  wrapper.className = "content-discovery-review-card";
+  header.className = "content-discovery-review-header";
+  heading.className = "content-discovery-review-heading";
+  badges.className = "content-discovery-review-badges";
+  body.className = "content-discovery-review-layout";
+  media.className = "content-discovery-thumbnail";
+  details.className = "mission-discovery-context content-discovery-review-context";
+  actions.className = "content-discovery-review-actions";
+
+  title.textContent = card.title;
+  description.textContent = card.description;
+  channelTerm.textContent = "Suggested channel";
+  channelDetail.textContent = card.suggestedChannel?.label ?? "Choose when preparing";
+  reasonTerm.textContent = "Why CDawg suggested it";
+  reasonDetail.textContent = card.suggestedReason;
+  typeTerm.textContent = "Suggested content type";
+  typeDetail.textContent = card.suggestedContentType;
+
+  if (card.thumbnailUrl) {
+    const image = document.createElement("img");
+    image.src = card.thumbnailUrl;
+    image.alt = "";
+    image.loading = "lazy";
+    media.append(image);
+  } else {
+    const placeholder = document.createElement("span");
+    placeholder.textContent = "Preview";
+    media.append(placeholder);
+  }
+
+  prepareButton.type = "button";
+  prepareButton.textContent = "Prepare Message";
+  prepareButton.addEventListener("click", () => prepareDiscoveryMessage(card));
+
+  generateButton.type = "button";
+  generateButton.className = "secondary";
+  generateButton.textContent = "Generate Related Content";
+  generateButton.addEventListener("click", () => prepareDiscoveryGeneration(card));
+
+  if (card.sourceUrl) {
+    const sourceButton = document.createElement("button");
+    sourceButton.type = "button";
+    sourceButton.className = "secondary";
+    sourceButton.textContent = "Open Source";
+    sourceButton.addEventListener("click", () => {
+      window.open(card.sourceUrl, "_blank", "noopener,noreferrer");
+    });
+    actions.append(sourceButton);
+  }
+
+  backButton.type = "button";
+  backButton.className = "secondary";
+  backButton.textContent = "Back to Mission Control";
+  backButton.addEventListener("click", () => {
+    setActiveControlTab("overview");
+    window.requestAnimationFrame(() => {
+      document.querySelector(".mission-control")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+  });
+
+  badges.append(sourceBadge, contentTypeBadge);
+  heading.append(title, description);
+  header.append(heading, badges);
+  details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, typeTerm, typeDetail);
+  actions.prepend(prepareButton, generateButton);
+  actions.append(backButton);
+  body.append(media, details);
+  wrapper.append(header, body, actions);
+  return wrapper;
+}
+
+function renderContentDiscoveryReview() {
+  if (!contentDiscoveryReviewPanel) {
+    return;
+  }
+
+  const discoveryCards = buildContentDiscoveryCards();
+  const selectedCard = discoveryCards.find((card) => card.id === selectedDiscoveryCardId) ?? null;
+  contentDiscoveryReviewPanel.replaceChildren();
+
+  if (selectedCard) {
+    contentDiscoveryReviewPanel.append(createContentDiscoveryReviewDetail(selectedCard));
+    return;
+  }
+
+  const intro = document.createElement("p");
+  intro.className = "content-discovery-review-intro";
+  intro.textContent = "Choose a discovery card to review before preparing a message or generated content.";
+  contentDiscoveryReviewPanel.append(intro);
+
+  if (discoveryCards.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No discovery cards are available from the current dashboard state.";
+    contentDiscoveryReviewPanel.append(emptyState);
+    return;
+  }
+
+  const list = document.createElement("div");
+  list.className = "content-discovery-review-list";
+
+  for (const card of discoveryCards) {
+    list.append(createDiscoveryReviewListCard(card));
+  }
+
+  contentDiscoveryReviewPanel.append(list);
 }
 
 function renderMissionFoundItems() {
@@ -2258,6 +2494,9 @@ function renderMissionFoundItems() {
     emptyState.className = "mission-found-empty channel-operation-empty";
     emptyState.textContent = "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
     missionFoundList.append(emptyState);
+    if (activeContentStudioMode === "discovery") {
+      renderContentDiscoveryReview();
+    }
     return;
   }
 
@@ -2265,6 +2504,10 @@ function renderMissionFoundItems() {
     visibleLimit: 3,
     summaryLabel: (count) => `View all ${count} finds`,
   });
+
+  if (activeContentStudioMode === "discovery") {
+    renderContentDiscoveryReview();
+  }
 }
 
 function createMissionProfileCard(item) {
@@ -5831,7 +6074,11 @@ for (const button of controlTabButtons) {
 for (const button of contentStudioModeButtons) {
   button.addEventListener("click", (event) => {
     event.preventDefault();
-    setActiveContentStudioMode(button.dataset.contentStudioModeTarget || "generate");
+    const targetMode = button.dataset.contentStudioModeTarget || "generate";
+    if (targetMode === "discovery") {
+      selectedDiscoveryCardId = null;
+    }
+    setActiveContentStudioMode(targetMode);
   });
 }
 

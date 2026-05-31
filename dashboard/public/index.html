@@ -798,6 +798,10 @@
           <div class="content-studio-choice-area" aria-label="Content Studio mode selector">
             <h3>What do you want to do?</h3>
             <div class="automation-section-grid content-studio-choice-grid">
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="discovery" aria-pressed="false">
+                <strong>Content Discovery</strong>
+                <span>Review content opportunities CDawg found before preparing anything.</span>
+              </button>
               <button type="button" class="automation-section-card content-studio-choice is-active" data-content-studio-mode-target="generate" aria-pressed="true">
                 <strong>Generate Content</strong>
                 <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
@@ -817,6 +821,10 @@
             </div>
           </div>
           <div class="automation-section-grid content-studio-anchor-links" hidden>
+            <a href="#content-discovery-review" class="automation-section-card" data-content-studio-mode-target="discovery">
+              <strong>Content Discovery</strong>
+              <span>Review content opportunities CDawg found before preparing anything.</span>
+            </a>
             <a href="#post-now-generated-content" class="automation-section-card" data-content-studio-mode-target="generate">
               <strong>Generate Content</strong>
               <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
@@ -835,6 +843,18 @@
             </a>
           </div>
           <div class="tab-stack">
+            <section id="content-discovery-review" class="control-block" data-content-studio-panel="discovery" hidden>
+              <div class="subpanel-header">
+                <div>
+                  <h3>Content Discovery</h3>
+                  <p>Review a found opportunity, then choose a safe next step.</p>
+                </div>
+              </div>
+              <div id="content-discovery-review-panel" class="content-discovery-review-panel">
+                <p class="channel-operation-empty">No discovery card selected.</p>
+              </div>
+            </section>
+
             <section id="post-now-history" class="control-block" data-content-studio-panel="history" hidden>
               <div class="subpanel-header">
                 <div>
