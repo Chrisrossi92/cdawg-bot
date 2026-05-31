@@ -2134,6 +2134,40 @@ small {
   align-items: start;
 }
 
+.automation-primary-actions {
+  margin-bottom: 12px;
+}
+
+.automation-advanced-details {
+  margin-bottom: 16px;
+}
+
+.automation-advanced-details > .automation-section-grid {
+  margin-top: 12px;
+}
+
+.feed-config-form[hidden],
+.daily-trivia-config-form[hidden] {
+  display: none;
+}
+
+.automation-form-advanced {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.automation-form-advanced summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.automation-form-advanced > .form-grid {
+  margin-top: 10px;
+}
+
 #automation-scheduled-posts > .subpanel-header,
 #automation-daily-trivia > .subpanel-header,
 #automation-scheduled-posts > details,
@@ -2149,6 +2183,11 @@ small {
 #feeds-list,
 #daily-trivia-summary {
   grid-column: 2;
+}
+
+#automation-scheduled-posts:has(#feed-form[hidden]) #feeds-list,
+#automation-daily-trivia:has(#daily-trivia-form[hidden]) #daily-trivia-summary {
+  grid-column: 1 / -1;
 }
 
 #automation-community-game {

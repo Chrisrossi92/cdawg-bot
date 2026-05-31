@@ -548,24 +548,31 @@
               <p>Use this page to control automatic posts: where they go, when they run, and whether a channel should pause or skip the next post.</p>
             </div>
           </div>
-          <div class="automation-section-grid">
-            <a href="#automation-channel-controls" class="automation-section-card">
-              <strong>Channel Posting Controls</strong>
-              <span>Pause, resume, delay, skip, or post the next scheduled item for each channel.</span>
-            </a>
-            <a href="#automation-scheduled-posts" class="automation-section-card">
-              <strong>Scheduled Posts</strong>
-              <span>Manage recurring feed-style posts.</span>
-            </a>
-            <a href="#automation-daily-trivia" class="automation-section-card">
-              <strong>Daily Trivia</strong>
-              <span>Manage the daily trivia challenge.</span>
-            </a>
-            <a href="#automation-community-game" class="automation-section-card">
-              <strong>Dog Game / Community Game</strong>
-              <span>Manage community game status.</span>
-            </a>
+          <div class="settings-actions automation-primary-actions">
+            <button id="create-feed" type="button">Add Scheduled Post</button>
+            <button id="configure-daily-trivia" type="button" class="secondary">Configure Daily Trivia</button>
           </div>
+          <details class="details-block automation-advanced-details">
+            <summary>Show Advanced Automation Details</summary>
+            <div class="automation-section-grid">
+              <a href="#automation-channel-controls" class="automation-section-card">
+                <strong>Channel Posting Controls</strong>
+                <span>Pause, resume, delay, skip, or post the next scheduled item for each channel.</span>
+              </a>
+              <a href="#automation-scheduled-posts" class="automation-section-card">
+                <strong>Scheduled Posts</strong>
+                <span>Manage recurring feed-style posts.</span>
+              </a>
+              <a href="#automation-daily-trivia" class="automation-section-card">
+                <strong>Daily Trivia</strong>
+                <span>Manage the daily trivia challenge.</span>
+              </a>
+              <a href="#automation-community-game" class="automation-section-card">
+                <strong>Dog Game / Community Game</strong>
+                <span>Manage community game status.</span>
+              </a>
+            </div>
+          </details>
 
           <div class="tab-stack">
             <section id="automation-channel-controls" class="control-block">
@@ -607,10 +614,15 @@
                   <h3>Scheduled Posts</h3>
                   <p>Manage recurring feed-style posts.</p>
                 </div>
-                <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
+                <div class="toolbar">
+                  <button id="create-feed-inline" type="button">Add Scheduled Post</button>
+                  <button id="refresh-feeds" type="button" class="secondary">Refresh</button>
+                </div>
               </div>
 
-              <form id="feed-form" class="settings-form command-form feed-config-form">
+              <div id="feeds-list" class="feed-list"></div>
+
+              <form id="feed-form" class="settings-form command-form feed-config-form" hidden>
                 <input name="feedId" type="hidden" />
                 <section class="form-group form-command-panel">
                   <h3>Scheduled Post Config</h3>
@@ -627,11 +639,6 @@
                       <select name="channelPreset">
                         <option value="">Loading saved channels...</option>
                       </select>
-                    </label>
-                    <label>
-                      Manual Channel ID
-                      <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
-                      <small>Use this only when no preset applies.</small>
                     </label>
                   </div>
                   <div class="form-grid form-grid-3">
@@ -650,33 +657,42 @@
                       Repeat Every (minutes)
                       <input name="cadenceMinutes" type="number" min="1" step="1" />
                     </label>
-                    <label>
-                      Topic Override
-                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                    </label>
                   </div>
-                  <div class="form-grid form-grid-2 form-grid-time">
-                    <label>
-                      Allowed Start Time
-                      <input name="allowedStartTime" type="time" />
-                      <small>Optional daily local start time.</small>
-                    </label>
-                    <label>
-                      Allowed End Time
-                      <input name="allowedEndTime" type="time" />
-                      <small>Optional daily local end time.</small>
-                    </label>
-                  </div>
+                  <details class="automation-form-advanced">
+                    <summary>Advanced</summary>
+                    <div class="form-grid form-grid-3">
+                      <label>
+                        Manual Channel ID
+                        <input name="channelId" type="text" inputmode="numeric" placeholder="Optional custom channel ID" />
+                        <small>Use this only when no preset applies.</small>
+                      </label>
+                      <label>
+                        Topic Override
+                        <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                      </label>
+                    </div>
+                    <div class="form-grid form-grid-2 form-grid-time">
+                      <label>
+                        Allowed Start Time
+                        <input name="allowedStartTime" type="time" />
+                        <small>Optional daily local start time.</small>
+                      </label>
+                      <label>
+                        Allowed End Time
+                        <input name="allowedEndTime" type="time" />
+                        <small>Optional daily local end time.</small>
+                      </label>
+                    </div>
+                  </details>
                 </section>
 
                 <div class="settings-actions form-actions-row">
                   <button type="submit">Save Scheduled Post</button>
-                  <button id="reset-feed-form" type="button" class="secondary">Reset Form</button>
+                  <button id="reset-feed-form" type="button" class="secondary">Cancel</button>
                   <span id="feed-status"></span>
                 </div>
               </form>
 
-              <div id="feeds-list" class="feed-list"></div>
               <details class="details-block control-debug-details">
                 <summary>Technical Details</summary>
                 <pre id="feeds-output">Loading...</pre>
@@ -689,9 +705,12 @@
                   <h3>Daily Trivia</h3>
                   <p>Manage the daily trivia challenge.</p>
                 </div>
+                <button id="configure-daily-trivia-inline" type="button" class="secondary">Configure Daily Trivia</button>
               </div>
 
-              <form id="daily-trivia-form" class="settings-form command-form daily-trivia-config-form">
+              <div id="daily-trivia-summary" class="feed-list"></div>
+
+              <form id="daily-trivia-form" class="settings-form command-form daily-trivia-config-form" hidden>
                 <section class="form-group form-command-panel">
                   <h3>Daily Trivia Config</h3>
                   <div class="form-grid form-grid-2">
@@ -715,33 +734,38 @@
                       <input name="dailyTime" type="time" required />
                       <small>Local daily post time.</small>
                     </label>
-                    <label>
-                      Topic Override
-                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                      <small>Leave blank to use the channel preset topic.</small>
-                    </label>
                   </div>
-                  <div class="form-grid form-grid-2 form-grid-time">
-                    <label>
-                      Allowed Start Time
-                      <input name="allowedStartTime" type="time" />
-                      <small>Optional daily local start time.</small>
-                    </label>
-                    <label>
-                      Allowed End Time
-                      <input name="allowedEndTime" type="time" />
-                      <small>Optional daily local end time.</small>
-                    </label>
-                  </div>
+                  <details class="automation-form-advanced">
+                    <summary>Advanced</summary>
+                    <div class="form-grid form-grid-2">
+                      <label>
+                        Topic Override
+                        <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
+                        <small>Leave blank to use the channel preset topic.</small>
+                      </label>
+                    </div>
+                    <div class="form-grid form-grid-2 form-grid-time">
+                      <label>
+                        Allowed Start Time
+                        <input name="allowedStartTime" type="time" />
+                        <small>Optional daily local start time.</small>
+                      </label>
+                      <label>
+                        Allowed End Time
+                        <input name="allowedEndTime" type="time" />
+                        <small>Optional daily local end time.</small>
+                      </label>
+                    </div>
+                  </details>
                 </section>
 
                 <div class="settings-actions form-actions-row">
                   <button type="submit">Save Daily Trivia</button>
+                  <button id="reset-daily-trivia-form" type="button" class="secondary">Cancel</button>
                   <span id="daily-trivia-status"></span>
                 </div>
               </form>
 
-              <div id="daily-trivia-summary" class="feed-list"></div>
               <details class="details-block control-debug-details">
                 <summary>Technical Details</summary>
                 <pre id="daily-trivia-output">Loading...</pre>

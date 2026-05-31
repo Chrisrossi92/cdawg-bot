@@ -184,10 +184,15 @@ const refreshRoleFollowupsButton = document.querySelector("#refresh-role-followu
 const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
+const createFeedButton = document.querySelector("#create-feed");
+const createFeedInlineButton = document.querySelector("#create-feed-inline");
+const configureDailyTriviaButton = document.querySelector("#configure-daily-trivia");
+const configureDailyTriviaInlineButton = document.querySelector("#configure-daily-trivia-inline");
 const createRoleAccessPanelButton = document.querySelector("#create-role-access-panel");
 const createRoleFollowupButton = document.querySelector("#create-role-followup");
 const resetSettingsButton = document.querySelector("#reset-settings");
 const resetFeedFormButton = document.querySelector("#reset-feed-form");
+const resetDailyTriviaFormButton = document.querySelector("#reset-daily-trivia-form");
 const resetRoleAccessPanelFormButton = document.querySelector("#reset-role-access-panel-form");
 const postRoleAccessPanelFormButton = document.querySelector("#post-role-access-panel-form");
 const resetRoleFollowupFormButton = document.querySelector("#reset-role-followup-form");
@@ -2764,6 +2769,7 @@ function prefillFeedFromChannelSetup() {
   feedForm.elements.topicOverride.value = getChannelSetupPurposeTopic(state);
   setFeedStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
   setChannelSetupAssistantStatus("scheduled post draft filled", "active");
+  showFeedForm();
   navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts"));
 }
 
@@ -4014,6 +4020,25 @@ function resetFeedForm() {
   setFeedStatus("Scheduled post form reset.");
 }
 
+function showFeedForm() {
+  feedForm.hidden = false;
+}
+
+function hideFeedForm() {
+  feedForm.hidden = true;
+}
+
+function createFeedDraft() {
+  resetFeedForm();
+  showFeedForm();
+  window.requestAnimationFrame(() => {
+    feedForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 function applyDailyTriviaToForm(challenge) {
   const preset = challenge ? findPresetForChannel(challenge.channelId) : null;
   dailyTriviaForm.elements.enabled.value = String(challenge?.enabled ?? true);
@@ -4024,7 +4049,26 @@ function applyDailyTriviaToForm(challenge) {
   dailyTriviaForm.elements.allowedEndTime.value = challenge?.allowedWindow?.endTime ?? "";
 }
 
+function showDailyTriviaForm() {
+  dailyTriviaForm.hidden = false;
+}
+
+function hideDailyTriviaForm() {
+  dailyTriviaForm.hidden = true;
+}
+
+function configureDailyTrivia() {
+  showDailyTriviaForm();
+  window.requestAnimationFrame(() => {
+    dailyTriviaForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 function populateFeedForm(feed) {
+  showFeedForm();
   const preset = findPresetForChannel(feed.channelId);
   feedForm.elements.feedId.value = feed.id;
   feedForm.elements.enabled.value = String(feed.enabled);
@@ -4036,6 +4080,12 @@ function populateFeedForm(feed) {
   feedForm.elements.allowedStartTime.value = feed.allowedWindow?.startTime ?? "";
   feedForm.elements.allowedEndTime.value = feed.allowedWindow?.endTime ?? "";
   setFeedStatus(`Editing scheduled post ${feed.id}.`);
+  window.requestAnimationFrame(() => {
+    feedForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
 }
 
 function renderFeeds() {
@@ -5833,7 +5883,15 @@ clearComposerButton.addEventListener("click", clearComposer);
 undoComposerRewriteButton.addEventListener("click", undoComposerRewrite);
 saveComposerTemplateButton.addEventListener("click", () => void saveComposerTemplate());
 resetSettingsButton.addEventListener("click", resetSettingsForm);
-resetFeedFormButton.addEventListener("click", resetFeedForm);
+resetFeedFormButton.addEventListener("click", () => {
+  resetFeedForm();
+  hideFeedForm();
+});
+resetDailyTriviaFormButton?.addEventListener("click", () => {
+  applyDailyTriviaToForm(dailyTriviaChallenge);
+  hideDailyTriviaForm();
+  setDailyTriviaStatus("Daily trivia config closed.");
+});
 resetRoleAccessPanelFormButton.addEventListener("click", () => {
   resetRoleAccessPanelForm();
   hideRoleAccessPanelBuilder();
@@ -5867,6 +5925,10 @@ refreshRoleFollowupsButton.addEventListener("click", loadRoleFollowups);
 refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
+createFeedButton?.addEventListener("click", createFeedDraft);
+createFeedInlineButton?.addEventListener("click", createFeedDraft);
+configureDailyTriviaButton?.addEventListener("click", configureDailyTrivia);
+configureDailyTriviaInlineButton?.addEventListener("click", configureDailyTrivia);
 createRoleAccessPanelButton?.addEventListener("click", createRoleAccessPanelDraft);
 createRoleFollowupButton?.addEventListener("click", createRoleFollowupDraft);
 channelOperationsFilter.addEventListener("change", renderChannelOperations);
