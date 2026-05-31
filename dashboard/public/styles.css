@@ -1615,6 +1615,13 @@ small {
   color: var(--text);
 }
 
+.mission-discovery-reason {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
 .mission-discovery-actions {
   align-items: center;
 }

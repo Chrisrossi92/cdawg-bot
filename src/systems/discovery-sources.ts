@@ -1059,7 +1059,7 @@ function getDiscoveryFreshnessScore(item: DiscoveryItem) {
 }
 
 function getSuggestedChannelName(profile: ChannelProfile) {
-  return profile.channelName || (profile.topicOverride ? `#${profile.topicOverride}` : `#${profile.purpose}`);
+  return profile.channelName || `<#${profile.channelId}>`;
 }
 
 function scoreDiscoveryItemForProfile(item: DiscoveryItem, profile: ChannelProfile) {

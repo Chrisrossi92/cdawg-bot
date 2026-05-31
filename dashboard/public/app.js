@@ -2249,6 +2249,38 @@ function createSuggestedChannel(channelId, fallbackLabel = "Not tied to one chan
   };
 }
 
+function getDiscoveryMatchLabel(score) {
+  if (score >= 90) {
+    return "Excellent match";
+  }
+
+  if (score >= 75) {
+    return "Strong match";
+  }
+
+  if (score >= 55) {
+    return "Good match";
+  }
+
+  if (score >= 40) {
+    return "Possible match";
+  }
+
+  return "No strong match";
+}
+
+function getDiscoveryScoreLabel(score) {
+  if (typeof score !== "number" || !Number.isFinite(score)) {
+    return null;
+  }
+
+  return `${getDiscoveryMatchLabel(score)} · score ${Math.round(score)}`;
+}
+
+function formatDiscoveryReason(reason) {
+  return typeof reason === "string" ? formatDiscordMessagePreview(reason) : "";
+}
+
 function createDiscoveryCardId(source, key) {
   const normalizedSource = String(source || "discovery").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   const normalizedKey = String(key || "card").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -2563,7 +2595,8 @@ function createContentDiscoveryCard(item) {
   const badges = document.createElement("div");
   const sourceBadge = createStatusBadge(getDiscoverySourceLabel(item), "active");
   const contentTypeBadge = createStatusBadge(item.suggestedContentType, "neutral");
-  const scoreBadge = typeof item.score === "number" && Number.isFinite(item.score) ? createStatusBadge(`score ${Math.round(item.score)}`, "neutral") : null;
+  const scoreLabel = getDiscoveryScoreLabel(item.score);
+  const scoreBadge = scoreLabel ? createStatusBadge(scoreLabel, "neutral") : null;
   const demoBadge = item.isMock ? createStatusBadge(item.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2589,7 +2622,8 @@ function createContentDiscoveryCard(item) {
   channelTerm.textContent = "Suggested channel";
   channelDetail.textContent = item.suggestedChannel.label;
   reasonTerm.textContent = "Why CDawg suggested it";
-  reasonDetail.textContent = item.suggestedReason;
+  reasonDetail.textContent = formatDiscoveryReason(item.suggestedReason);
+  reasonDetail.className = "mission-discovery-reason";
   action.type = "button";
   action.className = "secondary";
   action.textContent = reviewAction?.label ?? "Review";
@@ -2693,7 +2727,8 @@ function createContentDiscoveryReviewDetail(card) {
   const badges = document.createElement("div");
   const sourceBadge = createStatusBadge(getDiscoverySourceLabel(card), "active");
   const contentTypeBadge = createStatusBadge(card.suggestedContentType, "neutral");
-  const scoreBadge = typeof card.score === "number" && Number.isFinite(card.score) ? createStatusBadge(`score ${Math.round(card.score)}`, "neutral") : null;
+  const scoreLabel = getDiscoveryScoreLabel(card.score);
+  const scoreBadge = scoreLabel ? createStatusBadge(scoreLabel, "neutral") : null;
   const demoBadge = card.isMock ? createStatusBadge(card.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2727,9 +2762,9 @@ function createContentDiscoveryReviewDetail(card) {
   channelTerm.textContent = "Suggested channel";
   channelDetail.textContent = card.suggestedChannel?.label ?? "Choose when preparing";
   reasonTerm.textContent = "Why CDawg suggested it";
-  reasonDetail.textContent = card.suggestedReason;
+  reasonDetail.textContent = formatDiscoveryReason(card.suggestedReason);
   scoreTerm.textContent = "Ranking score";
-  scoreDetail.textContent = typeof card.score === "number" && Number.isFinite(card.score) ? `${Math.round(card.score)} / 100` : "Not scored";
+  scoreDetail.textContent = scoreLabel || "Not scored";
   typeTerm.textContent = "Suggested content type";
   typeDetail.textContent = card.suggestedContentType;
 
