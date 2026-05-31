@@ -329,20 +329,23 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://blogs.loc.gov/loc/feed/",
     category: "History",
     sourceBadge: "Institution",
+    healthStatus: "Working",
   },
   {
-    name: "FamilySearch Blog",
-    description: "Genealogy research tips, family history ideas, and record discovery guidance.",
-    rssUrl: "https://www.familysearch.org/en/blog/feed",
+    name: "The Legal Genealogist",
+    description: "Genealogy research context, record interpretation, and family history methodology.",
+    rssUrl: "https://www.legalgenealogist.com/feed/",
     category: "Genealogy",
     sourceBadge: "Research",
+    healthStatus: "Working",
   },
   {
-    name: "Polygon",
-    description: "Gaming news, culture, guides, and entertainment coverage for community discussion.",
-    rssUrl: "https://www.polygon.com/rss/index.xml",
+    name: "PC Gamer",
+    description: "PC gaming news, reviews, hardware, and culture coverage for community discussion.",
+    rssUrl: "https://www.pcgamer.com/rss/",
     category: "Gaming",
     sourceBadge: "Gaming",
+    healthStatus: "Working",
   },
   {
     name: "ESPN Top Headlines",
@@ -350,6 +353,7 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://www.espn.com/espn/rss/news",
     category: "Sports",
     sourceBadge: "Sports",
+    healthStatus: "Working",
   },
   {
     name: "Ars Technica",
@@ -357,6 +361,7 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://feeds.arstechnica.com/arstechnica/index",
     category: "Technology",
     sourceBadge: "Tech",
+    healthStatus: "Working",
   },
   {
     name: "NASA News",
@@ -364,6 +369,7 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://www.nasa.gov/news-release/feed/",
     category: "Science",
     sourceBadge: "Science",
+    healthStatus: "Working",
   },
   {
     name: "RogerEbert.com",
@@ -371,13 +377,15 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://www.rogerebert.com/feed",
     category: "Movies",
     sourceBadge: "Film",
+    healthStatus: "Working",
   },
   {
     name: "Pitchfork News",
     description: "Music news, releases, and artist updates for entertainment-focused channels.",
-    rssUrl: "https://pitchfork.com/rss/news/",
+    rssUrl: "https://pitchfork.com/feed/feed-news/rss",
     category: "Music",
     sourceBadge: "Music",
+    healthStatus: "Working",
   },
   {
     name: "BBC News",
@@ -385,6 +393,7 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://feeds.bbci.co.uk/news/rss.xml",
     category: "News",
     sourceBadge: "News",
+    healthStatus: "Working",
   },
   {
     name: "CNBC Finance",
@@ -392,6 +401,7 @@ const contentSourceLibraryCatalog = [
     rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html",
     category: "Finance",
     sourceBadge: "Finance",
+    healthStatus: "Working",
   },
 ];
 
@@ -2826,6 +2836,40 @@ function getRecommendedContentSourceCategories(profile = getSelectedContentSourc
   return contentSourceCategoryRecommendationsByPurpose[profile?.purpose] ?? contentSourceCategoryRecommendationsByPurpose.custom;
 }
 
+function isBlockedSourceError(errorMessage = "") {
+  return /\b(?:403|forbidden|blocked|access denied)\b/i.test(errorMessage);
+}
+
+function getSourceHealthTone(healthStatus) {
+  if (healthStatus === "Working") {
+    return "active";
+  }
+
+  if (healthStatus === "Blocked" || healthStatus === "Last failed") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function getSavedDiscoverySourceHealth(source) {
+  if (source.lastError) {
+    return isBlockedSourceError(source.lastError) ? "Blocked" : "Last failed";
+  }
+
+  if (source.lastRefreshAt) {
+    return "Working";
+  }
+
+  return "Untested";
+}
+
+function getRefreshErrorMessage(errorMessage = "") {
+  return isBlockedSourceError(errorMessage)
+    ? "This source blocked the refresh. Try another source or use manual RSS."
+    : errorMessage;
+}
+
 function getContentSourceLibraryItems() {
   if (activeContentSourceLibraryCategory === "Recommended") {
     const recommendedCategories = new Set(getRecommendedContentSourceCategories());
@@ -2926,6 +2970,7 @@ function createContentSourceLibraryCard(source) {
   const title = document.createElement("h4");
   const category = createStatusBadge(source.category, "neutral");
   const sourceBadge = createStatusBadge(source.sourceBadge, "active");
+  const healthBadge = createStatusBadge(source.healthStatus || "Untested", getSourceHealthTone(source.healthStatus || "Untested"));
   const description = document.createElement("p");
   const url = document.createElement("small");
   const actions = document.createElement("div");
@@ -2940,7 +2985,7 @@ function createContentSourceLibraryCard(source) {
   url.textContent = source.rssUrl;
 
   heading.append(title, description);
-  header.append(heading, category, sourceBadge);
+  header.append(heading, category, sourceBadge, healthBadge);
   actions.append(selectButton);
   card.append(header, url, actions);
   return card;
@@ -3112,6 +3157,8 @@ function createDiscoverySourceCard(source) {
   const header = document.createElement("div");
   const title = document.createElement("h3");
   const badge = createStatusBadge(source.enabled === false ? "Disabled" : "Enabled", source.enabled === false ? "neutral" : "active");
+  const healthStatus = getSavedDiscoverySourceHealth(source);
+  const healthBadge = createStatusBadge(healthStatus, getSourceHealthTone(healthStatus));
   const url = document.createElement("p");
   const meta = document.createElement("p");
   const status = document.createElement("p");
@@ -3128,7 +3175,7 @@ function createDiscoverySourceCard(source) {
   ].join(" | ");
   status.textContent = [
     source.lastRefreshAt ? `Last refresh: ${formatTimestamp(source.lastRefreshAt)} (${formatRelativeTime(source.lastRefreshAt)})` : "Not refreshed yet",
-    source.lastError ? `Last error: ${source.lastError}` : null,
+    source.lastError ? `Last error: ${getRefreshErrorMessage(source.lastError)}` : null,
   ]
     .filter(Boolean)
     .join(" | ");
@@ -3138,7 +3185,7 @@ function createDiscoverySourceCard(source) {
     createChannelActionButton("Edit", () => showRssDiscoverySourceForm(source)),
     createChannelActionButton("Delete", () => void deleteRssDiscoverySource(source.id)),
   );
-  header.append(title, badge);
+  header.append(title, badge, healthBadge);
   card.append(header, url, meta, status, actions);
   return card;
 }
@@ -3184,7 +3231,7 @@ function getDiscoveryRefreshSummary(data) {
   const itemCount = results.reduce((total, result) => total + (Number.isFinite(result.itemCount) ? result.itemCount : 0), 0);
   const failedResults = results.filter((result) => !result.ok);
   const failureSummary = failedResults.length > 0
-    ? ` ${failedResults.length} failed: ${failedResults.map((result) => result.error || result.sourceId).join("; ")}`
+    ? ` ${failedResults.length} failed: ${failedResults.map((result) => getRefreshErrorMessage(result.error || result.sourceId)).join("; ")}`
     : "";
 
   return `Manual refresh complete: ${succeeded}/${results.length} source${results.length === 1 ? "" : "s"} refreshed, ${itemCount} discovery item${itemCount === 1 ? "" : "s"} loaded.${failureSummary}`;
@@ -3205,7 +3252,7 @@ async function refreshRssDiscoverySources(sourceId = null) {
     setRssDiscoverySourceStatus(getDiscoveryRefreshSummary(data), data.ok === false ? "error" : "success");
   } catch (error) {
     await Promise.all([loadDiscoverySources(), loadDiscoveryItems()]);
-    setRssDiscoverySourceStatus(`Manual RSS refresh failed: ${error.message}`, "error");
+    setRssDiscoverySourceStatus(`Manual RSS refresh failed: ${getRefreshErrorMessage(error.message)}`, "error");
   }
 }
 
