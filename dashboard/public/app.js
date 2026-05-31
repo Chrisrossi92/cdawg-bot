@@ -58,6 +58,7 @@ const taskPostNowButton = document.querySelector("#task-post-now");
 const taskCommunityButton = document.querySelector("#task-community");
 const taskRecentProblemsButton = document.querySelector("#task-recent-problems");
 const taskSettingsButton = document.querySelector("#task-settings");
+const communityOpenChannelSetupButton = document.querySelector("#community-open-channel-setup");
 const missionRefreshDashboardButton = document.querySelector("#mission-refresh-dashboard");
 const missionBriefingStatus = document.querySelector("#mission-briefing-status");
 const missionBriefingTitle = document.querySelector("#mission-briefing-title");
@@ -183,6 +184,8 @@ const refreshRoleFollowupsButton = document.querySelector("#refresh-role-followu
 const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
+const createRoleAccessPanelButton = document.querySelector("#create-role-access-panel");
+const createRoleFollowupButton = document.querySelector("#create-role-followup");
 const resetSettingsButton = document.querySelector("#reset-settings");
 const resetFeedFormButton = document.querySelector("#reset-feed-form");
 const resetRoleAccessPanelFormButton = document.querySelector("#reset-role-access-panel-form");
@@ -2709,6 +2712,7 @@ function prefillRoleAccessPanelFromChannelSetup() {
   roleAccessPanelForm.elements.id.value = "";
   syncDiscordMetadataSelections();
   renderRoleAccessPreview();
+  showRoleAccessPanelBuilder();
   setRoleAccessPanelStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
   setChannelSetupAssistantStatus("role signup draft filled", "active");
   navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons"));
@@ -2734,6 +2738,7 @@ function prefillRoleFollowupFromChannelSetup() {
   roleFollowupForm.elements.message.value = getChannelSetupFollowupMessage(state);
   syncDiscordMetadataSelections();
   renderRoleFollowupPreview();
+  showRoleFollowupBuilder();
   setRoleFollowupStatus("Draft filled from Channel Setup Assistant. Review and save when ready.");
   setChannelSetupAssistantStatus("follow-up draft filled", "active");
   navigateMissionAction(createMissionNavigation("access", "community-role-followups"));
@@ -4263,7 +4268,27 @@ function resetRoleAccessPanelForm() {
   renderRoleAccessPreview();
 }
 
+function showRoleAccessPanelBuilder() {
+  roleAccessPanelForm.hidden = false;
+}
+
+function hideRoleAccessPanelBuilder() {
+  roleAccessPanelForm.hidden = true;
+}
+
+function createRoleAccessPanelDraft() {
+  resetRoleAccessPanelForm();
+  showRoleAccessPanelBuilder();
+  window.requestAnimationFrame(() => {
+    roleAccessPanelForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 function populateRoleAccessPanelForm(panel) {
+  showRoleAccessPanelBuilder();
   roleAccessPanelForm.elements.id.value = panel.id;
   roleAccessPanelForm.elements.active.value = String(panel.active !== false);
   roleAccessPanelForm.elements.title.value = panel.title;
@@ -4276,6 +4301,12 @@ function populateRoleAccessPanelForm(panel) {
   setRoleAccessPanelStatus(`Editing ${panel.title}.`);
   syncDiscordMetadataSelections();
   renderRoleAccessPreview();
+  window.requestAnimationFrame(() => {
+    roleAccessPanelForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
 }
 
 function renderRoleAccessPanels() {
@@ -4496,7 +4527,27 @@ function resetRoleFollowupForm() {
   renderRoleFollowupPreview();
 }
 
+function showRoleFollowupBuilder() {
+  roleFollowupForm.hidden = false;
+}
+
+function hideRoleFollowupBuilder() {
+  roleFollowupForm.hidden = true;
+}
+
+function createRoleFollowupDraft() {
+  resetRoleFollowupForm();
+  showRoleFollowupBuilder();
+  window.requestAnimationFrame(() => {
+    roleFollowupForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
 function populateRoleFollowupForm(followup) {
+  showRoleFollowupBuilder();
   roleFollowupForm.elements.id.value = followup.id;
   roleFollowupForm.elements.roleId.value = followup.roleId;
   roleFollowupForm.elements.channelId.value = followup.channelId;
@@ -4505,6 +4556,12 @@ function populateRoleFollowupForm(followup) {
   setRoleFollowupStatus(`Editing follow-up for role ${followup.roleId}.`);
   syncDiscordMetadataSelections();
   renderRoleFollowupPreview();
+  window.requestAnimationFrame(() => {
+    roleFollowupForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
 }
 
 function renderRoleFollowups() {
@@ -5777,9 +5834,15 @@ undoComposerRewriteButton.addEventListener("click", undoComposerRewrite);
 saveComposerTemplateButton.addEventListener("click", () => void saveComposerTemplate());
 resetSettingsButton.addEventListener("click", resetSettingsForm);
 resetFeedFormButton.addEventListener("click", resetFeedForm);
-resetRoleAccessPanelFormButton.addEventListener("click", resetRoleAccessPanelForm);
+resetRoleAccessPanelFormButton.addEventListener("click", () => {
+  resetRoleAccessPanelForm();
+  hideRoleAccessPanelBuilder();
+});
 postRoleAccessPanelFormButton.addEventListener("click", () => void postCurrentRoleAccessPanel());
-resetRoleFollowupFormButton.addEventListener("click", resetRoleFollowupForm);
+resetRoleFollowupFormButton.addEventListener("click", () => {
+  resetRoleFollowupForm();
+  hideRoleFollowupBuilder();
+});
 deleteRoleFollowupFormButton.addEventListener("click", () => void deleteCurrentRoleFollowup());
 refreshAllButton.addEventListener("click", () => void reloadAll());
 missionRefreshDashboardButton.addEventListener("click", () => void reloadAll());
@@ -5793,6 +5856,7 @@ taskPostNowButton.addEventListener("click", () => setActiveControlTab("push"));
 taskCommunityButton.addEventListener("click", () => setActiveControlTab("access"));
 taskRecentProblemsButton.addEventListener("click", jumpToRecentProblems);
 taskSettingsButton.addEventListener("click", () => setActiveControlTab("settings"));
+communityOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
@@ -5803,6 +5867,8 @@ refreshRoleFollowupsButton.addEventListener("click", loadRoleFollowups);
 refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
+createRoleAccessPanelButton?.addEventListener("click", createRoleAccessPanelDraft);
+createRoleFollowupButton?.addEventListener("click", createRoleFollowupDraft);
 channelOperationsFilter.addEventListener("change", renderChannelOperations);
 channelOperationsSort.addEventListener("change", renderChannelOperations);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);

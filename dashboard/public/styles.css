@@ -1983,6 +1983,34 @@ small {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.community-builder-form[hidden] {
+  display: none;
+}
+
+.community-builder-summary {
+  display: grid;
+  gap: 10px;
+}
+
+.community-builder-advanced {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 10px;
+}
+
+.community-builder-advanced summary,
+.community-token-tools summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.community-builder-advanced > .form-grid,
+.community-token-tools > p,
+.community-token-tools > .message-builder-actions,
+.community-token-tools > .token-helper-list {
+  margin-top: 10px;
+}
+
 #role-access-panel-form,
 #role-followup-form {
   grid-template-columns: repeat(12, minmax(0, 1fr));

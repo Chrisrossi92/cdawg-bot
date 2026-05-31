@@ -1022,17 +1022,21 @@
               </div>
 
               <div class="automation-section-grid" aria-label="Community sections">
-                <a href="#community-role-signup-buttons" class="automation-section-card">
-                  <strong>Role Signup Buttons</strong>
-                  <span>Post a message with buttons people can click to receive roles.</span>
-                </a>
-                <a href="#community-role-followups" class="automation-section-card">
-                  <strong>Role Follow-Up Messages</strong>
-                  <span>Send a message after someone receives a selected role.</span>
-                </a>
                 <a href="#community-health" class="automation-section-card">
                   <strong>Community Status</strong>
                   <span>Review role automation warnings and configuration issues.</span>
+                </a>
+                <a href="#community-channel-summary" class="automation-section-card">
+                  <strong>Channels CDawg Understands</strong>
+                  <span>Review channel setup from Mission Control.</span>
+                </a>
+                <a href="#community-role-signup-buttons" class="automation-section-card">
+                  <strong>Role Signup Buttons</strong>
+                  <span>Review or create button messages that grant roles.</span>
+                </a>
+                <a href="#community-role-followups" class="automation-section-card">
+                  <strong>Role Follow-Up Messages</strong>
+                  <span>Review or create messages triggered by role changes.</span>
                 </a>
               </div>
 
@@ -1059,6 +1063,17 @@
                   </article>
                 </div>
               </section>
+
+              <section id="community-channel-summary" class="ops-snapshot-group ops-snapshot-group-wide community-builder-summary">
+                <div class="ops-snapshot-group-header">
+                  <div>
+                    <h3>Channels CDawg Understands</h3>
+                    <p class="channel-operation-detail">Channel setup details live in Mission Control.</p>
+                  </div>
+                  <button id="community-open-channel-setup" type="button" class="secondary">Set Up a Channel</button>
+                </div>
+                <p class="channel-operation-empty">Open channel setup to review or improve CDawg's saved channel context.</p>
+              </section>
             </section>
 
             <section id="community-role-signup-buttons" class="control-block">
@@ -1067,10 +1082,13 @@
                   <h3>Role Signup Buttons</h3>
                   <p>Allow members to assign roles to themselves.</p>
                 </div>
-                <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
+                <div class="toolbar">
+                  <button id="create-role-access-panel" type="button">Create Role Signup Button</button>
+                  <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
+                </div>
               </div>
 
-              <form id="role-access-panel-form" class="settings-form community-builder-form">
+              <form id="role-access-panel-form" class="settings-form community-builder-form" hidden>
                 <section class="form-group form-command-panel community-setup-panel">
                   <h3>Button Setup</h3>
                   <div class="form-grid form-grid-2">
@@ -1092,8 +1110,6 @@
                         <option value="">Loading roles...</option>
                       </select>
                       <small>Select a Discord role if available.</small>
-                      <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
-                      <small>Create a role in Discord first, then paste the role ID here.</small>
                     </label>
                     <label>
                       Where should this message go?
@@ -1101,10 +1117,23 @@
                         <option value="">Loading channels...</option>
                       </select>
                       <small>Select a Discord channel if available.</small>
-                      <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
-                      <small>Choose where this message will be posted.</small>
                     </label>
                   </div>
+                  <details class="community-builder-advanced">
+                    <summary>Manual IDs</summary>
+                    <div class="form-grid form-grid-2">
+                      <label>
+                        Role ID
+                        <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                        <small>Create a role in Discord first, then paste the role ID here.</small>
+                      </label>
+                      <label>
+                        Channel ID
+                        <input name="targetChannelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
+                        <small>Choose where this message will be posted.</small>
+                      </label>
+                    </div>
+                  </details>
                   <div id="role-access-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
@@ -1157,7 +1186,7 @@
                 <div class="settings-actions form-actions-row">
                   <button id="post-role-access-panel-form" type="button">Post Button Message</button>
                   <button type="submit" class="secondary">Save Draft</button>
-                  <button id="reset-role-access-panel-form" type="button" class="secondary">New Button Message</button>
+                  <button id="reset-role-access-panel-form" type="button" class="secondary">Cancel</button>
                   <span id="role-access-panel-status"></span>
                 </div>
               </form>
@@ -1175,10 +1204,13 @@
                   <h3>Role Follow-Up Messages</h3>
                   <p>Automatically send a message when someone receives a selected role.</p>
                 </div>
-                <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
+                <div class="toolbar">
+                  <button id="create-role-followup" type="button">Create Follow-Up Message</button>
+                  <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
+                </div>
               </div>
 
-              <form id="role-followup-form" class="settings-form community-builder-form">
+              <form id="role-followup-form" class="settings-form community-builder-form" hidden>
                 <section class="form-group form-command-panel community-setup-panel">
                   <h3>Trigger</h3>
                   <div class="form-grid form-grid-3">
@@ -1188,8 +1220,6 @@
                         <option value="">Loading roles...</option>
                       </select>
                       <small>Select a Discord role if available.</small>
-                      <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
-                      <small>When this role is added to a member, Cdawg sends the follow-up.</small>
                     </label>
                     <label>
                       Where should Cdawg post it?
@@ -1197,8 +1227,6 @@
                         <option value="">Loading channels...</option>
                       </select>
                       <small>Select a Discord channel if available.</small>
-                      <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
-                      <small>The follow-up is posted in this channel.</small>
                     </label>
                     <label>
                       Follow-up status
@@ -1209,6 +1237,21 @@
                       <small>On sends when the role is added. Off keeps the follow-up saved without sending.</small>
                     </label>
                   </div>
+                  <details class="community-builder-advanced">
+                    <summary>Manual IDs</summary>
+                    <div class="form-grid form-grid-2">
+                      <label>
+                        Role ID
+                        <input name="roleId" type="text" inputmode="numeric" placeholder="Discord role ID" required />
+                        <small>When this role is added to a member, Cdawg sends the follow-up.</small>
+                      </label>
+                      <label>
+                        Channel ID
+                        <input name="channelId" type="text" inputmode="numeric" placeholder="Discord channel ID" required />
+                        <small>The follow-up is posted in this channel.</small>
+                      </label>
+                    </div>
+                  </details>
                   <div id="role-followup-metadata-warning" class="metadata-warning inline-warning" hidden></div>
                 </section>
 
@@ -1219,8 +1262,8 @@
                     <textarea name="message" rows="8" placeholder="You now have access. Server info: ..." required></textarea>
                     <small>Use quick inserts to mention the member, role, or channel exactly where you want.</small>
                   </label>
-                  <div class="message-builder">
-                    <div class="message-builder-header">Tokens</div>
+                  <details class="message-builder community-token-tools">
+                    <summary class="message-builder-header">Tokens</summary>
                     <p>Click a token to insert it. Tokens are replaced only when the follow-up is sent.</p>
                     <div class="message-builder-actions">
                       <button type="button" class="pill-button token-chip" data-followup-insert="{user}">{user}</button>
@@ -1246,7 +1289,7 @@
                         <dd>Mentions the configured destination channel.</dd>
                       </div>
                     </dl>
-                  </div>
+                  </details>
                   <div class="message-builder">
                     <div class="message-builder-header">Quick inserts</div>
                     <div class="message-builder-actions">
@@ -1273,7 +1316,7 @@
 
                 <div class="settings-actions form-actions-row">
                   <button type="submit">Save Follow-Up</button>
-                  <button id="reset-role-followup-form" type="button" class="secondary">New Follow-Up</button>
+                  <button id="reset-role-followup-form" type="button" class="secondary">Cancel</button>
                   <button id="delete-role-followup-form" type="button" class="secondary">Delete existing</button>
                   <span id="role-followup-status"></span>
                 </div>
