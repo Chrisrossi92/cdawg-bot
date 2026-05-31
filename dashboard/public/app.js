@@ -2233,10 +2233,12 @@ function createDiscoveryReviewAction(label, navigation) {
   };
 }
 
-function createSuggestedChannel(channelId, fallbackLabel = "Not tied to one channel") {
+function createSuggestedChannel(channelId, fallbackLabel = "Not tied to one channel", suggestedChannelName = null) {
+  const resolvedLabel = channelId ? getChannelLabel(channelId) : fallbackLabel;
+
   return {
     id: channelId || null,
-    label: channelId ? getChannelLabel(channelId) : fallbackLabel,
+    label: channelId && suggestedChannelName && resolvedLabel === channelId ? suggestedChannelName : resolvedLabel,
   };
 }
 
@@ -2403,6 +2405,7 @@ function mapPersistedDiscoveryItemToCard(item) {
   const sourceType = typeof item.sourceType === "string" ? item.sourceType : "local";
   const sourceName = typeof item.sourceName === "string" && item.sourceName.trim() ? item.sourceName.trim() : sourceType;
   const suggestedChannelId = typeof item.suggestedChannelId === "string" && item.suggestedChannelId.trim() ? item.suggestedChannelId.trim() : null;
+  const suggestedChannelName = typeof item.suggestedChannelName === "string" && item.suggestedChannelName.trim() ? item.suggestedChannelName.trim() : null;
 
   return {
     id: `persisted:${item.id}`,
@@ -2415,7 +2418,7 @@ function mapPersistedDiscoveryItemToCard(item) {
     sourceUrl: isSafeDiscoveryUrl(item.sourceUrl) ? item.sourceUrl : null,
     isMock: item.isMock === true,
     demoLabel: item.isMock === true ? "Demo Preview" : null,
-    suggestedChannel: createSuggestedChannel(suggestedChannelId, "Choose when reviewing"),
+    suggestedChannel: createSuggestedChannel(suggestedChannelId, suggestedChannelName || "Choose when reviewing", suggestedChannelName),
     suggestedReason: typeof item.suggestedReason === "string" ? item.suggestedReason : "Loaded from persisted discovery items.",
     suggestedContentType: typeof item.suggestedContentType === "string" ? item.suggestedContentType : "prompt",
     actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
@@ -2553,6 +2556,7 @@ function createContentDiscoveryCard(item) {
   const badges = document.createElement("div");
   const sourceBadge = createStatusBadge(getDiscoverySourceLabel(item), "active");
   const contentTypeBadge = createStatusBadge(item.suggestedContentType, "neutral");
+  const scoreBadge = typeof item.score === "number" && Number.isFinite(item.score) ? createStatusBadge(`score ${Math.round(item.score)}`, "neutral") : null;
   const demoBadge = item.isMock ? createStatusBadge(item.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2586,6 +2590,9 @@ function createContentDiscoveryCard(item) {
 
   heading.append(title, description);
   badges.append(sourceBadge);
+  if (scoreBadge) {
+    badges.append(scoreBadge);
+  }
   if (demoBadge) {
     badges.append(demoBadge);
   }
@@ -2679,6 +2686,7 @@ function createContentDiscoveryReviewDetail(card) {
   const badges = document.createElement("div");
   const sourceBadge = createStatusBadge(getDiscoverySourceLabel(card), "active");
   const contentTypeBadge = createStatusBadge(card.suggestedContentType, "neutral");
+  const scoreBadge = typeof card.score === "number" && Number.isFinite(card.score) ? createStatusBadge(`score ${Math.round(card.score)}`, "neutral") : null;
   const demoBadge = card.isMock ? createStatusBadge(card.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2689,6 +2697,8 @@ function createContentDiscoveryReviewDetail(card) {
   const channelDetail = document.createElement("dd");
   const reasonTerm = document.createElement("dt");
   const reasonDetail = document.createElement("dd");
+  const scoreTerm = document.createElement("dt");
+  const scoreDetail = document.createElement("dd");
   const typeTerm = document.createElement("dt");
   const typeDetail = document.createElement("dd");
   const actions = document.createElement("div");
@@ -2711,6 +2721,8 @@ function createContentDiscoveryReviewDetail(card) {
   channelDetail.textContent = card.suggestedChannel?.label ?? "Choose when preparing";
   reasonTerm.textContent = "Why CDawg suggested it";
   reasonDetail.textContent = card.suggestedReason;
+  scoreTerm.textContent = "Ranking score";
+  scoreDetail.textContent = typeof card.score === "number" && Number.isFinite(card.score) ? `${Math.round(card.score)} / 100` : "Not scored";
   typeTerm.textContent = "Suggested content type";
   typeDetail.textContent = card.suggestedContentType;
 
@@ -2748,12 +2760,15 @@ function createContentDiscoveryReviewDetail(card) {
   });
 
   badges.append(sourceBadge, contentTypeBadge);
+  if (scoreBadge) {
+    badges.append(scoreBadge);
+  }
   if (demoBadge) {
     badges.append(demoBadge);
   }
   heading.append(title, description);
   header.append(heading, badges);
-  details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, typeTerm, typeDetail);
+  details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, scoreTerm, scoreDetail, typeTerm, typeDetail);
   actions.prepend(prepareButton, generateButton);
   actions.append(backButton);
   body.append(media, details);

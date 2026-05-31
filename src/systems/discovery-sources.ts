@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ContentType } from "../lib/content-provider.js";
+import { listChannelProfiles, type ChannelProfile } from "./channel-profiles.js";
 
 export const discoverySourceTypes = ["rss", "youtube", "reddit", "local", "generated", "saved-message"] as const;
 export const discoverySafetyStatuses = ["ok", "needs-review", "blocked"] as const;
@@ -44,6 +45,7 @@ export type DiscoveryItem = {
   publishedAt: number | null;
   discoveredAt: number;
   suggestedChannelId: string | null;
+  suggestedChannelName: string | null;
   suggestedReason: string;
   suggestedContentType: DiscoverySuggestedContentType;
   tags: string[];
@@ -540,6 +542,20 @@ export function validateDiscoveryItemInput(value: unknown): ValidationResult<Dis
     };
   }
 
+  const suggestedChannelName = sanitizeNullableString(value.suggestedChannelName, maxNameLength);
+
+  if (
+    value.suggestedChannelName !== null &&
+    value.suggestedChannelName !== undefined &&
+    value.suggestedChannelName !== "" &&
+    !suggestedChannelName
+  ) {
+    return {
+      ok: false,
+      error: `suggestedChannelName must be ${maxNameLength} characters or fewer.`,
+    };
+  }
+
   const suggestedContentType = sanitizeEnum(value.suggestedContentType, discoverySuggestedContentTypes);
 
   if (!suggestedContentType) {
@@ -596,6 +612,7 @@ export function validateDiscoveryItemInput(value: unknown): ValidationResult<Dis
       publishedAt,
       discoveredAt,
       suggestedChannelId,
+      suggestedChannelName,
       suggestedReason,
       suggestedContentType: suggestedContentType as DiscoverySuggestedContentType,
       tags: tagsValidation.value,
@@ -882,7 +899,9 @@ export function upsertDiscoveryItems(items: DiscoveryItem[]) {
   const itemsById = new Map(activeDiscoveryItemStore.items.map((item) => [item.id, item]));
   const idsByDedupeKey = new Map(activeDiscoveryItemStore.items.map((item) => [getDiscoveryItemDedupeKey(item), item.id]));
 
-  for (const item of items) {
+  const rankedItems = items.map(rankDiscoveryItem);
+
+  for (const item of rankedItems) {
     const dedupeKey = getDiscoveryItemDedupeKey(item);
     const existingId = idsByDedupeKey.get(dedupeKey);
 
@@ -898,7 +917,7 @@ export function upsertDiscoveryItems(items: DiscoveryItem[]) {
     items: [...itemsById.values()].sort((left, right) => right.discoveredAt - left.discoveredAt),
   };
   saveJsonFile(ITEMS_DATA_FILE, activeDiscoveryItemStore, "discovery items");
-  return items;
+  return rankedItems;
 }
 
 export function deleteDiscoveryItem(id: string) {
@@ -926,6 +945,183 @@ export function clearDiscoveryItemsForSource(sourceId: string) {
   }
 
   return previousCount - activeDiscoveryItemStore.items.length;
+}
+
+const discoveryMatchStopWords = new Set([
+  "and",
+  "are",
+  "for",
+  "from",
+  "into",
+  "news",
+  "rss",
+  "the",
+  "this",
+  "with",
+]);
+
+const purposeKeywordMap: Record<string, string[]> = {
+  genealogy: ["genealogy", "family", "ancestry", "ancestor", "record", "records", "research"],
+  gaming: ["gaming", "game", "games", "player", "players", "console"],
+  sports: ["sports", "sport", "match", "matchup", "player", "team", "teams", "season"],
+  news: ["news", "headline", "headlines", "story", "current", "world", "politics"],
+  history: ["history", "historical", "archive", "archives", "past", "century", "war"],
+  memes: ["meme", "memes", "funny", "joke", "humor", "viral"],
+  "general-chat": ["community", "chat", "conversation", "discussion", "general"],
+  custom: [],
+};
+
+function getDiscoveryMatchTokens(value: string | null | undefined) {
+  return (value ?? "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 3 && !discoveryMatchStopWords.has(token));
+}
+
+function getTokenSet(values: Array<string | null | undefined>) {
+  return new Set(values.flatMap(getDiscoveryMatchTokens));
+}
+
+function getOverlappingTokens(leftTokens: Set<string>, rightTokens: Set<string>) {
+  return [...leftTokens].filter((token) => rightTokens.has(token));
+}
+
+function getProfilePurposeTokens(profile: ChannelProfile) {
+  return getTokenSet([
+    profile.purpose,
+    ...(purposeKeywordMap[profile.purpose] ?? []),
+    profile.topicOverride,
+    profile.notes,
+  ]);
+}
+
+function getProfileSourceTokens(profile: ChannelProfile) {
+  return getTokenSet([
+    profile.purpose,
+    profile.topicOverride,
+    ...(purposeKeywordMap[profile.purpose] ?? []),
+  ]);
+}
+
+function getDiscoveryContentTypeCandidates(item: DiscoveryItem) {
+  const candidates = new Set<DiscoverySuggestedContentType>([item.suggestedContentType]);
+  const textTokens = getTokenSet([item.sourceName, item.title, item.description, ...item.tags]);
+
+  if (item.suggestedContentType === "link" || item.sourceType === "rss") {
+    candidates.add("prompt");
+
+    if (["news", "science", "technology", "finance", "sports"].some((token) => textTokens.has(token))) {
+      candidates.add("fact");
+    }
+
+    if (["history", "genealogy", "archive", "archives"].some((token) => textTokens.has(token))) {
+      candidates.add("history");
+      candidates.add("fact");
+    }
+
+    if (["gaming", "game", "games", "music", "movie", "movies"].some((token) => textTokens.has(token))) {
+      candidates.add("trivia");
+      candidates.add("prompt");
+    }
+  }
+
+  return candidates;
+}
+
+function getProfilePreferredContentMatch(profile: ChannelProfile, item: DiscoveryItem) {
+  const contentTypeCandidates = getDiscoveryContentTypeCandidates(item);
+  return profile.preferredContentTypes.find((contentType) => contentTypeCandidates.has(contentType));
+}
+
+function getDiscoveryFreshnessScore(item: DiscoveryItem) {
+  const timestamp = item.publishedAt ?? item.discoveredAt;
+  return timestamp && Date.now() - timestamp <= 7 * 24 * 60 * 60 * 1000 ? 10 : 0;
+}
+
+function getSuggestedChannelName(profile: ChannelProfile) {
+  return profile.topicOverride ? `#${profile.topicOverride}` : `#${profile.purpose}`;
+}
+
+function scoreDiscoveryItemForProfile(item: DiscoveryItem, profile: ChannelProfile) {
+  const discoveryTextTokens = getTokenSet([
+    item.sourceName,
+    item.title,
+    item.description,
+    item.suggestedContentType,
+    ...item.tags,
+  ]);
+  const profilePurposeTokens = getProfilePurposeTokens(profile);
+  const tagTokens = getTokenSet(item.tags);
+  const profileSourceTokens = getProfileSourceTokens(profile);
+  const matchedParts: string[] = [];
+  let score = 0;
+
+  const purposeMatches = getOverlappingTokens(profilePurposeTokens, discoveryTextTokens);
+  if (purposeMatches.length > 0) {
+    score += 40;
+    matchedParts.push(`profile topic matched ${purposeMatches.slice(0, 3).join(", ")}`);
+  }
+
+  const preferredContentType = getProfilePreferredContentMatch(profile, item);
+  if (preferredContentType) {
+    score += 25;
+    matchedParts.push(`profile prefers ${preferredContentType}`);
+  }
+
+  const tagMatches = getOverlappingTokens(tagTokens, profilePurposeTokens);
+  if (tagMatches.length > 0) {
+    score += 15;
+    matchedParts.push(`tagged ${tagMatches.slice(0, 3).join(", ")}`);
+  }
+
+  const sourceMatches = getOverlappingTokens(profileSourceTokens, getTokenSet([item.sourceName, ...item.tags]));
+  if (sourceMatches.length > 0) {
+    score += 10;
+    matchedParts.push(`${item.sourceName} matches ${sourceMatches.slice(0, 2).join(", ")}`);
+  }
+
+  const freshnessScore = getDiscoveryFreshnessScore(item);
+  if (freshnessScore > 0) {
+    score += freshnessScore;
+    matchedParts.push("source item is fresh");
+  }
+
+  return {
+    profile,
+    score: Math.min(100, score),
+    matchedParts,
+  };
+}
+
+function rankDiscoveryItem(item: DiscoveryItem): DiscoveryItem {
+  const rankedProfiles = listChannelProfiles()
+    .map((profile) => scoreDiscoveryItemForProfile(item, profile))
+    .sort((left, right) => right.score - left.score || left.profile.channelId.localeCompare(right.profile.channelId));
+  const bestMatch = rankedProfiles[0];
+
+  if (!bestMatch || bestMatch.score < 40) {
+    return {
+      ...item,
+      suggestedChannelId: null,
+      suggestedChannelName: null,
+      suggestedReason: "No channel profile strongly matched.",
+      score: Math.max(0, Math.min(100, bestMatch?.score ?? 0)),
+    };
+  }
+
+  const suggestedChannelName = getSuggestedChannelName(bestMatch.profile);
+  const reasonDetails = bestMatch.matchedParts.length > 0
+    ? bestMatch.matchedParts.join("; ")
+    : "the channel profile matched this discovery item";
+
+  return {
+    ...item,
+    suggestedChannelId: bestMatch.profile.channelId,
+    suggestedChannelName,
+    suggestedReason: `Matched ${suggestedChannelName} because ${reasonDetails}.`,
+    score: bestMatch.score,
+  };
 }
 
 function updateDiscoverySourceRefreshState(sourceId: string, patch: Pick<DiscoverySourceConfig, "lastRefreshAt" | "lastError">) {
@@ -1075,11 +1271,9 @@ function buildRssDiscoveryItem(source: DiscoverySourceConfig, entryBlock: string
   const publishedAt = parseRssDate(getXmlTagValue(entryBlock, "pubDate") ?? getXmlTagValue(entryBlock, "published") ?? getXmlTagValue(entryBlock, "updated"));
   const externalId = buildRssExternalId(entryBlock, sourceUrl, title, publishedAt);
   const itemHash = hashDiscoveryValue(`${source.type}:${source.id}:${externalId}`);
-  const freshnessBoost = publishedAt && Date.now() - publishedAt < 7 * 24 * 60 * 60 * 1000 ? 15 : 0;
-  const score = Math.min(100, 60 + freshnessBoost + (source.preferredChannelIds.length > 0 ? 10 : 0) + Math.min(source.defaultTags.length, 3) * 3);
   const suggestedChannelId = source.preferredChannelIds[0] ?? null;
   const suggestedReason = suggestedChannelId
-    ? `Loaded from ${source.name} and matched the source's first preferred channel. Review before using.`
+    ? `Loaded from ${source.name} and will be ranked against channel profiles before review.`
     : `Loaded from ${source.name}. Review before choosing where to use it.`;
 
   return {
@@ -1096,10 +1290,11 @@ function buildRssDiscoveryItem(source: DiscoverySourceConfig, entryBlock: string
     publishedAt,
     discoveredAt,
     suggestedChannelId,
+    suggestedChannelName: null,
     suggestedReason,
     suggestedContentType: "link",
     tags: source.defaultTags,
-    score,
+    score: 0,
     safetyStatus: "needs-review",
     isMock: false,
   };
