@@ -2277,6 +2277,22 @@ function getDiscoveryScoreLabel(score) {
   return `${getDiscoveryMatchLabel(score)} · score ${Math.round(score)}`;
 }
 
+function getDiscoveryWorkflowState(item) {
+  return typeof item?.workflowState === "string" && item.workflowState ? item.workflowState : "new";
+}
+
+function getDiscoveryWorkflowStateTone(state) {
+  if (state === "dismissed") {
+    return "blocked";
+  }
+
+  if (["reviewed", "saved", "prepared", "posted"].includes(state)) {
+    return "active";
+  }
+
+  return "neutral";
+}
+
 function formatDiscoveryReason(reason) {
   if (typeof reason !== "string") {
     return "";
@@ -2474,12 +2490,16 @@ function mapPersistedDiscoveryItemToCard(item) {
     actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     score: typeof item.score === "number" && Number.isFinite(item.score) ? item.score : 0,
     discoveredAt: typeof item.discoveredAt === "number" && Number.isFinite(item.discoveredAt) ? item.discoveredAt : 0,
+    workflowItemId: typeof item.id === "string" ? item.id : null,
+    workflowState: getDiscoveryWorkflowState(item),
+    workflowNote: typeof item.workflowNote === "string" ? item.workflowNote : null,
   };
 }
 
 function buildPersistedDiscoveryCards() {
   return discoveryItems
     .map(mapPersistedDiscoveryItemToCard)
+    .filter((item) => item.workflowState !== "dismissed")
     .sort((left, right) => right.score - left.score || right.discoveredAt - left.discoveredAt || left.title.localeCompare(right.title));
 }
 
@@ -2608,6 +2628,8 @@ function createContentDiscoveryCard(item) {
   const contentTypeBadge = createStatusBadge(item.suggestedContentType, "neutral");
   const scoreLabel = getDiscoveryScoreLabel(item.score);
   const scoreBadge = scoreLabel ? createStatusBadge(scoreLabel, "neutral") : null;
+  const workflowState = getDiscoveryWorkflowState(item);
+  const stateBadge = item.workflowItemId ? createStatusBadge(workflowState, getDiscoveryWorkflowStateTone(workflowState)) : null;
   const demoBadge = item.isMock ? createStatusBadge(item.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2620,6 +2642,9 @@ function createContentDiscoveryCard(item) {
   const actions = document.createElement("div");
   const reviewAction = item.actions.find((entry) => entry.id === "review") ?? item.actions[0];
   const action = document.createElement("button");
+  const saveButton = item.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(item, "saved")) : null;
+  const reviewedButton = item.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed")) : null;
+  const dismissButton = item.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(item, "dismissed")) : null;
 
   card.className = "mission-found-card mission-discovery-card";
   card.classList.toggle("is-mock", Boolean(item.isMock));
@@ -2645,6 +2670,9 @@ function createContentDiscoveryCard(item) {
   if (scoreBadge) {
     badges.append(scoreBadge);
   }
+  if (stateBadge) {
+    badges.append(stateBadge);
+  }
   if (demoBadge) {
     badges.append(demoBadge);
   }
@@ -2654,6 +2682,9 @@ function createContentDiscoveryCard(item) {
   }
   context.append(channelTerm, channelDetail, reasonTerm, reasonDetail);
   actions.append(contentTypeBadge, action);
+  if (saveButton && reviewedButton && dismissButton) {
+    actions.append(saveButton, reviewedButton, dismissButton);
+  }
   card.append(header, context, actions);
   return card;
 }
@@ -2698,6 +2729,28 @@ function buildDiscoveryMessageDraft(card) {
     .join("\n\n");
 }
 
+async function updateDiscoveryItemWorkflowState(card, state) {
+  if (!card?.workflowItemId) {
+    return;
+  }
+
+  try {
+    await fetchJson("/api/discovery/items/state", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        itemId: card.workflowItemId,
+        state,
+      }),
+    });
+    await loadDiscoveryItems();
+  } catch (error) {
+    console.warn(`[discovery] state update failed: ${error.message}`);
+  }
+}
+
 function prepareDiscoveryMessage(card) {
   if (!card) {
     return;
@@ -2740,6 +2793,8 @@ function createContentDiscoveryReviewDetail(card) {
   const contentTypeBadge = createStatusBadge(card.suggestedContentType, "neutral");
   const scoreLabel = getDiscoveryScoreLabel(card.score);
   const scoreBadge = scoreLabel ? createStatusBadge(scoreLabel, "neutral") : null;
+  const workflowState = getDiscoveryWorkflowState(card);
+  const stateBadge = card.workflowItemId ? createStatusBadge(workflowState, getDiscoveryWorkflowStateTone(workflowState)) : null;
   const demoBadge = card.isMock ? createStatusBadge(card.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
@@ -2758,6 +2813,9 @@ function createContentDiscoveryReviewDetail(card) {
   const prepareButton = document.createElement("button");
   const generateButton = document.createElement("button");
   const backButton = document.createElement("button");
+  const saveButton = card.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(card, "saved")) : null;
+  const reviewedButton = card.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(card, "reviewed")) : null;
+  const dismissButton = card.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(card, "dismissed")) : null;
 
   wrapper.className = "content-discovery-review-card";
   wrapper.classList.toggle("is-mock", Boolean(card.isMock));
@@ -2816,6 +2874,9 @@ function createContentDiscoveryReviewDetail(card) {
   if (scoreBadge) {
     badges.append(scoreBadge);
   }
+  if (stateBadge) {
+    badges.append(stateBadge);
+  }
   if (demoBadge) {
     badges.append(demoBadge);
   }
@@ -2823,6 +2884,9 @@ function createContentDiscoveryReviewDetail(card) {
   header.append(heading, badges);
   details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, scoreTerm, scoreDetail, typeTerm, typeDetail);
   actions.prepend(prepareButton, generateButton);
+  if (saveButton && reviewedButton && dismissButton) {
+    actions.append(saveButton, reviewedButton, dismissButton);
+  }
   actions.append(backButton);
   body.append(media, details);
   wrapper.append(header, body, actions);

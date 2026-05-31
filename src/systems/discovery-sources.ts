@@ -8,10 +8,12 @@ import { reloadChannelProfiles, type ChannelProfile } from "./channel-profiles.j
 export const discoverySourceTypes = ["rss", "youtube", "reddit", "local", "generated", "saved-message"] as const;
 export const discoverySafetyStatuses = ["ok", "needs-review", "blocked"] as const;
 export const discoverySuggestedContentTypes = ["fact", "history", "joke", "wyr", "prompt", "trivia", "saved-message", "link", "video"] as const;
+export const discoveryItemWorkflowStates = ["new", "reviewed", "saved", "dismissed", "prepared", "posted"] as const;
 
 export type DiscoverySourceType = (typeof discoverySourceTypes)[number];
 export type DiscoverySafetyStatus = (typeof discoverySafetyStatuses)[number];
 export type DiscoverySuggestedContentType = ContentType | "saved-message" | "link" | "video";
+export type DiscoveryItemWorkflowState = (typeof discoveryItemWorkflowStates)[number];
 
 export type DiscoverySourceConfig = {
   id: string;
@@ -54,12 +56,31 @@ export type DiscoveryItem = {
   isMock: boolean;
 };
 
+export type DiscoveryItemState = {
+  itemId: string;
+  state: DiscoveryItemWorkflowState;
+  updatedAt: number;
+  note: string | null;
+  preparedMessage: string | null;
+};
+
+export type DiscoveryItemWithState = DiscoveryItem & {
+  workflowState: DiscoveryItemWorkflowState;
+  workflowUpdatedAt: number | null;
+  workflowNote: string | null;
+  preparedMessage: string | null;
+};
+
 type DiscoverySourceStore = {
   sources: DiscoverySourceConfig[];
 };
 
 type DiscoveryItemStore = {
   items: DiscoveryItem[];
+};
+
+type DiscoveryActionStore = {
+  actions: DiscoveryItemState[];
 };
 
 export type DiscoveryRefreshResult = {
@@ -84,6 +105,7 @@ const __dirname = path.dirname(__filename);
 const DATA_DIR = path.resolve(__dirname, "../../data");
 const SOURCES_DATA_FILE = path.join(DATA_DIR, "discovery-sources.json");
 const ITEMS_DATA_FILE = path.join(DATA_DIR, "discovery-items.json");
+const ACTIONS_DATA_FILE = path.join(DATA_DIR, "discovery-actions.json");
 
 const idPattern = /^[a-z0-9][a-z0-9_-]{0,79}$/;
 const tagPattern = /^[a-z0-9][a-z0-9_-]{0,39}$/;
@@ -677,6 +699,65 @@ export function validateDiscoveryItemDeleteRequest(value: unknown): ValidationRe
   };
 }
 
+export function validateDiscoveryItemStateRequest(value: unknown): ValidationResult<{
+  itemId: string;
+  state: DiscoveryItemWorkflowState;
+  note: string | null;
+  preparedMessage: string | null;
+}> {
+  if (!isRecord(value)) {
+    return {
+      ok: false,
+      error: "Discovery item state payload must be a JSON object.",
+    };
+  }
+
+  const itemId = sanitizeString(value.itemId, 120);
+
+  if (!itemId || !/^[a-z0-9][a-z0-9:_-]{0,119}$/.test(itemId)) {
+    return {
+      ok: false,
+      error: "Invalid discovery item ID.",
+    };
+  }
+
+  const state = sanitizeEnum(value.state, discoveryItemWorkflowStates);
+
+  if (!state) {
+    return {
+      ok: false,
+      error: `Invalid discovery item state. Allowed values: ${discoveryItemWorkflowStates.join(", ")}.`,
+    };
+  }
+
+  const note = sanitizeNullableString(value.note, 500);
+  const preparedMessage = sanitizeNullableString(value.preparedMessage, 2000);
+
+  if (value.note !== null && value.note !== undefined && value.note !== "" && !note) {
+    return {
+      ok: false,
+      error: "note must be 500 characters or fewer.",
+    };
+  }
+
+  if (value.preparedMessage !== null && value.preparedMessage !== undefined && value.preparedMessage !== "" && !preparedMessage) {
+    return {
+      ok: false,
+      error: "preparedMessage must be 2000 characters or fewer.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      itemId,
+      state,
+      note,
+      preparedMessage,
+    },
+  };
+}
+
 export function validateDiscoveryRefreshRequest(value: unknown): ValidationResult<{ sourceId: string | null }> {
   if (value === null || value === undefined) {
     return {
@@ -747,6 +828,27 @@ function sanitizeDiscoveryItemFromDisk(value: unknown): DiscoveryItem | null {
   return validation.ok ? validation.value : null;
 }
 
+function sanitizeDiscoveryItemStateFromDisk(value: unknown): DiscoveryItemState | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const validation = validateDiscoveryItemStateRequest(value);
+  const updatedAt = sanitizeTimestamp(value.updatedAt);
+
+  if (!validation.ok || updatedAt === null) {
+    return null;
+  }
+
+  return {
+    itemId: validation.value.itemId,
+    state: validation.value.state,
+    updatedAt,
+    note: validation.value.note,
+    preparedMessage: validation.value.preparedMessage,
+  };
+}
+
 function sanitizeSourceStore(value: unknown): DiscoverySourceStore {
   if (!isRecord(value) || !Array.isArray(value.sources)) {
     return {
@@ -802,6 +904,28 @@ function sanitizeItemStore(value: unknown): DiscoveryItemStore {
   };
 }
 
+function sanitizeActionStore(value: unknown): DiscoveryActionStore {
+  if (!isRecord(value) || !Array.isArray(value.actions)) {
+    return {
+      actions: [],
+    };
+  }
+
+  const actionsByItemId = new Map<string, DiscoveryItemState>();
+
+  for (const rawAction of value.actions) {
+    const action = sanitizeDiscoveryItemStateFromDisk(rawAction);
+
+    if (action) {
+      actionsByItemId.set(action.itemId, action);
+    }
+  }
+
+  return {
+    actions: [...actionsByItemId.values()].sort((left, right) => right.updatedAt - left.updatedAt),
+  };
+}
+
 function saveJsonFile(filePath: string, value: unknown, label: string) {
   try {
     fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -843,8 +967,24 @@ function loadItemStore(): DiscoveryItemStore {
   }
 }
 
+function loadActionStore(): DiscoveryActionStore {
+  try {
+    const fileContents = fs.readFileSync(ACTIONS_DATA_FILE, "utf8");
+    return sanitizeActionStore(JSON.parse(fileContents));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      console.warn(`[discovery] could not load discovery actions from ${ACTIONS_DATA_FILE}.`, error);
+    }
+
+    return {
+      actions: [],
+    };
+  }
+}
+
 let activeDiscoverySourceStore = loadSourceStore();
 let activeDiscoveryItemStore = loadItemStore();
+let activeDiscoveryActionStore = loadActionStore();
 
 export function listDiscoverySources() {
   return activeDiscoverySourceStore.sources;
@@ -891,8 +1031,55 @@ export function deleteDiscoverySource(id: string) {
   return true;
 }
 
+function getDiscoveryItemState(itemId: string) {
+  return activeDiscoveryActionStore.actions.find((action) => action.itemId === itemId) ?? null;
+}
+
+function withDiscoveryItemState(item: DiscoveryItem): DiscoveryItemWithState {
+  const action = getDiscoveryItemState(item.id);
+
+  return {
+    ...item,
+    workflowState: action?.state ?? "new",
+    workflowUpdatedAt: action?.updatedAt ?? null,
+    workflowNote: action?.note ?? null,
+    preparedMessage: action?.preparedMessage ?? null,
+  };
+}
+
 export function listDiscoveryItems() {
-  return activeDiscoveryItemStore.items;
+  return activeDiscoveryItemStore.items.map(withDiscoveryItemState);
+}
+
+export function upsertDiscoveryItemState(input: {
+  itemId: string;
+  state: DiscoveryItemWorkflowState;
+  note?: string | null;
+  preparedMessage?: string | null;
+}) {
+  const currentItem = activeDiscoveryItemStore.items.find((item) => item.id === input.itemId);
+
+  if (!currentItem) {
+    return null;
+  }
+
+  const now = Date.now();
+  const nextAction: DiscoveryItemState = {
+    itemId: input.itemId,
+    state: input.state,
+    updatedAt: now,
+    note: input.note?.trim() || null,
+    preparedMessage: input.preparedMessage?.trim() || null,
+  };
+
+  activeDiscoveryActionStore = {
+    actions: [
+      nextAction,
+      ...activeDiscoveryActionStore.actions.filter((action) => action.itemId !== input.itemId),
+    ].sort((left, right) => right.updatedAt - left.updatedAt),
+  };
+  saveJsonFile(ACTIONS_DATA_FILE, activeDiscoveryActionStore, "discovery actions");
+  return withDiscoveryItemState(currentItem);
 }
 
 export function upsertDiscoveryItems(items: DiscoveryItem[]) {
@@ -946,7 +1133,11 @@ export function deleteDiscoveryItem(id: string) {
   activeDiscoveryItemStore = {
     items: activeDiscoveryItemStore.items.filter((item) => item.id !== id),
   };
+  activeDiscoveryActionStore = {
+    actions: activeDiscoveryActionStore.actions.filter((action) => action.itemId !== id),
+  };
   saveJsonFile(ITEMS_DATA_FILE, activeDiscoveryItemStore, "discovery items");
+  saveJsonFile(ACTIONS_DATA_FILE, activeDiscoveryActionStore, "discovery actions");
   return true;
 }
 

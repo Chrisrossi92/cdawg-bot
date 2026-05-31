@@ -86,9 +86,11 @@ import {
   refreshRssDiscoverySources,
   rerankDiscoveryItems,
   upsertDiscoveryItems,
+  upsertDiscoveryItemState,
   upsertDiscoverySource,
   validateDiscoveryItemDeleteRequest,
   validateDiscoveryItemsInput,
+  validateDiscoveryItemStateRequest,
   validateDiscoveryRefreshRequest,
   validateDiscoverySourceDeleteRequest,
   validateDiscoverySourceInput,
@@ -2126,6 +2128,39 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           items,
           allItems: listDiscoveryItems(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/items/state") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoveryItemStateRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const item = upsertDiscoveryItemState(validation.value);
+
+        if (!item) {
+          sendJson(response, 404, {
+            error: "Discovery item not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          item,
+          items: listDiscoveryItems(),
         });
         return;
       }
