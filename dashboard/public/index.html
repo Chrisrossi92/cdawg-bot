@@ -180,81 +180,104 @@
 
               <div class="channel-setup-grid">
                 <form id="channel-setup-form" class="channel-setup-form">
-                  <label>
-                    Channel
-                    <select id="channel-setup-channel" name="channelId">
-                      <option value="">Loading channels...</option>
-                    </select>
-                    <small id="channel-setup-channel-detail">Choose an existing Discord channel.</small>
-                  </label>
-                  <label>
-                    Purpose
-                    <select id="channel-setup-purpose" name="purpose">
-                      <option value="genealogy">Genealogy</option>
-                      <option value="gaming">Gaming</option>
-                      <option value="sports">Sports</option>
-                      <option value="news">News</option>
-                      <option value="history">History</option>
-                      <option value="memes">Memes</option>
-                      <option value="general-chat">General Chat</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label>
-                    Access Mode
-                    <select id="channel-setup-access-mode" name="accessMode">
-                      <option value="everyone">Everyone can see it</option>
-                      <option value="opt-in">People opt in with a role</option>
-                      <option value="private">Private/admin managed</option>
-                      <option value="announcement">Announcement-only</option>
-                      <option value="unsure">Not sure yet</option>
-                    </select>
-                  </label>
-                  <label>
-                    Audience
-                    <select id="channel-setup-audience" name="audience">
-                      <option value="everyone">Everyone</option>
-                      <option value="members">Members</option>
-                      <option value="role-members">Role members</option>
-                      <option value="admins">Admins</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label>
-                    Tone
-                    <select id="channel-setup-tone" name="tone">
-                      <option value="friendly">Friendly</option>
-                      <option value="informational">Informational</option>
-                      <option value="playful">Playful</option>
-                      <option value="serious">Serious</option>
-                      <option value="supportive">Supportive</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label id="channel-setup-role-field">
-                    Existing Role
-                    <select id="channel-setup-role" name="roleId">
-                      <option value="">Loading roles...</option>
-                    </select>
-                    <small id="channel-setup-role-detail">Create or choose a Discord role before making this opt-in.</small>
-                  </label>
-                  <fieldset class="channel-setup-content-types">
-                    <legend>Preferred Content Types</legend>
-                    <label><input type="checkbox" name="preferredContentTypes" value="history" /> history</label>
-                    <label><input type="checkbox" name="preferredContentTypes" value="fact" /> fact</label>
-                    <label><input type="checkbox" name="preferredContentTypes" value="prompt" /> prompt</label>
-                    <label><input type="checkbox" name="preferredContentTypes" value="trivia" /> trivia</label>
-                    <label><input type="checkbox" name="preferredContentTypes" value="joke" /> joke</label>
-                    <label><input type="checkbox" name="preferredContentTypes" value="wyr" /> wyr</label>
-                  </fieldset>
-                  <label>
-                    Topic Override
-                    <input id="channel-setup-topic" name="topicOverride" type="text" list="topic-options" placeholder="Optional topic" />
-                  </label>
-                  <label>
-                    Notes
-                    <textarea id="channel-setup-notes" name="notes" rows="3" maxlength="1000" placeholder="Optional memory for this channel"></textarea>
-                  </label>
+                  <section class="channel-setup-wizard-step">
+                    <span class="channel-setup-step-label">Step 1</span>
+                    <h4>Choose Channel</h4>
+                    <label>
+                      Channel
+                      <select id="channel-setup-channel" name="channelId">
+                        <option value="">Loading channels...</option>
+                      </select>
+                      <small id="channel-setup-channel-detail">Choose an existing Discord channel.</small>
+                    </label>
+                  </section>
+
+                  <section class="channel-setup-wizard-step">
+                    <span class="channel-setup-step-label">Step 2</span>
+                    <h4>Choose Purpose</h4>
+                    <label>
+                      Purpose
+                      <select id="channel-setup-purpose" name="purpose">
+                        <option value="genealogy">Genealogy</option>
+                        <option value="gaming">Gaming</option>
+                        <option value="sports">Sports</option>
+                        <option value="news">News</option>
+                        <option value="history">History</option>
+                        <option value="memes">Memes</option>
+                        <option value="general-chat">General Chat</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                  </section>
+
+                  <section class="channel-setup-wizard-step">
+                    <span class="channel-setup-step-label">Step 3</span>
+                    <h4>Choose Access Model</h4>
+                    <label>
+                      Access Mode
+                      <select id="channel-setup-access-mode" name="accessMode">
+                        <option value="everyone">Everyone can see it</option>
+                        <option value="opt-in">People opt in with a role</option>
+                        <option value="private">Private/admin managed</option>
+                        <option value="announcement">Announcement-only</option>
+                        <option value="unsure">Not sure yet</option>
+                      </select>
+                    </label>
+                    <label id="channel-setup-role-field">
+                      Existing Role
+                      <select id="channel-setup-role" name="roleId">
+                        <option value="">Loading roles...</option>
+                      </select>
+                      <small id="channel-setup-role-detail">Create or choose a Discord role before making this opt-in.</small>
+                    </label>
+                  </section>
+
+                  <details class="channel-setup-advanced">
+                    <summary>
+                      <span class="channel-setup-step-label">Step 5</span>
+                      Advanced Options
+                    </summary>
+                    <div class="channel-setup-advanced-grid">
+                      <label>
+                        Audience
+                        <select id="channel-setup-audience" name="audience">
+                          <option value="everyone">Everyone</option>
+                          <option value="members">Members</option>
+                          <option value="role-members">Role members</option>
+                          <option value="admins">Admins</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </label>
+                      <label>
+                        Tone
+                        <select id="channel-setup-tone" name="tone">
+                          <option value="friendly">Friendly</option>
+                          <option value="informational">Informational</option>
+                          <option value="playful">Playful</option>
+                          <option value="serious">Serious</option>
+                          <option value="supportive">Supportive</option>
+                          <option value="custom">Custom</option>
+                        </select>
+                      </label>
+                      <fieldset class="channel-setup-content-types">
+                        <legend>Preferred Content Types</legend>
+                        <label><input type="checkbox" name="preferredContentTypes" value="history" /> history</label>
+                        <label><input type="checkbox" name="preferredContentTypes" value="fact" /> fact</label>
+                        <label><input type="checkbox" name="preferredContentTypes" value="prompt" /> prompt</label>
+                        <label><input type="checkbox" name="preferredContentTypes" value="trivia" /> trivia</label>
+                        <label><input type="checkbox" name="preferredContentTypes" value="joke" /> joke</label>
+                        <label><input type="checkbox" name="preferredContentTypes" value="wyr" /> wyr</label>
+                      </fieldset>
+                      <label>
+                        Topic Override
+                        <input id="channel-setup-topic" name="topicOverride" type="text" list="topic-options" placeholder="Optional topic" />
+                      </label>
+                      <label>
+                        Notes
+                        <textarea id="channel-setup-notes" name="notes" rows="3" maxlength="1000" placeholder="Optional memory for this channel"></textarea>
+                      </label>
+                    </div>
+                  </details>
                   <p class="channel-setup-memory-note">This saves CDawg's memory for this channel only. It does not change Discord.</p>
                   <div class="channel-setup-profile-actions">
                     <button id="channel-setup-save-profile" type="button">Save Channel Profile</button>
@@ -263,6 +286,10 @@
                 </form>
 
                 <div class="channel-setup-preview">
+                  <div class="channel-setup-preview-heading">
+                    <span class="channel-setup-step-label">Step 4</span>
+                    <h4>CDawg Setup Plan</h4>
+                  </div>
                   <div id="channel-setup-plan"></div>
                   <div class="channel-setup-actions">
                     <button id="channel-setup-open-role-panel" type="button" class="secondary">Prefill Role Signup Button</button>

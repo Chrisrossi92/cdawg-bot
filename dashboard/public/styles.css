@@ -1282,6 +1282,55 @@ small {
   margin: 0;
 }
 
+.channel-setup-wizard-step,
+.channel-setup-advanced {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(120, 185, 255, 0.16);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.channel-setup-wizard-step h4,
+.channel-setup-preview-heading h4 {
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.channel-setup-step-label {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 3px 8px;
+  border: 1px solid rgba(45, 212, 255, 0.24);
+  border-radius: 999px;
+  color: var(--cyan-accent);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.channel-setup-advanced summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 800;
+  list-style: none;
+}
+
+.channel-setup-advanced summary::-webkit-details-marker {
+  display: none;
+}
+
+.channel-setup-advanced-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 10px;
+}
+
 .channel-setup-content-types {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1324,6 +1373,12 @@ small {
   display: grid;
   gap: 12px;
   min-width: 0;
+}
+
+.channel-setup-preview-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .channel-setup-plan-header {
