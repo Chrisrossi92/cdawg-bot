@@ -2133,6 +2133,132 @@ function createDiscoveryCardId(source, key) {
   return `${normalizedSource}:${normalizedKey || "card"}`;
 }
 
+const SHOW_MOCK_DISCOVERY_CARDS = true;
+
+function createDiscoveryCardNavigation() {
+  return createMissionNavigation("push", "content-discovery-review");
+}
+
+function getDiscoverySourceLabel(card) {
+  return card?.sourceName || card?.source || "Discovery";
+}
+
+function getDiscoveryThumbnailLabel(card) {
+  if (card?.thumbnailKind === "video") {
+    return "Video Preview";
+  }
+
+  if (card?.thumbnailKind === "discussion") {
+    return "Discussion Preview";
+  }
+
+  if (card?.thumbnailKind === "news") {
+    return "Headline Preview";
+  }
+
+  if (card?.thumbnailKind === "history") {
+    return "History Preview";
+  }
+
+  return card?.isMock ? "Demo Preview" : "Preview";
+}
+
+function createDiscoveryThumbnail(card, options = {}) {
+  if (!card?.thumbnailUrl && !card?.thumbnailKind && !card?.isMock && !options.alwaysShow) {
+    return null;
+  }
+
+  const media = document.createElement("div");
+  media.className = options.large ? "content-discovery-thumbnail" : "mission-discovery-thumbnail";
+
+  if (card.thumbnailKind) {
+    media.dataset.thumbnailKind = card.thumbnailKind;
+  }
+
+  if (card.thumbnailUrl) {
+    const image = document.createElement("img");
+    image.src = card.thumbnailUrl;
+    image.alt = "";
+    image.loading = "lazy";
+    media.append(image);
+  } else {
+    const label = document.createElement("span");
+    label.textContent = getDiscoveryThumbnailLabel(card);
+    media.append(label);
+  }
+
+  return media;
+}
+
+function buildMockContentDiscoveryCards() {
+  return [
+    {
+      id: createDiscoveryCardId("mock-youtube", "gaming-highlight"),
+      source: "YouTube",
+      sourceName: "Mock YouTube",
+      title: "Gaming highlight clip worth turning into a question",
+      description: "Demo card for a future YouTube discovery source. No video lookup or external request is made.",
+      thumbnailUrl: null,
+      thumbnailKind: "video",
+      sourceUrl: null,
+      isMock: true,
+      demoLabel: "Demo Preview",
+      suggestedChannel: createSuggestedChannel(null, "Gaming channel preview"),
+      suggestedReason: "Demo Preview: a short highlight could become a low-risk discussion prompt for a gaming channel.",
+      suggestedContentType: "prompt",
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
+    },
+    {
+      id: createDiscoveryCardId("mock-reddit", "community-discussion"),
+      source: "Reddit",
+      sourceName: "Mock Reddit",
+      title: "Community discussion thread with question potential",
+      description: "Demo card for a future Reddit discovery source. It is local mock data only.",
+      thumbnailUrl: null,
+      thumbnailKind: "discussion",
+      sourceUrl: null,
+      isMock: true,
+      demoLabel: "Demo Preview",
+      suggestedChannel: createSuggestedChannel(null, "Community chat preview"),
+      suggestedReason: "Demo Preview: a discussion-style find could be reshaped into a server question without posting automatically.",
+      suggestedContentType: "prompt",
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
+    },
+    {
+      id: createDiscoveryCardId("mock-rss", "news-headline"),
+      source: "News/RSS",
+      sourceName: "Mock RSS Feed",
+      title: "Headline that could become a short context post",
+      description: "Demo card for a future RSS/news discovery source. There is no feed fetch behind this card.",
+      thumbnailUrl: null,
+      thumbnailKind: "news",
+      sourceUrl: null,
+      isMock: true,
+      demoLabel: "Demo Preview",
+      suggestedChannel: createSuggestedChannel(null, "Announcements preview"),
+      suggestedReason: "Demo Preview: a timely headline could be reviewed and rewritten before any manual post.",
+      suggestedContentType: "fact",
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
+    },
+    {
+      id: createDiscoveryCardId("mock-history", "genealogy-visual"),
+      source: "Local/Generated",
+      sourceName: "Mock Genealogy Visual",
+      title: "Historic record image idea for a genealogy prompt",
+      description: "Demo card for a future local/generated discovery source with visual context.",
+      thumbnailUrl: null,
+      thumbnailKind: "history",
+      sourceUrl: null,
+      isMock: true,
+      demoLabel: "Demo Preview",
+      suggestedChannel: createSuggestedChannel(null, "Genealogy channel preview"),
+      suggestedReason: "Demo Preview: a visual history item could anchor a research conversation after review.",
+      suggestedContentType: "history",
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
+    },
+  ];
+}
+
 function buildContentDiscoveryCards() {
   const cards = [];
   const historyEvent = historyReview?.previewEvent;
@@ -2146,11 +2272,14 @@ function buildContentDiscoveryCards() {
       title: historyEvent.title,
       description: historyEvent.summary,
       thumbnailUrl: null,
+      thumbnailKind: null,
       sourceUrl: null,
+      sourceName: "Today in History",
+      isMock: false,
       suggestedChannel: createSuggestedChannel(historyReview?.channelId ?? null, historyReview?.channelLabel ?? "History channel"),
       suggestedReason: `Today matches ${historyReview?.dateLabel ?? historyReview?.dateKey ?? "the current date"} and the preview pool has ${historyReview?.totalEventsForDate ?? 0} item${historyReview?.totalEventsForDate === 1 ? "" : "s"}.`,
       suggestedContentType: "history",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
   }
 
@@ -2163,13 +2292,16 @@ function buildContentDiscoveryCards() {
       title: dailyTriviaChallenge.latestSession?.active ? "Daily Trivia is active now" : "Daily Trivia is ready",
       description: dailyTrivia.detail,
       thumbnailUrl: null,
+      thumbnailKind: null,
       sourceUrl: null,
+      sourceName: "Daily Trivia",
+      isMock: false,
       suggestedChannel: createSuggestedChannel(dailyTriviaChallenge.channelId, dailyTriviaChallenge.channelLabel ?? dailyTriviaChallenge.channelId),
       suggestedReason: dailyTriviaChallenge.blockedReason
         ? `Review the current ${getBlockedReasonLabel(dailyTriviaChallenge.blockedReason)} block before the next trivia run.`
         : "Daily trivia is already configured and has status worth reviewing from Automation.",
       suggestedContentType: "trivia",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
   }
 
@@ -2183,11 +2315,14 @@ function buildContentDiscoveryCards() {
         .map((feed) => `${feed.contentType} in ${feed.channelLabel ?? getChannelLabel(feed.channelId)} every ${feed.cadenceMinutes}m`)
         .join(" | "),
       thumbnailUrl: null,
+      thumbnailKind: null,
       sourceUrl: null,
+      sourceName: "Upcoming Scheduled Posts",
+      isMock: false,
       suggestedChannel: createSuggestedChannel(nextFeed.channelId, nextFeed.channelLabel ?? nextFeed.channelId),
       suggestedReason: `Next eligible post is ${formatTimestamp(nextFeed.nextRunAt ?? nextFeed.nextEligibleAt)} (${formatRelativeTime(nextFeed.nextRunAt ?? nextFeed.nextEligibleAt)}).`,
       suggestedContentType: nextFeed.contentType,
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
   }
 
@@ -2199,11 +2334,14 @@ function buildContentDiscoveryCards() {
       title: `${composerTemplates.length} saved message${composerTemplates.length === 1 ? "" : "s"} ready`,
       description: `Saved drafts: ${composerTemplates.slice(0, 3).map((template) => template.name).join(", ")}${composerTemplates.length > 3 ? ", ..." : ""}`,
       thumbnailUrl: null,
+      thumbnailKind: null,
       sourceUrl: null,
+      sourceName: "Saved Messages",
+      isMock: false,
       suggestedChannel: createSuggestedChannel(firstTemplateWithChannel?.channelId ?? null, firstTemplateWithChannel?.channelId ? undefined : "Choose when reviewing"),
       suggestedReason: "Saved messages are reusable approved copy and can be reviewed in Content Studio before any post action.",
       suggestedContentType: "saved-message",
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
   }
 
@@ -2217,14 +2355,21 @@ function buildContentDiscoveryCards() {
       title: `Try more ${contentType}`,
       description: `Lightly used content types: ${underusedContentTypes.map(([entryContentType, entryCount]) => `${entryContentType} (${entryCount})`).join(", ")}.`,
       thumbnailUrl: null,
+      thumbnailKind: null,
       sourceUrl: null,
+      sourceName: "Underused Content Types",
+      isMock: false,
       suggestedChannel: createSuggestedChannel(matchingProfile?.channelId ?? null, matchingProfile ? undefined : "Choose when generating"),
       suggestedReason: matchingProfile
         ? `${getChannelLabel(matchingProfile.channelId)} lists ${contentType} as a preferred content type, and provider metrics show it has only ${count} recorded use${count === 1 ? "" : "s"}.`
         : `Provider metrics show ${contentType} has only ${count} recorded use${count === 1 ? "" : "s"}.`,
       suggestedContentType: contentType,
-      actions: [createDiscoveryReviewAction("Review", createMissionNavigation("push", "content-discovery-review"))],
+      actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
+  }
+
+  if (SHOW_MOCK_DISCOVERY_CARDS) {
+    cards.push(...buildMockContentDiscoveryCards());
   }
 
   return cards;
@@ -2234,10 +2379,13 @@ function createContentDiscoveryCard(item) {
   const card = document.createElement("article");
   const header = document.createElement("div");
   const heading = document.createElement("div");
-  const sourceBadge = createStatusBadge(item.source, "active");
+  const badges = document.createElement("div");
+  const sourceBadge = createStatusBadge(getDiscoverySourceLabel(item), "active");
   const contentTypeBadge = createStatusBadge(item.suggestedContentType, "neutral");
+  const demoBadge = item.isMock ? createStatusBadge(item.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
+  const thumbnail = createDiscoveryThumbnail(item);
   const context = document.createElement("dl");
   const channelTerm = document.createElement("dt");
   const channelDetail = document.createElement("dd");
@@ -2248,8 +2396,10 @@ function createContentDiscoveryCard(item) {
   const action = document.createElement("button");
 
   card.className = "mission-found-card mission-discovery-card";
+  card.classList.toggle("is-mock", Boolean(item.isMock));
   header.className = "mission-discovery-card-header";
   heading.className = "mission-discovery-card-heading";
+  badges.className = "mission-discovery-badges";
   context.className = "mission-discovery-context";
   actions.className = "mission-discovery-actions";
   title.textContent = item.title;
@@ -2264,7 +2414,14 @@ function createContentDiscoveryCard(item) {
   action.addEventListener("click", () => openDiscoveryCardReview(item.id));
 
   heading.append(title, description);
-  header.append(heading, sourceBadge);
+  badges.append(sourceBadge);
+  if (demoBadge) {
+    badges.append(demoBadge);
+  }
+  header.append(heading, badges);
+  if (thumbnail) {
+    card.append(thumbnail);
+  }
   context.append(channelTerm, channelDetail, reasonTerm, reasonDetail);
   actions.append(contentTypeBadge, action);
   card.append(header, context, actions);
@@ -2300,8 +2457,10 @@ function getDiscoveryGeneratedContentType(card) {
 }
 
 function buildDiscoveryMessageDraft(card) {
+  const demoPrefix = card.isMock ? ["Demo Preview mock card. Review and rewrite before using."] : [];
   return [
-    `Found from ${card.source}: ${card.title}`,
+    ...demoPrefix,
+    `Found from ${getDiscoverySourceLabel(card)}: ${card.title}`,
     card.description,
     `Suggested for ${card.suggestedChannel?.label ?? "a channel"} because ${card.suggestedReason}`,
   ]
@@ -2347,12 +2506,13 @@ function createContentDiscoveryReviewDetail(card) {
   const header = document.createElement("div");
   const heading = document.createElement("div");
   const badges = document.createElement("div");
-  const sourceBadge = createStatusBadge(card.source, "active");
+  const sourceBadge = createStatusBadge(getDiscoverySourceLabel(card), "active");
   const contentTypeBadge = createStatusBadge(card.suggestedContentType, "neutral");
+  const demoBadge = card.isMock ? createStatusBadge(card.demoLabel || "Demo Preview", "neutral") : null;
   const title = document.createElement("h3");
   const description = document.createElement("p");
   const body = document.createElement("div");
-  const media = document.createElement("div");
+  const media = createDiscoveryThumbnail(card, { large: true, alwaysShow: true });
   const details = document.createElement("dl");
   const channelTerm = document.createElement("dt");
   const channelDetail = document.createElement("dd");
@@ -2366,11 +2526,11 @@ function createContentDiscoveryReviewDetail(card) {
   const backButton = document.createElement("button");
 
   wrapper.className = "content-discovery-review-card";
+  wrapper.classList.toggle("is-mock", Boolean(card.isMock));
   header.className = "content-discovery-review-header";
   heading.className = "content-discovery-review-heading";
   badges.className = "content-discovery-review-badges";
   body.className = "content-discovery-review-layout";
-  media.className = "content-discovery-thumbnail";
   details.className = "mission-discovery-context content-discovery-review-context";
   actions.className = "content-discovery-review-actions";
 
@@ -2383,18 +2543,6 @@ function createContentDiscoveryReviewDetail(card) {
   typeTerm.textContent = "Suggested content type";
   typeDetail.textContent = card.suggestedContentType;
 
-  if (card.thumbnailUrl) {
-    const image = document.createElement("img");
-    image.src = card.thumbnailUrl;
-    image.alt = "";
-    image.loading = "lazy";
-    media.append(image);
-  } else {
-    const placeholder = document.createElement("span");
-    placeholder.textContent = "Preview";
-    media.append(placeholder);
-  }
-
   prepareButton.type = "button";
   prepareButton.textContent = "Prepare Message";
   prepareButton.addEventListener("click", () => prepareDiscoveryMessage(card));
@@ -2404,7 +2552,7 @@ function createContentDiscoveryReviewDetail(card) {
   generateButton.textContent = "Generate Related Content";
   generateButton.addEventListener("click", () => prepareDiscoveryGeneration(card));
 
-  if (card.sourceUrl) {
+  if (card.sourceUrl && !card.isMock) {
     const sourceButton = document.createElement("button");
     sourceButton.type = "button";
     sourceButton.className = "secondary";
@@ -2429,6 +2577,9 @@ function createContentDiscoveryReviewDetail(card) {
   });
 
   badges.append(sourceBadge, contentTypeBadge);
+  if (demoBadge) {
+    badges.append(demoBadge);
+  }
   heading.append(title, description);
   header.append(heading, badges);
   details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, typeTerm, typeDetail);
