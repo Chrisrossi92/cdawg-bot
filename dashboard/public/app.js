@@ -165,9 +165,16 @@ const controlTabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"
 const contentStudioModeButtons = Array.from(document.querySelectorAll(".content-studio-choice-area [data-content-studio-mode-target]"));
 const contentStudioPanels = Array.from(document.querySelectorAll("[data-content-studio-panel]"));
 const contentDiscoveryReviewPanel = document.querySelector("#content-discovery-review-panel");
+const contentSourceLibrary = document.querySelector("#content-source-library");
+const contentSourceLibraryProfileSelect = document.querySelector("#content-source-library-profile");
+const contentSourceLibraryRecommendations = document.querySelector("#content-source-library-recommendations");
+const contentSourceLibraryCategories = document.querySelector("#content-source-library-categories");
+const contentSourceLibraryList = document.querySelector("#content-source-library-list");
 const rssDiscoverySourcesList = document.querySelector("#rss-discovery-sources-list");
+const advancedSourceSetup = document.querySelector(".advanced-source-setup");
 const rssDiscoverySourceForm = document.querySelector("#rss-discovery-source-form");
 const addRssDiscoverySourceButton = document.querySelector("#add-rss-discovery-source");
+const addManualRssDiscoverySourceButton = document.querySelector("#add-manual-rss-discovery-source");
 const refreshEnabledRssDiscoverySourcesButton = document.querySelector("#refresh-enabled-rss-discovery-sources");
 const cancelRssDiscoverySourceButton = document.querySelector("#cancel-rss-discovery-source");
 const deleteRssDiscoverySourceButton = document.querySelector("#delete-rss-discovery-source");
@@ -241,6 +248,7 @@ let discoveryItems = [];
 let discoveryItemsLoadError = null;
 let activeControlTab = "overview";
 let activeContentStudioMode = "generate";
+let activeContentSourceLibraryCategory = "Recommended";
 let selectedDiscoveryCardId = null;
 let composerDraftBeforeRewrite = null;
 
@@ -313,6 +321,90 @@ const channelSetupToneLabels = {
 };
 
 const allowedChannelSetupTopics = new Set(["general", "palworld", "history", "genealogy", "pokemon", "harry-potter", "true-crime", "music", "valheim"]);
+const contentSourceCatalogCategories = ["History", "Genealogy", "Gaming", "Sports", "Technology", "Science", "Movies", "Music", "News", "Finance"];
+const contentSourceLibraryCatalog = [
+  {
+    name: "Library of Congress Blog",
+    description: "Primary-source stories, collections, and historical context from the Library of Congress.",
+    rssUrl: "https://blogs.loc.gov/loc/feed/",
+    category: "History",
+    sourceBadge: "Institution",
+  },
+  {
+    name: "FamilySearch Blog",
+    description: "Genealogy research tips, family history ideas, and record discovery guidance.",
+    rssUrl: "https://www.familysearch.org/en/blog/feed",
+    category: "Genealogy",
+    sourceBadge: "Research",
+  },
+  {
+    name: "Polygon",
+    description: "Gaming news, culture, guides, and entertainment coverage for community discussion.",
+    rssUrl: "https://www.polygon.com/rss/index.xml",
+    category: "Gaming",
+    sourceBadge: "Gaming",
+  },
+  {
+    name: "ESPN Top Headlines",
+    description: "Sports headlines and storylines that can seed matchup and player conversations.",
+    rssUrl: "https://www.espn.com/espn/rss/news",
+    category: "Sports",
+    sourceBadge: "Sports",
+  },
+  {
+    name: "Ars Technica",
+    description: "Technology news and analysis with enough depth for informed community prompts.",
+    rssUrl: "https://feeds.arstechnica.com/arstechnica/index",
+    category: "Technology",
+    sourceBadge: "Tech",
+  },
+  {
+    name: "NASA News",
+    description: "Science and space updates from NASA for factual posts and conversation starters.",
+    rssUrl: "https://www.nasa.gov/news-release/feed/",
+    category: "Science",
+    sourceBadge: "Science",
+  },
+  {
+    name: "RogerEbert.com",
+    description: "Movie reviews and film essays for watchlist, review, and discussion prompts.",
+    rssUrl: "https://www.rogerebert.com/feed",
+    category: "Movies",
+    sourceBadge: "Film",
+  },
+  {
+    name: "Pitchfork News",
+    description: "Music news, releases, and artist updates for entertainment-focused channels.",
+    rssUrl: "https://pitchfork.com/rss/news/",
+    category: "Music",
+    sourceBadge: "Music",
+  },
+  {
+    name: "BBC News",
+    description: "Broad news headlines for discussion prompts that still require review before use.",
+    rssUrl: "https://feeds.bbci.co.uk/news/rss.xml",
+    category: "News",
+    sourceBadge: "News",
+  },
+  {
+    name: "CNBC Finance",
+    description: "Finance headlines and market stories for money and business discussion channels.",
+    rssUrl: "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+    category: "Finance",
+    sourceBadge: "Finance",
+  },
+];
+
+const contentSourceCategoryRecommendationsByPurpose = {
+  genealogy: ["Genealogy", "History", "News"],
+  history: ["History", "Genealogy", "Science"],
+  gaming: ["Gaming", "Technology", "Movies"],
+  sports: ["Sports", "News", "Finance"],
+  news: ["News", "Technology", "Finance"],
+  memes: ["Gaming", "Movies", "Music"],
+  "general-chat": ["News", "Music", "Movies"],
+  custom: ["News", "Technology", "Science"],
+};
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
@@ -2721,6 +2813,164 @@ function getDiscoverySourceChannelLabel(channelId) {
   return channel ? `#${channel.name}` : channelId;
 }
 
+function normalizeSourceTag(value) {
+  return value.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-|-$/g, "").slice(0, 40);
+}
+
+function getSelectedContentSourceProfile() {
+  const channelId = contentSourceLibraryProfileSelect?.value || "";
+  return channelId ? channelProfiles.find((profile) => profile.channelId === channelId) ?? null : null;
+}
+
+function getRecommendedContentSourceCategories(profile = getSelectedContentSourceProfile()) {
+  return contentSourceCategoryRecommendationsByPurpose[profile?.purpose] ?? contentSourceCategoryRecommendationsByPurpose.custom;
+}
+
+function getContentSourceLibraryItems() {
+  if (activeContentSourceLibraryCategory === "Recommended") {
+    const recommendedCategories = new Set(getRecommendedContentSourceCategories());
+    return contentSourceLibraryCatalog.filter((source) => recommendedCategories.has(source.category));
+  }
+
+  return contentSourceLibraryCatalog.filter((source) => source.category === activeContentSourceLibraryCategory);
+}
+
+function renderContentSourceLibraryProfileOptions() {
+  if (!contentSourceLibraryProfileSelect) {
+    return;
+  }
+
+  const selectedValue = contentSourceLibraryProfileSelect.value;
+  contentSourceLibraryProfileSelect.replaceChildren();
+
+  const anyOption = document.createElement("option");
+  anyOption.value = "";
+  anyOption.textContent = "Any channel profile";
+  contentSourceLibraryProfileSelect.append(anyOption);
+
+  for (const profile of channelProfiles) {
+    const option = document.createElement("option");
+    option.value = profile.channelId;
+    option.textContent = `${getChannelProfileLabel(profile)} - ${getChannelProfilePurposeLabel(profile)}`;
+    contentSourceLibraryProfileSelect.append(option);
+  }
+
+  if ([...contentSourceLibraryProfileSelect.options].some((option) => option.value === selectedValue)) {
+    contentSourceLibraryProfileSelect.value = selectedValue;
+  }
+}
+
+function renderContentSourceLibraryRecommendations() {
+  if (!contentSourceLibraryRecommendations) {
+    return;
+  }
+
+  const profile = getSelectedContentSourceProfile();
+  const recommendedCategories = getRecommendedContentSourceCategories(profile);
+  const lead = document.createElement("span");
+  lead.textContent = profile
+    ? `Recommended for ${getChannelProfileLabel(profile)}:`
+    : "Recommended categories:";
+
+  contentSourceLibraryRecommendations.replaceChildren(
+    lead,
+    ...recommendedCategories.map((category) => createStatusBadge(category, "neutral")),
+  );
+}
+
+function renderContentSourceLibraryCategories() {
+  if (!contentSourceLibraryCategories) {
+    return;
+  }
+
+  contentSourceLibraryCategories.replaceChildren();
+
+  for (const category of ["Recommended", ...contentSourceCatalogCategories]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.textContent = category;
+    button.classList.toggle("is-active", activeContentSourceLibraryCategory === category);
+    button.setAttribute("aria-pressed", String(activeContentSourceLibraryCategory === category));
+    button.addEventListener("click", () => {
+      activeContentSourceLibraryCategory = category;
+      renderContentSourceLibrary();
+    });
+    contentSourceLibraryCategories.append(button);
+  }
+}
+
+function getContentSourcePayload(source) {
+  const profile = getSelectedContentSourceProfile();
+  const tags = [
+    normalizeSourceTag(source.category),
+    normalizeSourceTag(source.sourceBadge),
+  ].filter(Boolean);
+
+  return {
+    type: "rss",
+    enabled: true,
+    name: source.name,
+    url: source.rssUrl,
+    defaultTags: [...new Set(tags)],
+    preferredChannelIds: profile?.channelId ? [profile.channelId] : [],
+    lastRefreshAt: null,
+    lastError: null,
+  };
+}
+
+function createContentSourceLibraryCard(source) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const heading = document.createElement("div");
+  const title = document.createElement("h4");
+  const category = createStatusBadge(source.category, "neutral");
+  const sourceBadge = createStatusBadge(source.sourceBadge, "active");
+  const description = document.createElement("p");
+  const url = document.createElement("small");
+  const actions = document.createElement("div");
+  const selectButton = createChannelActionButton("Select Source", () => void saveContentSourceFromLibrary(source));
+
+  card.className = "content-source-card";
+  header.className = "content-source-card-header";
+  heading.className = "content-source-card-heading";
+  actions.className = "channel-operation-actions";
+  title.textContent = source.name;
+  description.textContent = source.description;
+  url.textContent = source.rssUrl;
+
+  heading.append(title, description);
+  header.append(heading, category, sourceBadge);
+  actions.append(selectButton);
+  card.append(header, url, actions);
+  return card;
+}
+
+function renderContentSourceLibrary() {
+  if (!contentSourceLibraryList) {
+    return;
+  }
+
+  renderContentSourceLibraryProfileOptions();
+  renderContentSourceLibraryRecommendations();
+  renderContentSourceLibraryCategories();
+  contentSourceLibraryList.replaceChildren();
+
+  for (const source of getContentSourceLibraryItems()) {
+    contentSourceLibraryList.append(createContentSourceLibraryCard(source));
+  }
+}
+
+function showContentSourceLibrary() {
+  if (!contentSourceLibrary) {
+    return;
+  }
+
+  contentSourceLibrary.hidden = false;
+  renderContentSourceLibrary();
+  setRssDiscoverySourceStatus("Choose a catalog source to save it. Refresh remains manual.");
+}
+
 function renderDiscoverySourceChannelOptions(selectedChannelIds = []) {
   if (!rssDiscoverySourceForm) {
     return;
@@ -2767,6 +3017,9 @@ function showRssDiscoverySourceForm(source = null) {
     return;
   }
 
+  if (advancedSourceSetup) {
+    advancedSourceSetup.open = true;
+  }
   rssDiscoverySourceForm.hidden = false;
   rssDiscoverySourceForm.elements.id.value = source?.id ?? "";
   rssDiscoverySourceForm.elements.name.value = source?.name ?? "";
@@ -2827,6 +3080,31 @@ function getRssDiscoverySourceFormPayload() {
       lastError: null,
     },
   };
+}
+
+async function saveRssDiscoverySourcePayload(payload) {
+  const data = await fetchJson("/api/discovery/sources/upsert", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+  discoverySources = Array.isArray(data.sources) ? data.sources : [];
+  discoverySourcesLoadError = null;
+  renderDiscoverySources();
+  return data;
+}
+
+async function saveContentSourceFromLibrary(source) {
+  setRssDiscoverySourceStatus(`Saving ${source.name} from the source library...`);
+
+  try {
+    await saveRssDiscoverySourcePayload(getContentSourcePayload(source));
+    setRssDiscoverySourceStatus(`${source.name} saved as an RSS source. Refresh manually when ready.`, "success");
+  } catch (error) {
+    setRssDiscoverySourceStatus(`Source library save failed: ${error.message}`, "error");
+  }
 }
 
 function createDiscoverySourceCard(source) {
@@ -2941,16 +3219,7 @@ async function submitRssDiscoverySource(event) {
   }
 
   try {
-    const data = await fetchJson("/api/discovery/sources/upsert", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(payload.value),
-    });
-    discoverySources = Array.isArray(data.sources) ? data.sources : [];
-    discoverySourcesLoadError = null;
-    renderDiscoverySources();
+    const data = await saveRssDiscoverySourcePayload(payload.value);
     showRssDiscoverySourceForm(data.source);
     setRssDiscoverySourceStatus("RSS source saved. Refresh manually when ready.", "success");
   } catch (error) {
@@ -5884,10 +6153,12 @@ async function loadChannelProfiles() {
     applySavedChannelProfileToAssistant(channelSetupChannel?.value ?? "");
     renderChannelSetupAssistant();
     renderMissionControl();
+    renderContentSourceLibrary();
   } catch (error) {
     channelProfiles = [];
     renderChannelSetupAssistant();
     renderMissionControl();
+    renderContentSourceLibrary();
     setChannelSetupAssistantStatus(`Channel profiles failed to load: ${error.message}`, "blocked");
   }
 }
@@ -6636,7 +6907,18 @@ for (const button of contentStudioModeButtons) {
 }
 
 if (addRssDiscoverySourceButton) {
-  addRssDiscoverySourceButton.addEventListener("click", () => showRssDiscoverySourceForm());
+  addRssDiscoverySourceButton.addEventListener("click", showContentSourceLibrary);
+}
+
+if (addManualRssDiscoverySourceButton) {
+  addManualRssDiscoverySourceButton.addEventListener("click", () => showRssDiscoverySourceForm());
+}
+
+if (contentSourceLibraryProfileSelect) {
+  contentSourceLibraryProfileSelect.addEventListener("change", () => {
+    activeContentSourceLibraryCategory = "Recommended";
+    renderContentSourceLibrary();
+  });
 }
 
 if (refreshEnabledRssDiscoverySourcesButton) {

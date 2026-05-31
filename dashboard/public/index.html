@@ -840,48 +840,69 @@
                   </div>
                   <div class="toolbar">
                     <button id="refresh-enabled-rss-discovery-sources" type="button" class="secondary">Refresh Enabled RSS Sources</button>
-                    <button id="add-rss-discovery-source" type="button" class="secondary">Add RSS Source</button>
+                    <button id="add-rss-discovery-source" type="button" class="secondary">Add Content Source</button>
                   </div>
                 </div>
-                <form id="rss-discovery-source-form" class="settings-form discovery-source-form" hidden>
-                  <input name="id" type="hidden" />
-                  <div class="form-grid form-grid-2">
+                <section id="content-source-library" class="content-source-library" hidden>
+                  <div class="content-source-library-header">
+                    <div>
+                      <h4>Content Source Library</h4>
+                      <p>Choose a curated RSS source to save. Refresh stays manual.</p>
+                    </div>
                     <label>
-                      Name
-                      <input name="name" type="text" maxlength="120" placeholder="Community news feed" required />
-                    </label>
-                    <label>
-                      Feed URL
-                      <input name="url" type="url" placeholder="https://example.com/feed.xml" required />
-                      <small>RSS source URLs must use https.</small>
-                    </label>
-                    <label>
-                      Enabled
-                      <select name="enabled">
-                        <option value="true">Enabled</option>
-                        <option value="false">Disabled</option>
+                      Recommend For
+                      <select id="content-source-library-profile">
+                        <option value="">Any channel profile</option>
                       </select>
                     </label>
-                    <label>
-                      Default Tags
-                      <input name="defaultTags" type="text" placeholder="news, community" />
-                      <small>Comma-separated lowercase tags.</small>
-                    </label>
-                    <label class="form-field-wide">
-                      Preferred Channels
-                      <select name="preferredChannelIds" multiple size="5">
-                        <option value="">Loading channels...</option>
-                      </select>
-                      <small>Optional. Hold Command/Ctrl to choose more than one channel.</small>
-                    </label>
                   </div>
-                  <div class="settings-actions form-actions-row">
-                    <button type="submit">Save RSS Source</button>
-                    <button id="cancel-rss-discovery-source" type="button" class="secondary">Cancel</button>
-                    <button id="delete-rss-discovery-source" type="button" class="secondary" hidden>Delete</button>
-                    <span id="rss-discovery-source-status" class="form-status"></span>
-                  </div>
-                </form>
+                  <div id="content-source-library-recommendations" class="content-source-library-recommendations"></div>
+                  <div id="content-source-library-categories" class="content-source-library-categories" aria-label="Content source categories"></div>
+                  <div id="content-source-library-list" class="content-source-library-list"></div>
+                </section>
+                <details class="details-block advanced-source-setup">
+                  <summary>Advanced Source Setup</summary>
+                  <button id="add-manual-rss-discovery-source" type="button" class="secondary">Add Manual RSS Source</button>
+                  <form id="rss-discovery-source-form" class="settings-form discovery-source-form" hidden>
+                    <input name="id" type="hidden" />
+                    <div class="form-grid form-grid-2">
+                      <label>
+                        Name
+                        <input name="name" type="text" maxlength="120" placeholder="Community news feed" required />
+                      </label>
+                      <label>
+                        Feed URL
+                        <input name="url" type="url" placeholder="https://example.com/feed.xml" required />
+                        <small>RSS source URLs must use https.</small>
+                      </label>
+                      <label>
+                        Enabled
+                        <select name="enabled">
+                          <option value="true">Enabled</option>
+                          <option value="false">Disabled</option>
+                        </select>
+                      </label>
+                      <label>
+                        Default Tags
+                        <input name="defaultTags" type="text" placeholder="news, community" />
+                        <small>Comma-separated lowercase tags.</small>
+                      </label>
+                      <label class="form-field-wide">
+                        Preferred Channels
+                        <select name="preferredChannelIds" multiple size="5">
+                          <option value="">Loading channels...</option>
+                        </select>
+                        <small>Optional. Hold Command/Ctrl to choose more than one channel.</small>
+                      </label>
+                    </div>
+                    <div class="settings-actions form-actions-row">
+                      <button type="submit">Save RSS Source</button>
+                      <button id="cancel-rss-discovery-source" type="button" class="secondary">Cancel</button>
+                      <button id="delete-rss-discovery-source" type="button" class="secondary" hidden>Delete</button>
+                    </div>
+                  </form>
+                </details>
+                <div id="rss-discovery-source-status" class="form-status"></div>
                 <div id="rss-discovery-sources-list" class="feed-list discovery-source-list">
                   <p class="channel-operation-empty">No RSS sources configured yet.</p>
                 </div>

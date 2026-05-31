@@ -2130,6 +2130,99 @@ small {
   margin: 12px 0;
 }
 
+.content-source-library {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  padding: 12px;
+  border: 1px solid rgba(45, 212, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.36);
+}
+
+.content-source-library[hidden] {
+  display: none;
+}
+
+.content-source-library-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.content-source-library-header h4,
+.content-source-library-header p {
+  margin: 0;
+}
+
+.content-source-library-header p,
+.content-source-card p,
+.content-source-card small {
+  color: var(--muted);
+}
+
+.content-source-library-header label {
+  min-width: min(260px, 100%);
+}
+
+.content-source-library-recommendations,
+.content-source-library-categories {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.content-source-library-recommendations {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.content-source-library-categories button.is-active {
+  border-color: rgba(45, 212, 255, 0.56);
+  color: var(--text);
+  box-shadow: var(--glow-cyan);
+}
+
+.content-source-library-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.content-source-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 8px;
+  background: rgba(11, 22, 38, 0.72);
+}
+
+.content-source-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.content-source-card-heading {
+  display: grid;
+  flex: 1;
+  gap: 4px;
+  min-width: 0;
+}
+
+.content-source-card h4,
+.content-source-card p {
+  margin: 0;
+}
+
+.content-source-card small {
+  overflow-wrap: anywhere;
+  font-size: 11px;
+}
+
 .automation-detail-line {
   display: flex;
   align-items: baseline;
@@ -2983,6 +3076,14 @@ pre {
   }
 
   .channel-row-summary-main {
+    grid-template-columns: 1fr;
+  }
+
+  .content-source-library-header {
+    flex-direction: column;
+  }
+
+  .content-source-library-list {
     grid-template-columns: 1fr;
   }
 
