@@ -83,6 +83,7 @@ import {
   listDiscoveryItems,
   listDiscoverySources,
   refreshRssDiscoverySources,
+  rerankDiscoveryItems,
   upsertDiscoveryItems,
   upsertDiscoverySource,
   validateDiscoveryItemDeleteRequest,
@@ -2077,6 +2078,21 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           items: listDiscoveryItems(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/rerank") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const items = rerankDiscoveryItems();
+
+        sendJson(response, 200, {
+          ok: true,
+          items,
         });
         return;
       }

@@ -273,6 +273,11 @@ const channelSetupPurposeProfiles = {
     contentTypes: ["fact", "prompt"],
     starter: "What story is worth discussing today, and what context would help people understand it?",
   },
+  science: {
+    label: "Science",
+    contentTypes: ["fact", "trivia", "prompt"],
+    starter: "What discovery, mission, or science question should the community explore today?",
+  },
   history: {
     label: "History",
     contentTypes: ["history", "fact", "prompt"],
@@ -320,7 +325,7 @@ const channelSetupToneLabels = {
   custom: "Custom",
 };
 
-const allowedChannelSetupTopics = new Set(["general", "palworld", "history", "genealogy", "pokemon", "harry-potter", "true-crime", "music", "valheim"]);
+const allowedChannelSetupTopics = new Set(["general", "palworld", "history", "genealogy", "science", "pokemon", "harry-potter", "true-crime", "music", "valheim"]);
 const contentSourceCatalogCategories = ["History", "Genealogy", "Gaming", "Sports", "Technology", "Science", "Movies", "Music", "News", "Finance"];
 const contentSourceLibraryCatalog = [
   {
@@ -408,6 +413,7 @@ const contentSourceLibraryCatalog = [
 const contentSourceCategoryRecommendationsByPurpose = {
   genealogy: ["Genealogy", "History", "News"],
   history: ["History", "Genealogy", "Science"],
+  science: ["Science", "Technology", "News"],
   gaming: ["Gaming", "Technology", "Movies"],
   sports: ["Sports", "News", "Finance"],
   news: ["News", "Technology", "Finance"],

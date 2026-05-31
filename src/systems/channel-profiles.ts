@@ -10,6 +10,7 @@ export const channelProfilePurposes = [
   "sports",
   "news",
   "history",
+  "science",
   "memes",
   "general-chat",
   "custom",
@@ -195,6 +196,11 @@ function loadChannelProfiles(): ChannelProfileStore {
 let activeChannelProfileStore = loadChannelProfiles();
 
 export function listChannelProfiles() {
+  return activeChannelProfileStore.channelProfiles;
+}
+
+export function reloadChannelProfiles() {
+  activeChannelProfileStore = loadChannelProfiles();
   return activeChannelProfileStore.channelProfiles;
 }
 

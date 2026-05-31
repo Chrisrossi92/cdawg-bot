@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { ContentType } from "../lib/content-provider.js";
-import { listChannelProfiles, type ChannelProfile } from "./channel-profiles.js";
+import { reloadChannelProfiles, type ChannelProfile } from "./channel-profiles.js";
 
 export const discoverySourceTypes = ["rss", "youtube", "reddit", "local", "generated", "saved-message"] as const;
 export const discoverySafetyStatuses = ["ok", "needs-review", "blocked"] as const;
@@ -899,6 +899,7 @@ export function upsertDiscoveryItems(items: DiscoveryItem[]) {
   const itemsById = new Map(activeDiscoveryItemStore.items.map((item) => [item.id, item]));
   const idsByDedupeKey = new Map(activeDiscoveryItemStore.items.map((item) => [getDiscoveryItemDedupeKey(item), item.id]));
 
+  reloadChannelProfiles();
   const rankedItems = items.map(rankDiscoveryItem);
 
   for (const item of rankedItems) {
@@ -918,6 +919,17 @@ export function upsertDiscoveryItems(items: DiscoveryItem[]) {
   };
   saveJsonFile(ITEMS_DATA_FILE, activeDiscoveryItemStore, "discovery items");
   return rankedItems;
+}
+
+export function rerankDiscoveryItems(sourceId?: string | null) {
+  reloadChannelProfiles();
+  const rerankedItems = activeDiscoveryItemStore.items.map((item) => (sourceId && item.sourceId !== sourceId ? item : rankDiscoveryItem(item)));
+
+  activeDiscoveryItemStore = {
+    items: rerankedItems.sort((left, right) => right.discoveredAt - left.discoveredAt),
+  };
+  saveJsonFile(ITEMS_DATA_FILE, activeDiscoveryItemStore, "discovery items");
+  return activeDiscoveryItemStore.items;
 }
 
 export function deleteDiscoveryItem(id: string) {
@@ -966,6 +978,7 @@ const purposeKeywordMap: Record<string, string[]> = {
   sports: ["sports", "sport", "match", "matchup", "player", "team", "teams", "season"],
   news: ["news", "headline", "headlines", "story", "current", "world", "politics"],
   history: ["history", "historical", "archive", "archives", "past", "century", "war"],
+  science: ["science", "space", "nasa", "research", "discovery", "mission", "astronomy"],
   memes: ["meme", "memes", "funny", "joke", "humor", "viral"],
   "general-chat": ["community", "chat", "conversation", "discussion", "general"],
   custom: [],
@@ -1095,7 +1108,7 @@ function scoreDiscoveryItemForProfile(item: DiscoveryItem, profile: ChannelProfi
 }
 
 function rankDiscoveryItem(item: DiscoveryItem): DiscoveryItem {
-  const rankedProfiles = listChannelProfiles()
+  const rankedProfiles = reloadChannelProfiles()
     .map((profile) => scoreDiscoveryItemForProfile(item, profile))
     .sort((left, right) => right.score - left.score || left.profile.channelId.localeCompare(right.profile.channelId));
   const bestMatch = rankedProfiles[0];
@@ -1336,6 +1349,7 @@ async function refreshSingleRssSource(source: DiscoverySourceConfig): Promise<Di
     const xmlText = await fetchRssText(source.url);
     const items = parseRssDiscoveryItems(source, xmlText, discoveredAt);
     upsertDiscoveryItems(items);
+    rerankDiscoveryItems(source.id);
     updateDiscoverySourceRefreshState(source.id, {
       lastRefreshAt: discoveredAt,
       lastError: null,

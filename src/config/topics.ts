@@ -3,6 +3,7 @@ export const topics = [
   "palworld",
   "history",
   "genealogy",
+  "science",
   "pokemon",
   "harry-potter",
   "true-crime",
