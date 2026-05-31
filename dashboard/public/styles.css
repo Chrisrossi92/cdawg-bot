@@ -2056,6 +2056,23 @@ small {
   gap: 12px;
 }
 
+.content-discovery-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.content-discovery-filter-chips button {
+  padding: 6px 9px;
+  font-size: 12px;
+}
+
+.content-discovery-filter-chips button.is-active {
+  border-color: rgba(45, 212, 255, 0.56);
+  color: var(--text);
+  box-shadow: var(--glow-cyan);
+}
+
 .content-discovery-review-card {
   display: grid;
   gap: 16px;

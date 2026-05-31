@@ -249,6 +249,7 @@ let discoveryItemsLoadError = null;
 let activeControlTab = "overview";
 let activeContentStudioMode = "generate";
 let activeContentSourceLibraryCategory = "Recommended";
+let activeDiscoveryQueueFilter = "new";
 let selectedDiscoveryCardId = null;
 let composerDraftBeforeRewrite = null;
 
@@ -2293,6 +2294,16 @@ function getDiscoveryWorkflowStateTone(state) {
   return "neutral";
 }
 
+const discoveryQueueFilters = [
+  { id: "new", label: "New", empty: "No new discoveries." },
+  { id: "saved", label: "Saved", empty: "No saved discoveries yet." },
+  { id: "reviewed", label: "Reviewed", empty: "No reviewed discoveries." },
+  { id: "prepared", label: "Prepared", empty: "No prepared discoveries." },
+  { id: "posted", label: "Posted", empty: "No posted discoveries." },
+  { id: "dismissed", label: "Dismissed", empty: "No dismissed discoveries." },
+  { id: "all", label: "All", empty: "No discovery cards are available from the current dashboard state." },
+];
+
 function formatDiscoveryReason(reason) {
   if (typeof reason !== "string") {
     return "";
@@ -2499,8 +2510,44 @@ function mapPersistedDiscoveryItemToCard(item) {
 function buildPersistedDiscoveryCards() {
   return discoveryItems
     .map(mapPersistedDiscoveryItemToCard)
-    .filter((item) => item.workflowState !== "dismissed")
     .sort((left, right) => right.score - left.score || right.discoveredAt - left.discoveredAt || left.title.localeCompare(right.title));
+}
+
+function getMissionDiscoveryCards() {
+  return buildContentDiscoveryCards().filter((item) => item.workflowState !== "dismissed");
+}
+
+function getDiscoveryQueueCounts(cards) {
+  const counts = {
+    new: 0,
+    saved: 0,
+    reviewed: 0,
+    prepared: 0,
+    posted: 0,
+    dismissed: 0,
+    all: cards.length,
+  };
+
+  for (const card of cards) {
+    if (!card.workflowItemId) {
+      continue;
+    }
+
+    const state = getDiscoveryWorkflowState(card);
+    if (Object.hasOwn(counts, state)) {
+      counts[state] += 1;
+    }
+  }
+
+  return counts;
+}
+
+function getFilteredDiscoveryQueueCards(cards) {
+  if (activeDiscoveryQueueFilter === "all") {
+    return cards;
+  }
+
+  return cards.filter((card) => card.workflowItemId && getDiscoveryWorkflowState(card) === activeDiscoveryQueueFilter);
 }
 
 function buildContentDiscoveryCards() {
@@ -2645,6 +2692,7 @@ function createContentDiscoveryCard(item) {
   const saveButton = item.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(item, "saved")) : null;
   const reviewedButton = item.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed")) : null;
   const dismissButton = item.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(item, "dismissed")) : null;
+  const newButton = item.workflowItemId && workflowState !== "new" ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(item, "new")) : null;
 
   card.className = "mission-found-card mission-discovery-card";
   card.classList.toggle("is-mock", Boolean(item.isMock));
@@ -2684,6 +2732,9 @@ function createContentDiscoveryCard(item) {
   actions.append(contentTypeBadge, action);
   if (saveButton && reviewedButton && dismissButton) {
     actions.append(saveButton, reviewedButton, dismissButton);
+    if (newButton) {
+      actions.append(newButton);
+    }
   }
   card.append(header, context, actions);
   return card;
@@ -2710,6 +2761,30 @@ function createDiscoveryReviewListCard(item) {
   }
 
   return card;
+}
+
+function createDiscoveryQueueFilters(cards) {
+  const filters = document.createElement("div");
+  const counts = getDiscoveryQueueCounts(cards);
+
+  filters.className = "content-discovery-filter-chips";
+
+  for (const filter of discoveryQueueFilters) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "secondary";
+    button.textContent = `${filter.label} (${counts[filter.id] ?? 0})`;
+    button.classList.toggle("is-active", activeDiscoveryQueueFilter === filter.id);
+    button.setAttribute("aria-pressed", String(activeDiscoveryQueueFilter === filter.id));
+    button.addEventListener("click", () => {
+      activeDiscoveryQueueFilter = filter.id;
+      selectedDiscoveryCardId = null;
+      renderContentDiscoveryReview();
+    });
+    filters.append(button);
+  }
+
+  return filters;
 }
 
 function getDiscoveryGeneratedContentType(card) {
@@ -2816,6 +2891,7 @@ function createContentDiscoveryReviewDetail(card) {
   const saveButton = card.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(card, "saved")) : null;
   const reviewedButton = card.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(card, "reviewed")) : null;
   const dismissButton = card.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(card, "dismissed")) : null;
+  const newButton = card.workflowItemId && workflowState !== "new" ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(card, "new")) : null;
 
   wrapper.className = "content-discovery-review-card";
   wrapper.classList.toggle("is-mock", Boolean(card.isMock));
@@ -2886,6 +2962,9 @@ function createContentDiscoveryReviewDetail(card) {
   actions.prepend(prepareButton, generateButton);
   if (saveButton && reviewedButton && dismissButton) {
     actions.append(saveButton, reviewedButton, dismissButton);
+    if (newButton) {
+      actions.append(newButton);
+    }
   }
   actions.append(backButton);
   body.append(media, details);
@@ -2911,6 +2990,7 @@ function renderContentDiscoveryReview() {
   intro.className = "content-discovery-review-intro";
   intro.textContent = "Choose a discovery card to review before preparing a message or generated content.";
   contentDiscoveryReviewPanel.append(intro);
+  contentDiscoveryReviewPanel.append(createDiscoveryQueueFilters(discoveryCards));
 
   if (discoveryItemsLoadError) {
     const warning = document.createElement("p");
@@ -2919,10 +2999,13 @@ function renderContentDiscoveryReview() {
     contentDiscoveryReviewPanel.append(warning);
   }
 
-  if (discoveryCards.length === 0) {
+  const filteredCards = getFilteredDiscoveryQueueCards(discoveryCards);
+
+  if (filteredCards.length === 0) {
     const emptyState = document.createElement("p");
+    const activeFilter = discoveryQueueFilters.find((filter) => filter.id === activeDiscoveryQueueFilter);
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No discovery cards are available from the current dashboard state.";
+    emptyState.textContent = activeFilter?.empty ?? "No discoveries in this queue.";
     contentDiscoveryReviewPanel.append(emptyState);
     return;
   }
@@ -2930,7 +3013,7 @@ function renderContentDiscoveryReview() {
   const list = document.createElement("div");
   list.className = "content-discovery-review-list";
 
-  for (const card of discoveryCards) {
+  for (const card of filteredCards) {
     list.append(createDiscoveryReviewListCard(card));
   }
 
@@ -3435,7 +3518,7 @@ function renderMissionFoundItems() {
     return;
   }
 
-  const discoveryCards = buildContentDiscoveryCards();
+  const discoveryCards = getMissionDiscoveryCards();
 
   if (missionFoundCount) {
     missionFoundCount.textContent = `${discoveryCards.length} find${discoveryCards.length === 1 ? "" : "s"}`;
