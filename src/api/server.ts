@@ -77,6 +77,18 @@ import {
   upsertComposerTemplate,
 } from "../systems/composer-templates.js";
 import { getRecentAutomationActivity } from "../systems/automation-activity.js";
+import {
+  deleteDiscoveryItem,
+  deleteDiscoverySource,
+  listDiscoveryItems,
+  listDiscoverySources,
+  upsertDiscoveryItems,
+  upsertDiscoverySource,
+  validateDiscoveryItemDeleteRequest,
+  validateDiscoveryItemsInput,
+  validateDiscoverySourceDeleteRequest,
+  validateDiscoverySourceInput,
+} from "../systems/discovery-sources.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -1950,6 +1962,144 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           ok: true,
           channelProfiles: listChannelProfiles(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/sources") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          sources: listDiscoverySources(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/sources/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoverySourceInput(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const source = upsertDiscoverySource(validation.value);
+
+        sendJson(response, 200, {
+          source,
+          sources: listDiscoverySources(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/sources/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoverySourceDeleteRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteDiscoverySource(validation.value.id);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Discovery source not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          sources: listDiscoverySources(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/items") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          items: listDiscoveryItems(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/items/upsert") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoveryItemsInput(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const items = upsertDiscoveryItems(validation.value);
+
+        sendJson(response, 200, {
+          items,
+          allItems: listDiscoveryItems(),
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/discovery/items/delete") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const nextBody = await readJsonBody(request);
+        const validation = validateDiscoveryItemDeleteRequest(nextBody);
+
+        if (!validation.ok) {
+          sendJson(response, 400, {
+            error: validation.error,
+          });
+          return;
+        }
+
+        const deleted = deleteDiscoveryItem(validation.value.id);
+
+        if (!deleted) {
+          sendJson(response, 404, {
+            error: "Discovery item not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          ok: true,
+          items: listDiscoveryItems(),
         });
         return;
       }
