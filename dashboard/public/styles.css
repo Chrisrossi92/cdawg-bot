@@ -1646,6 +1646,70 @@ small {
 
 .mission-discovery-actions {
   align-items: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+  position: relative;
+}
+
+.mission-discovery-actions > button,
+.mission-discovery-actions > .status-badge,
+.mission-discovery-actions > .discovery-workflow-menu {
+  flex: 0 0 auto;
+}
+
+.discovery-workflow-menu {
+  position: relative;
+}
+
+.discovery-workflow-menu summary {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 10px;
+  border: 1px solid rgba(120, 185, 255, 0.22);
+  border-radius: 8px;
+  background: rgba(10, 27, 45, 0.72);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.discovery-workflow-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.discovery-workflow-menu summary::marker {
+  content: "";
+}
+
+.discovery-workflow-menu[open] summary {
+  border-color: rgba(45, 212, 255, 0.44);
+  background: rgba(16, 42, 67, 0.92);
+}
+
+.discovery-workflow-menu-items {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 30;
+  display: grid;
+  min-width: 170px;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid rgba(120, 185, 255, 0.22);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.98);
+  box-shadow: 0 16px 32px rgba(2, 8, 23, 0.38);
+}
+
+.discovery-workflow-menu-items button {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .mission-found-card:hover {
@@ -3273,13 +3337,18 @@ pre {
   .mission-action-card-header,
   .mission-discovery-card-header,
   .mission-discovery-badges,
-  .mission-discovery-actions,
   .content-discovery-review-header,
   .content-discovery-review-actions,
   .content-discovery-sources-header,
   .mission-profile-card-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .mission-discovery-actions {
+    align-items: center;
+    flex-direction: row;
+    justify-content: flex-start;
   }
 
   .content-discovery-review-layout {

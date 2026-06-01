@@ -2677,6 +2677,35 @@ function buildContentDiscoveryCards() {
   return cards;
 }
 
+function createDiscoveryWorkflowMenu(item) {
+  const workflowState = getDiscoveryWorkflowState(item);
+
+  if (!item.workflowItemId) {
+    return null;
+  }
+
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const menu = document.createElement("div");
+  const saveButton = createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(item, "saved"));
+  const reviewedButton = createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed"));
+  const dismissButton = createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(item, "dismissed"));
+  const newButton = workflowState !== "new"
+    ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(item, "new"))
+    : null;
+
+  details.className = "discovery-workflow-menu";
+  summary.textContent = "More";
+  summary.setAttribute("aria-label", "Discovery workflow actions");
+  menu.className = "discovery-workflow-menu-items";
+  menu.append(saveButton, reviewedButton, dismissButton);
+  if (newButton) {
+    menu.append(newButton);
+  }
+  details.append(summary, menu);
+  return details;
+}
+
 function createContentDiscoveryCard(item) {
   const card = document.createElement("article");
   const header = document.createElement("div");
@@ -2700,10 +2729,7 @@ function createContentDiscoveryCard(item) {
   const actions = document.createElement("div");
   const reviewAction = item.actions.find((entry) => entry.id === "review") ?? item.actions[0];
   const action = document.createElement("button");
-  const saveButton = item.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(item, "saved")) : null;
-  const reviewedButton = item.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed")) : null;
-  const dismissButton = item.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(item, "dismissed")) : null;
-  const newButton = item.workflowItemId && workflowState !== "new" ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(item, "new")) : null;
+  const workflowMenu = createDiscoveryWorkflowMenu(item);
 
   card.className = "mission-found-card mission-discovery-card";
   card.classList.toggle("is-mock", Boolean(item.isMock));
@@ -2741,11 +2767,8 @@ function createContentDiscoveryCard(item) {
   }
   context.append(channelTerm, channelDetail, reasonTerm, reasonDetail);
   actions.append(contentTypeBadge, action);
-  if (saveButton && reviewedButton && dismissButton) {
-    actions.append(saveButton, reviewedButton, dismissButton);
-    if (newButton) {
-      actions.append(newButton);
-    }
+  if (workflowMenu) {
+    actions.append(workflowMenu);
   }
   card.append(header, context, actions);
   return card;
@@ -2922,10 +2945,7 @@ function createContentDiscoveryReviewDetail(card) {
   const prepareButton = document.createElement("button");
   const generateButton = document.createElement("button");
   const backButton = document.createElement("button");
-  const saveButton = card.workflowItemId ? createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(card, "saved")) : null;
-  const reviewedButton = card.workflowItemId ? createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(card, "reviewed")) : null;
-  const dismissButton = card.workflowItemId ? createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(card, "dismissed")) : null;
-  const newButton = card.workflowItemId && workflowState !== "new" ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(card, "new")) : null;
+  const workflowMenu = createDiscoveryWorkflowMenu(card);
 
   wrapper.className = "content-discovery-review-card";
   wrapper.classList.toggle("is-mock", Boolean(card.isMock));
@@ -2997,11 +3017,8 @@ function createContentDiscoveryReviewDetail(card) {
   header.append(heading, badges);
   details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, scoreTerm, scoreDetail, typeTerm, typeDetail);
   actions.prepend(prepareButton, generateButton);
-  if (saveButton && reviewedButton && dismissButton) {
-    actions.append(saveButton, reviewedButton, dismissButton);
-    if (newButton) {
-      actions.append(newButton);
-    }
+  if (workflowMenu) {
+    actions.append(workflowMenu);
   }
   actions.append(backButton);
   body.append(media, details);
