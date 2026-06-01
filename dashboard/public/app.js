@@ -131,6 +131,7 @@ const composerStatus = document.querySelector("#composer-status");
 const composerOutput = document.querySelector("#composer-output");
 const composerPreview = document.querySelector("#composer-preview");
 const composerCharacterCount = document.querySelector("#composer-character-count");
+const composerDiscoveryNote = document.querySelector("#composer-discovery-note");
 const composerTemplatesList = document.querySelector("#composer-templates-list");
 const composerTemplateStatus = document.querySelector("#composer-template-status");
 const manualPushForm = document.querySelector("#manual-push-form");
@@ -251,6 +252,7 @@ let activeContentStudioMode = "generate";
 let activeContentSourceLibraryCategory = "Recommended";
 let activeDiscoveryQueueFilter = "new";
 let selectedDiscoveryCardId = null;
+let activePreparedDiscoveryItemId = null;
 let composerDraftBeforeRewrite = null;
 
 const channelSetupPurposeProfiles = {
@@ -487,6 +489,13 @@ function setComposerStatus(message, kind = "neutral") {
   composerStatus.textContent = message;
   composerStatus.style.color =
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
+function setActivePreparedDiscoveryItem(itemId) {
+  activePreparedDiscoveryItemId = itemId || null;
+  if (composerDiscoveryNote) {
+    composerDiscoveryNote.hidden = !activePreparedDiscoveryItemId;
+  }
 }
 
 function setComposerTemplateStatus(message, kind = "neutral") {
@@ -974,6 +983,7 @@ function loadComposerDraft() {
 function clearComposer() {
   composerForm.reset();
   composerDraftBeforeRewrite = null;
+  setActivePreparedDiscoveryItem(null);
   window.localStorage.removeItem(composerDraftStorageKey);
   composerOutput.textContent = "No message request yet.";
   setComposerStatus("Message cleared.");
@@ -2504,6 +2514,7 @@ function mapPersistedDiscoveryItemToCard(item) {
     workflowItemId: typeof item.id === "string" ? item.id : null,
     workflowState: getDiscoveryWorkflowState(item),
     workflowNote: typeof item.workflowNote === "string" ? item.workflowNote : null,
+    preparedMessage: typeof item.preparedMessage === "string" ? item.preparedMessage : null,
   };
 }
 
@@ -2804,40 +2815,60 @@ function buildDiscoveryMessageDraft(card) {
     .join("\n\n");
 }
 
-async function updateDiscoveryItemWorkflowState(card, state) {
+async function updateDiscoveryItemWorkflowState(card, state, options = {}) {
   if (!card?.workflowItemId) {
     return;
   }
 
   try {
-    await fetchJson("/api/discovery/items/state", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        itemId: card.workflowItemId,
-        state,
-      }),
-    });
+    await updateDiscoveryItemWorkflowStateById(card.workflowItemId, state, options);
     await loadDiscoveryItems();
   } catch (error) {
     console.warn(`[discovery] state update failed: ${error.message}`);
   }
 }
 
-function prepareDiscoveryMessage(card) {
+async function updateDiscoveryItemWorkflowStateById(itemId, state, options = {}) {
+  if (!itemId) {
+    return null;
+  }
+
+  return fetchJson("/api/discovery/items/state", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      itemId,
+      state,
+      ...(options.preparedMessage ? { preparedMessage: options.preparedMessage } : {}),
+      ...(options.note ? { note: options.note } : {}),
+    }),
+  });
+}
+
+async function prepareDiscoveryMessage(card) {
   if (!card) {
     return;
   }
+
+  const draft = buildDiscoveryMessageDraft(card);
 
   if (card.suggestedChannel?.id) {
     composerForm.elements.channelId.value = card.suggestedChannel.id;
     syncDiscordMetadataSelections();
   }
 
-  setComposerMessage(buildDiscoveryMessageDraft(card));
+  setComposerMessage(draft);
   setComposerStatus("Discovery draft prepared. Review before posting.");
+  if (card.workflowItemId) {
+    await updateDiscoveryItemWorkflowState(card, "prepared", {
+      preparedMessage: draft,
+    });
+    setActivePreparedDiscoveryItem(card.workflowItemId);
+  } else {
+    setActivePreparedDiscoveryItem(null);
+  }
   setActiveContentStudioMode("write");
 }
 
@@ -2884,6 +2915,9 @@ function createContentDiscoveryReviewDetail(card) {
   const scoreDetail = document.createElement("dd");
   const typeTerm = document.createElement("dt");
   const typeDetail = document.createElement("dd");
+  const preparedDraft = document.createElement("div");
+  const preparedDraftTitle = document.createElement("h4");
+  const preparedDraftPreview = document.createElement("p");
   const actions = document.createElement("div");
   const prepareButton = document.createElement("button");
   const generateButton = document.createElement("button");
@@ -2900,6 +2934,7 @@ function createContentDiscoveryReviewDetail(card) {
   badges.className = "content-discovery-review-badges";
   body.className = "content-discovery-review-layout";
   details.className = "mission-discovery-context content-discovery-review-context";
+  preparedDraft.className = "content-discovery-prepared-draft";
   actions.className = "content-discovery-review-actions";
 
   title.textContent = card.title;
@@ -2912,10 +2947,12 @@ function createContentDiscoveryReviewDetail(card) {
   scoreDetail.textContent = scoreLabel || "Not scored";
   typeTerm.textContent = "Suggested content type";
   typeDetail.textContent = card.suggestedContentType;
+  preparedDraftTitle.textContent = "Prepared Draft";
+  preparedDraftPreview.textContent = card.preparedMessage || "";
 
   prepareButton.type = "button";
   prepareButton.textContent = "Prepare Message";
-  prepareButton.addEventListener("click", () => prepareDiscoveryMessage(card));
+  prepareButton.addEventListener("click", () => void prepareDiscoveryMessage(card));
 
   generateButton.type = "button";
   generateButton.className = "secondary";
@@ -2968,7 +3005,12 @@ function createContentDiscoveryReviewDetail(card) {
   }
   actions.append(backButton);
   body.append(media, details);
-  wrapper.append(header, body, actions);
+  wrapper.append(header, body);
+  if (card.preparedMessage) {
+    preparedDraft.append(preparedDraftTitle, preparedDraftPreview);
+    wrapper.append(preparedDraft);
+  }
+  wrapper.append(actions);
   return wrapper;
 }
 
@@ -6699,6 +6741,17 @@ async function submitComposer(event) {
 
     setPrettyJson(composerOutput, data);
     setComposerStatus(`Posted to ${getChannelLabel(data.channelId)}.`, "success");
+    if (activePreparedDiscoveryItemId) {
+      try {
+        await updateDiscoveryItemWorkflowStateById(activePreparedDiscoveryItemId, "posted", {
+          preparedMessage: payload.message,
+        });
+        setActivePreparedDiscoveryItem(null);
+        await loadDiscoveryItems();
+      } catch (error) {
+        console.warn(`[discovery] posted state update failed: ${error.message}`);
+      }
+    }
     await loadHealth();
   } catch (error) {
     composerOutput.textContent = `Message post failed.\n${error.message}`;

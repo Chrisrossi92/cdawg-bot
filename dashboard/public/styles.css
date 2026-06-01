@@ -2084,6 +2084,31 @@ small {
     linear-gradient(180deg, rgba(10, 27, 45, 0.86), rgba(5, 12, 22, 0.66));
 }
 
+.content-discovery-prepared-draft {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.38);
+}
+
+.content-discovery-prepared-draft h4,
+.content-discovery-prepared-draft p {
+  margin: 0;
+}
+
+.content-discovery-prepared-draft h4 {
+  font-size: 12px;
+}
+
+.content-discovery-prepared-draft p {
+  white-space: pre-wrap;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
 .content-discovery-review-header,
 .content-discovery-review-badges,
 .content-discovery-review-actions {
