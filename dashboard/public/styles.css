@@ -1712,6 +1712,96 @@ small {
   white-space: nowrap;
 }
 
+.discovery-inbox-summary {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(45, 212, 255, 0.22);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(45, 212, 255, 0.08), transparent 42%),
+    rgba(5, 12, 22, 0.5);
+}
+
+.discovery-inbox-counts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.discovery-inbox-count {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+  padding: 7px 6px;
+  border: 1px solid rgba(120, 185, 255, 0.18);
+  background: rgba(10, 27, 45, 0.58);
+  color: var(--text);
+}
+
+.discovery-inbox-count strong,
+.discovery-inbox-count span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discovery-inbox-count strong {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.discovery-inbox-count span {
+  color: var(--muted-soft);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.discovery-inbox-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.34);
+}
+
+.discovery-inbox-top-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.discovery-inbox-top h4,
+.discovery-inbox-top p,
+.discovery-inbox-next-action {
+  margin: 0;
+}
+
+.discovery-inbox-top h4 {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discovery-inbox-top p,
+.discovery-inbox-next-action {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.discovery-inbox-next-action {
+  padding: 0 2px;
+}
+
 .mission-found-card:hover {
   border-color: rgba(124, 92, 255, 0.32);
   box-shadow: 0 14px 32px rgba(2, 8, 23, 0.22);
@@ -3349,6 +3439,15 @@ pre {
     align-items: center;
     flex-direction: row;
     justify-content: flex-start;
+  }
+
+  .discovery-inbox-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .discovery-inbox-top {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .content-discovery-review-layout {

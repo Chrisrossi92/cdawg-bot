@@ -2553,6 +2553,136 @@ function getDiscoveryQueueCounts(cards) {
   return counts;
 }
 
+function openDiscoveryQueueFilter(filterId) {
+  activeDiscoveryQueueFilter = discoveryQueueFilters.some((filter) => filter.id === filterId) ? filterId : "new";
+  selectedDiscoveryCardId = null;
+  setActiveControlTab("push");
+  setActiveContentStudioMode("discovery");
+  window.requestAnimationFrame(() => {
+    document.querySelector("#content-discovery-review")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function getDiscoveryTopRecommendation(cards) {
+  const statePriority = {
+    new: 2,
+    saved: 2,
+    reviewed: 1,
+    prepared: 1,
+  };
+
+  return [...cards]
+    .filter((card) => {
+      const state = getDiscoveryWorkflowState(card);
+      return state !== "dismissed" && state !== "posted";
+    })
+    .sort((left, right) => {
+      const leftScore = typeof left.score === "number" && Number.isFinite(left.score) ? left.score : 0;
+      const rightScore = typeof right.score === "number" && Number.isFinite(right.score) ? right.score : 0;
+      const scoreSort = rightScore - leftScore;
+
+      if (scoreSort !== 0) {
+        return scoreSort;
+      }
+
+      return (statePriority[getDiscoveryWorkflowState(right)] ?? 0) - (statePriority[getDiscoveryWorkflowState(left)] ?? 0);
+    })[0] ?? null;
+}
+
+function getDiscoveryNextActionText(cards, counts) {
+  if (counts.prepared > 0) {
+    return `You have ${counts.prepared} prepared draft${counts.prepared === 1 ? "" : "s"} ready to review.`;
+  }
+
+  const highScoreNewItems = cards.filter((card) => {
+    const state = getDiscoveryWorkflowState(card);
+    return (state === "new" || state === "saved") && typeof card.score === "number" && card.score >= 90;
+  }).length;
+
+  if (highScoreNewItems > 0) {
+    return `Review ${highScoreNewItems} excellent match${highScoreNewItems === 1 ? "" : "es"}.`;
+  }
+
+  if (counts.saved > 0) {
+    return "Continue reviewing saved discoveries.";
+  }
+
+  if (counts.new > 0) {
+    return "Review new discoveries when you have a moment.";
+  }
+
+  return "No discovery follow-up is waiting right now.";
+}
+
+function createDiscoveryInboxSummary(cards) {
+  const summary = document.createElement("section");
+  const countsRow = document.createElement("div");
+  const nextAction = document.createElement("p");
+  const topRecommendation = getDiscoveryTopRecommendation(cards);
+  const counts = getDiscoveryQueueCounts(cards);
+  const countItems = [
+    { id: "new", label: "New" },
+    { id: "saved", label: "Saved" },
+    { id: "prepared", label: "Prepared" },
+    { id: "posted", label: "Posted" },
+    { id: "dismissed", label: "Dismissed" },
+  ];
+
+  summary.className = "discovery-inbox-summary";
+  countsRow.className = "discovery-inbox-counts";
+  nextAction.className = "discovery-inbox-next-action";
+  nextAction.textContent = getDiscoveryNextActionText(cards, counts);
+
+  for (const item of countItems) {
+    const button = document.createElement("button");
+    const value = document.createElement("strong");
+    const label = document.createElement("span");
+
+    button.type = "button";
+    button.className = "discovery-inbox-count";
+    value.textContent = String(counts[item.id] ?? 0);
+    label.textContent = item.label;
+    button.append(value, label);
+    button.addEventListener("click", () => openDiscoveryQueueFilter(item.id));
+    countsRow.append(button);
+  }
+
+  summary.append(countsRow);
+
+  if (topRecommendation) {
+    const top = document.createElement("div");
+    const copy = document.createElement("div");
+    const eyebrow = document.createElement("span");
+    const title = document.createElement("h4");
+    const meta = document.createElement("p");
+    const review = document.createElement("button");
+    const scoreLabel = getDiscoveryScoreLabel(topRecommendation.score);
+
+    top.className = "discovery-inbox-top";
+    copy.className = "discovery-inbox-top-copy";
+    eyebrow.className = "status-badge active";
+    eyebrow.textContent = "Top recommendation";
+    title.textContent = topRecommendation.title;
+    meta.textContent = [
+      topRecommendation.suggestedChannel?.label || "Choose when reviewing",
+      scoreLabel,
+    ].filter(Boolean).join(" · ");
+    review.type = "button";
+    review.textContent = "Review";
+    review.addEventListener("click", () => openDiscoveryCardReview(topRecommendation.id));
+
+    copy.append(eyebrow, title, meta);
+    top.append(copy, review);
+    summary.append(top);
+  }
+
+  summary.append(nextAction);
+  return summary;
+}
+
 function getFilteredDiscoveryQueueCards(cards) {
   if (activeDiscoveryQueueFilter === "all") {
     return cards;
@@ -3584,6 +3714,7 @@ function renderMissionFoundItems() {
     missionFoundCount.className = `status-badge ${discoveryCards.length > 0 ? "active" : "neutral"}`;
   }
   missionFoundList.replaceChildren();
+  missionFoundList.append(createDiscoveryInboxSummary(buildContentDiscoveryCards()));
 
   if (discoveryCards.length === 0) {
     const emptyState = document.createElement("p");
