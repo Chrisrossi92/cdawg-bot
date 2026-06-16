@@ -18,8 +18,11 @@ import {
   recordFeedExecuted,
   type FeedConfig,
 } from "../systems/feed-configs.js";
+import { recordAutomationActivity } from "../systems/automation-activity.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
+const recentBlockedActivityByKey = new Map<string, number>();
+const BLOCKED_ACTIVITY_DEDUPE_MS = 60 * 60 * 1000;
 
 function getScheduleKey(schedule: Schedule): string {
   return `${schedule.channelId}:${schedule.contentType}`;
@@ -39,6 +42,28 @@ function hasDailyTime(schedule: Schedule): schedule is Schedule & { hour: number
   return typeof schedule.hour === "number" && typeof schedule.minute === "number";
 }
 
+function shouldRecordBlockedActivity(key: string, now: number) {
+  const lastRecordedAt = recentBlockedActivityByKey.get(key) ?? 0;
+
+  if (now - lastRecordedAt < BLOCKED_ACTIVITY_DEDUPE_MS) {
+    return false;
+  }
+
+  recentBlockedActivityByKey.set(key, now);
+  return true;
+}
+
+function recordSchedulerFailure(source: string, channelId: string, contentType: Schedule["contentType"], error: unknown) {
+  recordAutomationActivity({
+    source,
+    status: "failure",
+    channelId,
+    contentType,
+    errorCode: "UNHANDLED_ERROR",
+    message: error instanceof Error ? error.message : "Automation failed while posting content.",
+  });
+}
+
 async function postScheduledContent(client: Client, schedule: Schedule, now: Date) {
   const scheduleKey = getScheduleKey(schedule);
   const minuteWindowKey = getMinuteWindowKey(now);
@@ -50,6 +75,18 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
   const automationBlock = getAutomatedContentBlock(schedule.channelId, "scheduler", now.getTime());
 
   if (automationBlock.blocked) {
+    const key = `scheduler:${schedule.channelId}:${schedule.contentType}:${automationBlock.reason}`;
+
+    if (shouldRecordBlockedActivity(key, now.getTime())) {
+      recordAutomationActivity({
+        source: "scheduler",
+        status: "blocked",
+        channelId: schedule.channelId,
+        contentType: schedule.contentType,
+        blockedReason: automationBlock.reason,
+        message: `Scheduled ${schedule.contentType} was blocked by ${automationBlock.reason}.`,
+      });
+    }
     return;
   }
 
@@ -73,12 +110,36 @@ async function postManagedFeed(client: Client, feed: FeedConfig, now: Date) {
   }
 
   if (!isWithinFeedAllowedWindow(feed, now.getTime())) {
+    const key = `feed:${feed.id}:allowed-window`;
+
+    if (shouldRecordBlockedActivity(key, now.getTime())) {
+      recordAutomationActivity({
+        source: "feed",
+        status: "blocked",
+        channelId: feed.channelId,
+        contentType: feed.contentType,
+        blockedReason: "allowed-window",
+        message: `Managed feed ${feed.id} is waiting for its allowed posting window.`,
+      });
+    }
     return;
   }
 
   const automationBlock = getAutomatedContentBlock(feed.channelId, "feed", now.getTime());
 
   if (automationBlock.blocked) {
+    const key = `feed:${feed.id}:${automationBlock.reason}`;
+
+    if (shouldRecordBlockedActivity(key, now.getTime())) {
+      recordAutomationActivity({
+        source: "feed",
+        status: "blocked",
+        channelId: feed.channelId,
+        contentType: feed.contentType,
+        blockedReason: automationBlock.reason,
+        message: `Managed feed ${feed.id} was blocked by ${automationBlock.reason}.`,
+      });
+    }
     return;
   }
 
@@ -106,12 +167,36 @@ async function postDailyTriviaChallenge(client: Client, now: Date) {
 
   if (!isWithinDailyAllowedWindow(config.allowedWindow, now.getTime())) {
     logDailyTriviaChallengeWindowBlocked(config, now.getTime());
+    const key = `daily-challenge:${config.channelId}:allowed-window`;
+
+    if (shouldRecordBlockedActivity(key, now.getTime())) {
+      recordAutomationActivity({
+        source: "daily-challenge",
+        status: "blocked",
+        channelId: config.channelId,
+        contentType: "trivia",
+        blockedReason: "allowed-window",
+        message: "Daily trivia is waiting for its allowed posting window.",
+      });
+    }
     return;
   }
 
   const automationBlock = getAutomatedContentBlock(config.channelId, "daily-challenge", now.getTime());
 
   if (automationBlock.blocked) {
+    const key = `daily-challenge:${config.channelId}:${automationBlock.reason}`;
+
+    if (shouldRecordBlockedActivity(key, now.getTime())) {
+      recordAutomationActivity({
+        source: "daily-challenge",
+        status: "blocked",
+        channelId: config.channelId,
+        contentType: "trivia",
+        blockedReason: automationBlock.reason,
+        message: `Daily trivia was blocked by ${automationBlock.reason}.`,
+      });
+    }
     return;
   }
 
@@ -150,6 +235,7 @@ export function startScheduler(client: Client) {
             `Error posting scheduled ${schedule.contentType} to channel ${schedule.channelId}:`,
             error,
           );
+          recordSchedulerFailure("scheduler", schedule.channelId, schedule.contentType, error);
         }
       }, 30 * 1000);
 
@@ -170,6 +256,7 @@ export function startScheduler(client: Client) {
           `Error posting scheduled ${schedule.contentType} to channel ${schedule.channelId}:`,
           error,
         );
+        recordSchedulerFailure("scheduler", schedule.channelId, schedule.contentType, error);
       }
     }, intervalMs);
   }
@@ -185,6 +272,7 @@ export function startScheduler(client: Client) {
           `Error posting managed feed ${feed.id} ${feed.contentType} to channel ${feed.channelId}:`,
           error,
         );
+        recordSchedulerFailure("feed", feed.channelId, feed.contentType, error);
       }
     }
 
@@ -192,6 +280,16 @@ export function startScheduler(client: Client) {
       await postDailyTriviaChallenge(client, now);
     } catch (error) {
       console.error("Error posting Daily Trivia Challenge:", error);
+      const config = getDailyTriviaChallengeConfig();
+
+      recordAutomationActivity({
+        source: "daily-challenge",
+        status: "failure",
+        channelId: config?.channelId ?? null,
+        contentType: "trivia",
+        errorCode: "UNHANDLED_ERROR",
+        message: error instanceof Error ? error.message : "Daily trivia failed while posting.",
+      });
     }
 
     try {

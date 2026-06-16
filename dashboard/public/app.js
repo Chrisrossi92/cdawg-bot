@@ -8,6 +8,10 @@ const automationMasterButton = document.querySelector("#automation-master-button
 const automationMasterDetail = document.querySelector("#automation-master-detail");
 const automationMasterBanner = document.querySelector("#automation-master-banner");
 const discordMetadataWarning = document.querySelector("#discord-metadata-warning");
+const opportunityContextBanner = document.querySelector("#opportunity-context-banner");
+const opportunityContextTitle = document.querySelector("#opportunity-context-title");
+const opportunityContextDetail = document.querySelector("#opportunity-context-detail");
+const opportunityContextDismiss = document.querySelector("#opportunity-context-dismiss");
 const opsApiStatus = document.querySelector("#ops-api-status");
 const opsBotStatus = document.querySelector("#ops-bot-status");
 const opsUptime = document.querySelector("#ops-uptime");
@@ -49,6 +53,36 @@ const communityTotalPanelsCard = document.querySelector("#community-total-panels
 const communityTotalFollowupsCard = document.querySelector("#community-total-followups-card");
 const communityMissingRoleCard = document.querySelector("#community-missing-role-card");
 const communityMissingChannelCard = document.querySelector("#community-missing-channel-card");
+const channelIntelligenceFilter = document.querySelector("#channel-intelligence-filter");
+const channelIntelligenceSummary = document.querySelector("#channel-intelligence-summary");
+const channelIntelligenceList = document.querySelector("#channel-intelligence-list");
+const channelActionDrawer = document.querySelector("#channel-action-drawer");
+const channelActionDrawerHealth = document.querySelector("#channel-action-drawer-health");
+const channelActionDrawerTitle = document.querySelector("#channel-action-drawer-title");
+const channelActionDrawerSummary = document.querySelector("#channel-action-drawer-summary");
+const channelActionDrawerBody = document.querySelector("#channel-action-drawer-body");
+const channelActionDrawerClose = document.querySelector("#channel-action-drawer-close");
+const engagementWindowFilter = document.querySelector("#engagement-window-filter");
+const engagementStatusFilter = document.querySelector("#engagement-status-filter");
+const engagementEmptyState = document.querySelector("#engagement-empty-state");
+const engagementTotal1h = document.querySelector("#engagement-total-1h");
+const engagementTotal24h = document.querySelector("#engagement-total-24h");
+const engagementTotal7d = document.querySelector("#engagement-total-7d");
+const engagementActiveChannels = document.querySelector("#engagement-active-channels");
+const engagementQuietChannels = document.querySelector("#engagement-quiet-channels");
+const engagementHumanBot = document.querySelector("#engagement-human-bot");
+const engagementTotal1hCard = document.querySelector("#engagement-total-1h-card");
+const engagementTotal24hCard = document.querySelector("#engagement-total-24h-card");
+const engagementTotal7dCard = document.querySelector("#engagement-total-7d-card");
+const engagementActiveChannelsCard = document.querySelector("#engagement-active-channels-card");
+const engagementQuietChannelsCard = document.querySelector("#engagement-quiet-channels-card");
+const engagementHumanBotCard = document.querySelector("#engagement-human-bot-card");
+const engagementTopChannels = document.querySelector("#engagement-top-channels");
+const engagementTopUsers = document.querySelector("#engagement-top-users");
+const engagementRecentActivity = document.querySelector("#engagement-recent-activity");
+const engagementQuietList = document.querySelector("#engagement-quiet-list");
+const contentOutcomesSourceFilter = document.querySelector("#content-outcomes-source-filter");
+const contentOutcomesList = document.querySelector("#content-outcomes-list");
 const opsRefreshDashboardButton = document.querySelector("#ops-refresh-dashboard");
 const opsJumpChannelsButton = document.querySelector("#ops-jump-channels");
 const opsJumpAccessButton = document.querySelector("#ops-jump-access");
@@ -74,6 +108,14 @@ const missionProfileMissingRoleCount = document.querySelector("#mission-profile-
 const missionNextActivity = document.querySelector("#mission-next-activity");
 const missionActionCount = document.querySelector("#mission-action-count");
 const missionActionList = document.querySelector("#mission-action-list");
+const missionBackendOpportunityCount = document.querySelector("#mission-backend-opportunity-count");
+const missionOpportunitiesList = document.querySelector("#mission-opportunities-list");
+const opportunityActionDrawer = document.querySelector("#opportunity-action-drawer");
+const opportunityActionDrawerPriority = document.querySelector("#opportunity-action-drawer-priority");
+const opportunityActionDrawerTitle = document.querySelector("#opportunity-action-drawer-title");
+const opportunityActionDrawerSummary = document.querySelector("#opportunity-action-drawer-summary");
+const opportunityActionDrawerBody = document.querySelector("#opportunity-action-drawer-body");
+const opportunityActionDrawerClose = document.querySelector("#opportunity-action-drawer-close");
 const missionFoundCount = document.querySelector("#mission-found-count");
 const missionFoundList = document.querySelector("#mission-found-list");
 const missionChannelProfilesCount = document.querySelector("#mission-channel-profiles-count");
@@ -197,6 +239,7 @@ const refreshChannelOperationsButton = document.querySelector("#refresh-channel-
 const refreshFeedsButton = document.querySelector("#refresh-feeds");
 const refreshRoleAccessPanelsButton = document.querySelector("#refresh-role-access-panels");
 const refreshRoleFollowupsButton = document.querySelector("#refresh-role-followups");
+const refreshEngagementButton = document.querySelector("#refresh-engagement");
 const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
@@ -221,6 +264,7 @@ const saveComposerTemplateButton = document.querySelector("#save-composer-templa
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
 const composerDraftStorageKey = "cdawg-dashboard-composer-draft";
+const mockDiscoveryStorageKey = "cdawg-dashboard-show-mock-discovery";
 const autoRefreshIntervalMs = 15000;
 
 let lastSettingsSnapshot = null;
@@ -243,6 +287,17 @@ let roleAccessPanels = [];
 let roleFollowups = [];
 let composerTemplates = [];
 let channelProfiles = [];
+let channelIntelligence = null;
+let channelIntelligenceLoadError = null;
+let engagementSummary = null;
+let engagementSummaryLoadError = null;
+let contentOutcomes = [];
+let contentOutcomesLoadError = null;
+let backendOpportunities = [];
+let backendOpportunitiesLoadError = null;
+let activeChannelActionChannelId = null;
+let activeOpportunityId = null;
+let activeOpportunityContext = null;
 let discoverySources = [];
 let discoverySourcesLoadError = null;
 let discoveryItems = [];
@@ -1344,6 +1399,1759 @@ function renderCommunityHealth() {
   setOpsCardState(communityMissingChannelCard, getCountTone(missingChannelCount));
 }
 
+function getEngagementWindowKey() {
+  return engagementWindowFilter?.value || "last24h";
+}
+
+function getEngagementWindowLabel(windowKey = getEngagementWindowKey()) {
+  if (windowKey === "last1h") {
+    return "1h";
+  }
+
+  if (windowKey === "last7d") {
+    return "7d";
+  }
+
+  return "24h";
+}
+
+function getEngagementWindowItems(windowKey = getEngagementWindowKey()) {
+  const windows = engagementSummary?.windows;
+  const items = windows?.[windowKey];
+  return Array.isArray(items) ? items : [];
+}
+
+function getTotalMessagesForEngagementWindow(windowKey) {
+  return getEngagementWindowItems(windowKey).reduce((total, item) => total + (Number(item.messageCount) || 0), 0);
+}
+
+function getEngagementStatus(summary, windowKey = getEngagementWindowKey()) {
+  const messageCount = Number(summary?.messageCount) || 0;
+  const activeUsers = Number(summary?.approxActiveUsers) || 0;
+
+  if (messageCount >= 10 || activeUsers >= 3) {
+    return "active";
+  }
+
+  if (messageCount > 0) {
+    return "quiet";
+  }
+
+  const last7dSummary = getEngagementWindowItems("last7d").find((item) => item.channelId === summary?.channelId);
+  if (windowKey !== "last7d" && (Number(last7dSummary?.messageCount) || 0) > 0) {
+    return "dormant";
+  }
+
+  return "unknown";
+}
+
+function getEngagementChannelName(channelId, fallbackName) {
+  if (fallbackName) {
+    return fallbackName;
+  }
+
+  const intelligenceChannel = (channelIntelligence?.channels ?? []).find((channel) => channel.channelId === channelId);
+  if (intelligenceChannel?.channelName) {
+    return intelligenceChannel.channelName;
+  }
+
+  const metadataChannel = guildChannels.find((channel) => channel.id === channelId);
+  return metadataChannel?.name ?? channelId;
+}
+
+function getKnownEngagementChannelIds() {
+  const channelIds = new Set();
+
+  for (const windowItems of Object.values(engagementSummary?.windows ?? {})) {
+    if (!Array.isArray(windowItems)) {
+      continue;
+    }
+
+    for (const item of windowItems) {
+      if (item.channelId) {
+        channelIds.add(item.channelId);
+      }
+    }
+  }
+
+  for (const channel of channelIntelligence?.channels ?? []) {
+    if (channel.channelId) {
+      channelIds.add(channel.channelId);
+    }
+  }
+
+  for (const channel of guildChannels) {
+    if (channel.id) {
+      channelIds.add(channel.id);
+    }
+  }
+
+  return [...channelIds];
+}
+
+function getEngagementRows(windowKey = getEngagementWindowKey()) {
+  const selectedWindowByChannel = new Map(getEngagementWindowItems(windowKey).map((item) => [item.channelId, item]));
+  const last7dByChannel = new Map(getEngagementWindowItems("last7d").map((item) => [item.channelId, item]));
+
+  return getKnownEngagementChannelIds().map((channelId) => {
+    const selectedSummary = selectedWindowByChannel.get(channelId) ?? null;
+    const last7dSummary = last7dByChannel.get(channelId) ?? null;
+    const baseSummary = selectedSummary ?? {
+      channelId,
+      channelName: last7dSummary?.channelName ?? null,
+      messageCount: 0,
+      approxActiveUsers: 0,
+      botMessageCount: 0,
+      attachmentOrEmbedCount: 0,
+      lastActivityAt: null,
+    };
+
+    return {
+      ...baseSummary,
+      channelName: getEngagementChannelName(channelId, baseSummary.channelName ?? last7dSummary?.channelName),
+      humanMessageCount: Math.max(0, (Number(baseSummary.messageCount) || 0) - (Number(baseSummary.botMessageCount) || 0)),
+      status: getEngagementStatus(baseSummary, windowKey),
+      last7dMessageCount: Number(last7dSummary?.messageCount) || 0,
+      lastKnownActivityAt: Math.max(Number(baseSummary.lastActivityAt) || 0, Number(last7dSummary?.lastActivityAt) || 0) || null,
+    };
+  });
+}
+
+function getFilteredEngagementRows() {
+  const statusFilter = engagementStatusFilter?.value ?? "all";
+  const rows = getEngagementRows();
+
+  if (statusFilter === "all") {
+    return rows;
+  }
+
+  return rows.filter((row) => row.status === statusFilter);
+}
+
+function renderEngagementChannelList(target, rows, metricLabel, getMetricValue, emptyCopy) {
+  if (!target) {
+    return;
+  }
+
+  target.replaceChildren();
+
+  if (rows.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty compact-empty";
+    empty.textContent = emptyCopy;
+    target.append(empty);
+    return;
+  }
+
+  for (const row of rows.slice(0, 8)) {
+    const item = document.createElement("article");
+    const copy = document.createElement("div");
+    const title = document.createElement("strong");
+    const meta = document.createElement("span");
+    const value = document.createElement("span");
+
+    item.className = "engagement-channel-row";
+    item.dataset.engagementChannelId = row.channelId;
+    copy.className = "engagement-channel-row-copy";
+    value.className = "engagement-channel-row-value";
+    title.textContent = `#${row.channelName}`;
+    meta.textContent = `${row.status} • ${formatRelativeTime(row.lastKnownActivityAt)}`;
+    value.textContent = `${getMetricValue(row)} ${metricLabel}`;
+    copy.append(title, meta);
+    item.append(copy, value);
+    target.append(item);
+  }
+}
+
+function getContentOutcomeTone(label) {
+  if (label === "sparked") {
+    return "active";
+  }
+
+  if (label === "no response") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function getContentOutcomeSourceLabel(source) {
+  const labels = {
+    scheduler: "Scheduler",
+    feed: "Feed",
+    dailyTrivia: "Daily Trivia",
+    passiveChat: "Passive Chat",
+    manualPush: "Manual Push",
+    composer: "Composer",
+    historyPush: "History Push",
+    unknown: "Unknown",
+  };
+
+  return labels[source] ?? "Unknown";
+}
+
+function getFilteredContentOutcomes() {
+  const sourceFilter = contentOutcomesSourceFilter?.value ?? "all";
+
+  if (sourceFilter === "all") {
+    return contentOutcomes;
+  }
+
+  return contentOutcomes.filter((item) => item.source === sourceFilter);
+}
+
+function createContentOutcomeCard(item) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const titleBlock = document.createElement("div");
+  const title = document.createElement("strong");
+  const meta = document.createElement("p");
+  const badges = document.createElement("div");
+  const stats = document.createElement("dl");
+  const activity = item.activity ?? {};
+  const channelName = item.channelName || item.channelId || "unknown channel";
+
+  card.className = "content-outcome-card";
+  header.className = "content-outcome-card-header";
+  titleBlock.className = "content-outcome-title";
+  badges.className = "channel-operation-badges";
+  stats.className = "content-outcome-stats";
+
+  title.textContent = item.label || `${getContentOutcomeSourceLabel(item.source)} post`;
+  meta.textContent = `#${channelName} • ${formatTimestamp(item.postedAt)} (${formatRelativeTime(item.postedAt)})`;
+  badges.append(
+    createStatusBadge(activity.outcomeLabel ?? "unknown", getContentOutcomeTone(activity.outcomeLabel)),
+    createStatusBadge(getContentOutcomeSourceLabel(item.source), "neutral"),
+    createStatusBadge(item.contentType || "content", "neutral"),
+  );
+
+  for (const [term, value] of [
+    ["15m response", activity.messages15m ?? 0],
+    ["60m response", activity.messages60m ?? 0],
+    ["Active users 60m", activity.approxActiveUsers60m ?? 0],
+    ["Human / bot 60m", `${activity.humanMessages60m ?? 0} / ${activity.botMessages60m ?? 0}`],
+  ]) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = String(value);
+    stats.append(dt, dd);
+  }
+
+  titleBlock.append(title, meta);
+  header.append(titleBlock, badges);
+  card.append(header, stats);
+  return card;
+}
+
+function renderContentOutcomes() {
+  if (!contentOutcomesList) {
+    return;
+  }
+
+  contentOutcomesList.replaceChildren();
+
+  if (contentOutcomesLoadError) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = `Content outcomes are unavailable. ${contentOutcomesLoadError}`;
+    contentOutcomesList.append(empty);
+    return;
+  }
+
+  if (!Array.isArray(contentOutcomes) || contentOutcomes.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "No posted content has been tracked yet. Outcomes will appear after confirmed bot or dashboard posts.";
+    contentOutcomesList.append(empty);
+    return;
+  }
+
+  const items = getFilteredContentOutcomes();
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "No tracked posts match the selected source filter.";
+    contentOutcomesList.append(empty);
+    return;
+  }
+
+  for (const item of items.slice(0, 20)) {
+    contentOutcomesList.append(createContentOutcomeCard(item));
+  }
+}
+
+function getOpportunityTone(priority) {
+  if (priority === "critical" || priority === "high") {
+    return "blocked";
+  }
+
+  if (priority === "medium") {
+    return "active";
+  }
+
+  return "neutral";
+}
+
+function getOpportunityById(id) {
+  return (backendOpportunities ?? []).find((opportunity) => opportunity.id === id) ?? null;
+}
+
+function setOpportunityHash(opportunityId) {
+  const nextHash = `opportunity=${encodeURIComponent(opportunityId)}`;
+
+  if (window.location.hash.slice(1) !== nextHash) {
+    window.history.replaceState(null, "", `#${nextHash}`);
+  }
+}
+
+function getOpportunityIdFromHash() {
+  const hash = window.location.hash.slice(1);
+  const match = hash.match(/^opportunity=(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function clearOpportunityHash() {
+  if (window.location.hash.startsWith("#opportunity=")) {
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+}
+
+function getOpportunityChannelIds(opportunity) {
+  return Array.isArray(opportunity?.affectedChannels)
+    ? opportunity.affectedChannels.map((channel) => channel.id).filter(Boolean)
+    : [];
+}
+
+function getOpportunityPrimaryChannel(opportunity) {
+  const channelId = getOpportunityChannelIds(opportunity)[0];
+
+  if (!channelId) {
+    return null;
+  }
+
+  const intelligenceChannel = getChannelIntelligenceById(channelId);
+  const affectedChannel = opportunity.affectedChannels.find((channel) => channel.id === channelId);
+
+  return intelligenceChannel ?? {
+    channelId,
+    channelName: affectedChannel?.name ?? channelId,
+    channelType: "unknown",
+    roleWorkflows: {
+      relevantRoleIds: [],
+    },
+  };
+}
+
+function buildOpportunityContext(opportunity, targetSection) {
+  const primaryChannel = getOpportunityPrimaryChannel(opportunity);
+  return {
+    opportunityId: opportunity.id,
+    title: opportunity.title ?? "Opportunity",
+    targetSection,
+    reason: opportunity.suggestedAction ?? "Review this opportunity.",
+    channelId: primaryChannel?.channelId ?? getOpportunityChannelIds(opportunity)[0] ?? null,
+    channelName: primaryChannel?.channelName ?? opportunity.affectedChannels?.[0]?.name ?? null,
+    source: opportunity.category === "Successful Content Pattern" || opportunity.category === "Failed Content Pattern"
+      ? String(opportunity.title ?? "").split(" ")[0] || null
+      : null,
+  };
+}
+
+function writeOpportunityContextToUrl(context) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("opportunityId", context.opportunityId);
+  if (context.channelId) {
+    url.searchParams.set("opportunityChannelId", context.channelId);
+  } else {
+    url.searchParams.delete("opportunityChannelId");
+  }
+  url.searchParams.set("opportunityTarget", context.targetSection);
+  url.searchParams.set("opportunityReason", context.reason);
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${window.location.hash}`);
+}
+
+function clearOpportunityContextUrl() {
+  const url = new URL(window.location.href);
+  url.searchParams.delete("opportunityId");
+  url.searchParams.delete("opportunityChannelId");
+  url.searchParams.delete("opportunityTarget");
+  url.searchParams.delete("opportunityReason");
+  window.history.replaceState(null, "", `${url.pathname}${url.search}${window.location.hash}`);
+}
+
+function renderOpportunityContextBanner() {
+  if (!opportunityContextBanner || !opportunityContextTitle || !opportunityContextDetail) {
+    return;
+  }
+
+  if (!activeOpportunityContext) {
+    opportunityContextBanner.hidden = true;
+    return;
+  }
+
+  opportunityContextBanner.hidden = false;
+  opportunityContextTitle.textContent = `Opened from Opportunity: ${activeOpportunityContext.title}`;
+  opportunityContextDetail.textContent = [
+    activeOpportunityContext.reason,
+    activeOpportunityContext.channelName
+      ? `Affected channel: #${activeOpportunityContext.channelName}`
+      : activeOpportunityContext.channelId
+        ? `Affected channel: ${activeOpportunityContext.channelId}`
+        : null,
+    `Target: ${activeOpportunityContext.targetSection}`,
+  ].filter(Boolean).join(" • ");
+}
+
+function setOpportunityContext(opportunity, targetSection) {
+  activeOpportunityContext = buildOpportunityContext(opportunity, targetSection);
+  writeOpportunityContextToUrl(activeOpportunityContext);
+  renderOpportunityContextBanner();
+}
+
+function dismissOpportunityContext() {
+  activeOpportunityContext = null;
+  clearOpportunityContextUrl();
+  renderOpportunityContextBanner();
+}
+
+function restoreOpportunityContextFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const opportunityId = params.get("opportunityId");
+
+  if (!opportunityId) {
+    renderOpportunityContextBanner();
+    return;
+  }
+
+  const opportunity = getOpportunityById(opportunityId);
+  activeOpportunityContext = {
+    opportunityId,
+    title: opportunity?.title ?? "Opportunity",
+    targetSection: params.get("opportunityTarget") ?? "dashboard",
+    reason: params.get("opportunityReason") ?? opportunity?.suggestedAction ?? "Review this opportunity.",
+    channelId: params.get("opportunityChannelId"),
+    channelName: opportunity?.affectedChannels?.find((channel) => channel.id === params.get("opportunityChannelId"))?.name ?? null,
+    source: null,
+  };
+  renderOpportunityContextBanner();
+}
+
+function getOpportunityWhyDetected(opportunity) {
+  const category = opportunity.category;
+
+  if (category === "Dormant Channel") {
+    return "A channel had stored engagement history but no recent activity in the current 24-hour signal.";
+  }
+
+  if (category === "Untended Channel") {
+    return "The channel is missing profile, topic, and configured content workflow signals.";
+  }
+
+  if (category === "High Potential Channel") {
+    return "Recent engagement exists, but little or no automation/content support is configured.";
+  }
+
+  if (category === "Successful Content Pattern") {
+    return "Tracked posts from this source have repeated above-average human response outcomes.";
+  }
+
+  if (category === "Failed Content Pattern") {
+    return "Tracked posts from this source have repeated weak human response outcomes.";
+  }
+
+  if (category === "Automation Failure Risk") {
+    return "Recent automation activity includes recurring blocked or failed events.";
+  }
+
+  if (category === "Quick Wins") {
+    return "Channel Intelligence found a setup gap that can be reviewed in an existing dashboard workflow.";
+  }
+
+  return "The deterministic Opportunity Engine matched this item from available operational signals.";
+}
+
+function getOpportunityCheckNext(opportunity) {
+  const category = opportunity.category;
+
+  if (category === "Successful Content Pattern" || category === "Failed Content Pattern") {
+    return [
+      "Review recent posted content outcomes for the source.",
+      "Compare channels and response counts before changing cadence or content type.",
+      "Use Engagement to confirm whether the channel was generally active at the time.",
+    ];
+  }
+
+  if (category === "Automation Failure Risk") {
+    return [
+      "Open Automation controls and review the affected channel.",
+      "Check recent automation activity for blocked reasons or failures.",
+      "Confirm global and channel-level posting controls before changing anything.",
+    ];
+  }
+
+  if (category === "Dormant Channel" || category === "High Potential Channel") {
+    return [
+      "Review Channel Intelligence for setup gaps.",
+      "Check Engagement for recent channel activity and active-user counts.",
+      "Review Content Outcomes before deciding what content pattern to reuse.",
+    ];
+  }
+
+  return [
+    "Review Channel Intelligence for the affected channel.",
+    "Check whether a profile, topic, feed, or role workflow already exists.",
+    "Use existing setup controls only after confirming the recommendation still applies.",
+  ];
+}
+
+function navigateOpportunityToSection(section, opportunity) {
+  const primaryChannel = getOpportunityPrimaryChannel(opportunity);
+
+  setOpportunityContext(opportunity, section);
+  closeOpportunityActionDrawer();
+
+  if (section === "channel-intelligence") {
+    setActiveControlTab("access");
+    window.requestAnimationFrame(() => {
+      document.querySelector("#community-channel-summary")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      if (primaryChannel?.channelId) {
+        highlightOpportunityTarget(`[data-channel-intelligence-id="${primaryChannel.channelId}"]`);
+      }
+    });
+    return;
+  }
+
+  if (section === "engagement") {
+    setActiveControlTab("engagement");
+    window.requestAnimationFrame(() => {
+      document.querySelector("[data-tab-panel='engagement']")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      if (primaryChannel?.channelId) {
+        highlightOpportunityTarget(`[data-engagement-channel-id="${primaryChannel.channelId}"]`);
+      }
+    });
+    return;
+  }
+
+  if (section === "content-outcomes") {
+    setActiveControlTab("engagement");
+    if (contentOutcomesSourceFilter) {
+      const sourceOption = Array.from(contentOutcomesSourceFilter.options).find((option) =>
+        String(opportunity.title ?? "").toLowerCase().startsWith(option.value.toLowerCase()) ||
+        String(opportunity.title ?? "").toLowerCase().startsWith(option.textContent.toLowerCase()),
+      );
+      if (sourceOption && sourceOption.value !== "all") {
+        contentOutcomesSourceFilter.value = sourceOption.value;
+        renderContentOutcomes();
+      }
+    }
+    window.requestAnimationFrame(() => {
+      document.querySelector(".content-outcomes-panel")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      highlightOpportunityTarget(".content-outcomes-panel");
+    });
+    return;
+  }
+
+  if (section === "automation") {
+    setActiveControlTab("channels");
+    if (channelOperationsFilter) {
+      channelOperationsFilter.value = "all";
+    }
+    renderChannelOperations();
+    if (primaryChannel?.channelId) {
+      highlightManagedChannel(primaryChannel.channelId, `[data-channel-operation-id="${primaryChannel.channelId}"]`);
+    }
+    return;
+  }
+
+  if (section === "profiles") {
+    if (primaryChannel?.channelId) {
+      openChannelProfileSetupFromDrawer(primaryChannel);
+      return;
+    }
+
+    navigateMissionAction(createMissionNavigation("overview", "channel-setup-assistant"));
+    return;
+  }
+
+  if (section === "feeds") {
+    if (primaryChannel?.channelId) {
+      openFeedConfigFromDrawer(primaryChannel);
+      return;
+    }
+
+    navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts"));
+    return;
+  }
+
+  if (section === "manual-content") {
+    if (primaryChannel?.channelId) {
+      openManualContentFromDrawer(primaryChannel);
+      return;
+    }
+
+    navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
+    return;
+  }
+
+  if (section === "composer") {
+    if (primaryChannel?.channelId) {
+      openComposerFromDrawer(primaryChannel);
+      return;
+    }
+
+    navigateMissionAction(createMissionNavigation("push", "post-now-message"));
+  }
+}
+
+function createOpportunityNavigationActions(opportunity) {
+  const actions = document.createElement("div");
+  const category = opportunity.category;
+  const primaryChannel = getOpportunityPrimaryChannel(opportunity);
+  const addButton = (label, section, helperCopy) => {
+    const button = createDrawerActionButton(label, () => navigateOpportunityToSection(section, opportunity));
+    actions.append(button);
+    if (helperCopy) {
+      button.title = helperCopy;
+    }
+  };
+
+  actions.className = "channel-action-buttons";
+  addButton("Channel Intelligence", "channel-intelligence");
+  addButton("Engagement", "engagement", "Engagement cannot currently preselect this exact opportunity.");
+
+  if (category === "Successful Content Pattern" || category === "Failed Content Pattern") {
+    addButton("Content Outcomes", "content-outcomes", "Source filtering remains manual in the Content Outcomes panel.");
+  }
+
+  if (category === "Automation Failure Risk" || category === "Quick Wins" || category === "Untended Channel") {
+    addButton("Automation Controls", "automation");
+  }
+
+  if (category === "Untended Channel" || category === "Quick Wins" || category === "High Potential Channel") {
+    addButton("Channel Profiles", "profiles");
+    addButton("Feeds", "feeds");
+  }
+
+  if (category === "Dormant Channel" || category === "High Potential Channel") {
+    addButton("Manual Content", "manual-content", primaryChannel ? "" : "No affected channel is available to preselect.");
+    addButton("Composer", "composer", primaryChannel ? "" : "No affected channel is available to preselect.");
+  }
+
+  return actions;
+}
+
+function openOpportunityActionDrawer(opportunityId, options = {}) {
+  const opportunity = getOpportunityById(opportunityId);
+
+  if (!opportunity || !opportunityActionDrawer || !opportunityActionDrawerBody) {
+    return;
+  }
+
+  activeOpportunityId = opportunityId;
+  closeChannelActionDrawer({ preserveHash: true });
+  opportunityActionDrawer.hidden = false;
+  opportunityActionDrawerPriority.textContent = opportunity.priority ?? "low";
+  opportunityActionDrawerPriority.className = `status-badge ${getOpportunityTone(opportunity.priority)}`;
+  opportunityActionDrawerTitle.textContent = opportunity.title ?? "Opportunity Details";
+  opportunityActionDrawerSummary.textContent = opportunity.category ?? "Opportunity";
+  opportunityActionDrawerBody.replaceChildren();
+
+  const affectedChannels = Array.isArray(opportunity.affectedChannels) && opportunity.affectedChannels.length > 0
+    ? opportunity.affectedChannels.map((channel) => channel.name ? `#${channel.name} (${channel.id})` : channel.id)
+    : ["No specific channel was attached to this opportunity."];
+  const summary = document.createElement("dl");
+  summary.className = "channel-action-summary-grid";
+  for (const [term, value] of [
+    ["Category", opportunity.category ?? "unknown"],
+    ["Priority", opportunity.priority ?? "low"],
+    ["Confidence", opportunity.confidence ?? "low"],
+    ["Affected Channels", affectedChannels.join(", ")],
+  ]) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = value;
+    summary.append(dt, dd);
+  }
+
+  const description = document.createElement("p");
+  description.className = "channel-operation-detail";
+  description.textContent = opportunity.description ?? "No description was provided.";
+
+  const suggestedAction = document.createElement("p");
+  suggestedAction.className = "channel-action-recommendation";
+  suggestedAction.textContent = opportunity.suggestedAction ?? "Review this opportunity.";
+
+  const helperCopy = document.createElement("p");
+  helperCopy.className = "channel-action-fallback";
+  helperCopy.textContent = getOpportunityPrimaryChannel(opportunity)
+    ? "Navigation buttons open existing dashboard sections and may preselect or highlight the affected channel when that workflow supports it."
+    : "This opportunity does not include a preselectable channel or source. Navigation buttons open the relevant dashboard section for manual review.";
+
+  opportunityActionDrawerBody.append(
+    createDrawerSection("Opportunity Summary", summary),
+    createDrawerSection("Description", description),
+    createDrawerSection("Suggested Action", suggestedAction),
+    createDrawerSection("Supporting Signals", createDrawerList(Array.isArray(opportunity.supportingSignals) ? opportunity.supportingSignals : [], "No supporting signals were provided.")),
+    createDrawerSection("Why This Was Detected", createDrawerList([getOpportunityWhyDetected(opportunity)], "No detection rationale is available.")),
+    createDrawerSection("What To Check Next", createDrawerList(getOpportunityCheckNext(opportunity), "No next checks are available.")),
+    createDrawerSection("Navigation", createOpportunityNavigationActions(opportunity)),
+    helperCopy,
+  );
+
+  if (!options.skipHash) {
+    setOpportunityHash(opportunityId);
+  }
+
+  window.requestAnimationFrame(() => {
+    opportunityActionDrawer.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function closeOpportunityActionDrawer(options = {}) {
+  activeOpportunityId = null;
+  if (opportunityActionDrawer) {
+    opportunityActionDrawer.hidden = true;
+  }
+  if (!options.preserveHash) {
+    clearOpportunityHash();
+  }
+}
+
+function handleDashboardHashChange() {
+  const opportunityId = getOpportunityIdFromHash();
+  if (opportunityId) {
+    if (getOpportunityById(opportunityId)) {
+      openOpportunityActionDrawer(opportunityId, { skipHash: true });
+    }
+    return;
+  }
+
+  const channelId = getDrawerChannelIdFromHash();
+  if (channelId && getChannelIntelligenceById(channelId)) {
+    openChannelActionDrawer(channelId, { skipHash: true });
+  }
+}
+
+function createBackendOpportunityCard(opportunity) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const titleBlock = document.createElement("div");
+  const title = document.createElement("strong");
+  const description = document.createElement("p");
+  const badges = document.createElement("div");
+  const channels = document.createElement("p");
+  const suggestedAction = document.createElement("p");
+  const signals = document.createElement("ul");
+
+  card.className = `mission-opportunity-card priority-${String(opportunity.priority).replace(/\s+/g, "-")}`;
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `Open opportunity details for ${opportunity.title ?? "opportunity"}`);
+  header.className = "mission-opportunity-card-header";
+  titleBlock.className = "mission-opportunity-title";
+  badges.className = "channel-operation-badges";
+  channels.className = "mission-opportunity-meta";
+  suggestedAction.className = "mission-opportunity-action";
+  signals.className = "mission-opportunity-signals";
+
+  title.textContent = opportunity.title ?? "Opportunity";
+  description.textContent = opportunity.description ?? "";
+  badges.append(
+    createStatusBadge(opportunity.priority ?? "low", getOpportunityTone(opportunity.priority)),
+    createStatusBadge(opportunity.confidence ?? "low confidence", opportunity.confidence === "high" ? "active" : "neutral"),
+    createStatusBadge(opportunity.category ?? "opportunity", "neutral"),
+  );
+  channels.textContent = `Channels: ${
+    Array.isArray(opportunity.affectedChannels) && opportunity.affectedChannels.length > 0
+      ? opportunity.affectedChannels.map((channel) => channel.name ? `#${channel.name}` : channel.id).join(", ")
+      : "none"
+  }`;
+  suggestedAction.textContent = `Suggested action: ${opportunity.suggestedAction ?? "Review this opportunity."}`;
+
+  for (const signal of Array.isArray(opportunity.supportingSignals) ? opportunity.supportingSignals.slice(0, 4) : []) {
+    const item = document.createElement("li");
+    item.textContent = signal;
+    signals.append(item);
+  }
+
+  titleBlock.append(title, description);
+  header.append(titleBlock, badges);
+  card.append(header, channels, suggestedAction);
+  if (signals.children.length > 0) {
+    card.append(signals);
+  }
+  card.addEventListener("click", () => openOpportunityActionDrawer(opportunity.id));
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openOpportunityActionDrawer(opportunity.id);
+    }
+  });
+  return card;
+}
+
+function renderBackendOpportunities() {
+  if (!missionOpportunitiesList) {
+    return;
+  }
+
+  missionOpportunitiesList.replaceChildren();
+
+  if (backendOpportunitiesLoadError) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = `Opportunities are unavailable. ${backendOpportunitiesLoadError}`;
+    missionOpportunitiesList.append(empty);
+    if (missionBackendOpportunityCount) {
+      missionBackendOpportunityCount.textContent = "unavailable";
+      missionBackendOpportunityCount.className = "status-badge blocked";
+    }
+    return;
+  }
+
+  const items = Array.isArray(backendOpportunities) ? backendOpportunities : [];
+
+  if (missionBackendOpportunityCount) {
+    missionBackendOpportunityCount.textContent = `${items.length} opportunit${items.length === 1 ? "y" : "ies"}`;
+    missionBackendOpportunityCount.className = `status-badge ${items.length > 0 ? "active" : "neutral"}`;
+  }
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "No backend opportunities generated from the currently available data.";
+    missionOpportunitiesList.append(empty);
+    return;
+  }
+
+  appendCompressedCardList(missionOpportunitiesList, items, createBackendOpportunityCard, {
+    visibleLimit: 5,
+    summaryLabel: (count) => `View all ${count} opportunities`,
+  });
+
+  if (activeOpportunityId) {
+    openOpportunityActionDrawer(activeOpportunityId, { skipHash: true });
+  }
+}
+
+function renderEngagementDashboard() {
+  const total1h = getTotalMessagesForEngagementWindow("last1h");
+  const total24h = getTotalMessagesForEngagementWindow("last24h");
+  const total7d = getTotalMessagesForEngagementWindow("last7d");
+  const selectedRows = getFilteredEngagementRows();
+  const all24hRows = getEngagementRows("last24h");
+  const active24hCount = all24hRows.filter((row) => row.status === "active").length;
+  const quietDormantCount = getEngagementRows().filter((row) => row.status === "quiet" || row.status === "dormant").length;
+  const selectedWindowItems = getEngagementWindowItems();
+  const selectedBotMessages = selectedWindowItems.reduce((total, item) => total + (Number(item.botMessageCount) || 0), 0);
+  const selectedMessages = selectedWindowItems.reduce((total, item) => total + (Number(item.messageCount) || 0), 0);
+  const selectedHumanMessages = Math.max(0, selectedMessages - selectedBotMessages);
+  const hasSummaryShape = Boolean(engagementSummary?.windows && typeof engagementSummary.windows === "object");
+  const hasAnyEngagementData = total1h + total24h + total7d > 0;
+
+  setOpsValue(engagementTotal1h, total1h);
+  setOpsValue(engagementTotal24h, total24h);
+  setOpsValue(engagementTotal7d, total7d);
+  setOpsValue(engagementActiveChannels, active24hCount);
+  setOpsValue(engagementQuietChannels, quietDormantCount);
+  setOpsValue(engagementHumanBot, `${selectedHumanMessages} / ${selectedBotMessages}`);
+  setOpsCardState(engagementTotal1hCard, total1h > 0 ? "ok" : "neutral");
+  setOpsCardState(engagementTotal24hCard, total24h > 0 ? "ok" : "neutral");
+  setOpsCardState(engagementTotal7dCard, total7d > 0 ? "ok" : "neutral");
+  setOpsCardState(engagementActiveChannelsCard, active24hCount > 0 ? "ok" : "neutral");
+  setOpsCardState(engagementQuietChannelsCard, quietDormantCount > 0 ? "warning" : "neutral");
+  setOpsCardState(engagementHumanBotCard, selectedMessages > 0 ? "ok" : "neutral");
+
+  if (engagementEmptyState) {
+    engagementEmptyState.hidden = false;
+
+    if (engagementSummaryLoadError) {
+      engagementEmptyState.textContent = `Engagement summary is unavailable. ${engagementSummaryLoadError}`;
+    } else if (!hasSummaryShape) {
+      engagementEmptyState.textContent = "Engagement recording is unavailable or the API did not return an engagement summary.";
+    } else if (!hasAnyEngagementData && lastHealthSnapshot && lastHealthSnapshot.botReady !== true) {
+      engagementEmptyState.textContent = "Bot is not connected, so new Discord engagement activity is not being recorded right now.";
+    } else if (!hasAnyEngagementData) {
+      engagementEmptyState.textContent = "No engagement activity has been recorded yet. Send Discord messages after the bot is connected, then refresh.";
+    } else if (selectedRows.length === 0) {
+      engagementEmptyState.textContent = "No channels match the selected engagement filters.";
+    } else {
+      engagementEmptyState.hidden = true;
+    }
+  }
+
+  const byMessages = selectedRows
+    .filter((row) => row.messageCount > 0)
+    .sort((left, right) => right.messageCount - left.messageCount || left.channelName.localeCompare(right.channelName));
+  const byUsers = selectedRows
+    .filter((row) => row.approxActiveUsers > 0)
+    .sort((left, right) => right.approxActiveUsers - left.approxActiveUsers || right.messageCount - left.messageCount);
+  const byRecent = selectedRows
+    .filter((row) => row.lastKnownActivityAt)
+    .sort((left, right) => (right.lastKnownActivityAt ?? 0) - (left.lastKnownActivityAt ?? 0));
+  const quietRows = selectedRows
+    .filter((row) => row.status === "quiet" || row.status === "dormant")
+    .sort((left, right) => (right.lastKnownActivityAt ?? 0) - (left.lastKnownActivityAt ?? 0));
+  const windowLabel = getEngagementWindowLabel();
+
+  renderEngagementChannelList(engagementTopChannels, byMessages, `msgs ${windowLabel}`, (row) => row.messageCount, "No message activity in the selected window.");
+  renderEngagementChannelList(engagementTopUsers, byUsers, `users ${windowLabel}`, (row) => row.approxActiveUsers, "No unique-user signal in the selected window.");
+  renderEngagementChannelList(engagementRecentActivity, byRecent, "last seen", (row) => formatTimestamp(row.lastKnownActivityAt), "No recent activity timestamp is available.");
+  renderEngagementChannelList(engagementQuietList, quietRows, `msgs ${windowLabel}`, (row) => row.messageCount, "No quiet or dormant channels match the selected filters.");
+  renderContentOutcomes();
+}
+
+function getChannelIntelligenceTone(healthLabel) {
+  if (healthLabel === "healthy") {
+    return "active";
+  }
+
+  if (healthLabel === "attention") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function getChannelIntelligenceFilteredItems() {
+  const channels = Array.isArray(channelIntelligence?.channels) ? channelIntelligence.channels : [];
+  const filterValue = channelIntelligenceFilter?.value ?? "all";
+
+  if (filterValue === "all") {
+    return channels;
+  }
+
+  return channels.filter((channel) => channel.healthLabel === filterValue);
+}
+
+function renderChannelIntelligenceSummary() {
+  if (!channelIntelligenceSummary) {
+    return;
+  }
+
+  channelIntelligenceSummary.replaceChildren();
+
+  const summary = channelIntelligence?.summary;
+  const countItems = [
+    ["attention", "Attention"],
+    ["needs setup", "Needs Setup"],
+    ["inactive", "Inactive"],
+    ["healthy", "Healthy"],
+    ["unknown", "Unknown"],
+  ];
+
+  for (const [key, label] of countItems) {
+    const item = document.createElement("button");
+    const value = document.createElement("strong");
+    const text = document.createElement("span");
+
+    item.type = "button";
+    item.className = `channel-intelligence-count ${getChannelIntelligenceTone(key)}`;
+    value.textContent = String(summary?.[key] ?? 0);
+    text.textContent = label;
+    item.append(value, text);
+    item.addEventListener("click", () => {
+      if (channelIntelligenceFilter) {
+        channelIntelligenceFilter.value = key;
+      }
+      renderChannelIntelligence();
+    });
+    channelIntelligenceSummary.append(item);
+  }
+}
+
+function getChannelIntelligenceDetailLines(channel) {
+  const details = [
+    ["Profile", channel.profile.status === "saved" ? `${channel.profile.purpose ?? "saved"} / ${channel.profile.tone ?? "tone unset"}` : "missing"],
+    ["Topic", channel.topic.topic ? `${channel.topic.topic} (${channel.topic.status})` : "missing"],
+    ["Automation", `${channel.automation.mode} / ${channel.automation.status}`],
+    ["Feeds", `${channel.feeds.enabled} enabled / ${channel.feeds.total} total`],
+    ["Daily Trivia", channel.dailyTrivia.relevant ? (channel.dailyTrivia.enabled ? "target, enabled" : "target, disabled") : "not target"],
+    ["Role Workflows", `${channel.roleWorkflows.panels} panels / ${channel.roleWorkflows.followups} follow-ups`],
+    ["Engagement", channel.engagement ? `${channel.engagement.engagementLabel} / ${channel.engagement.last24hMessages} msgs 24h` : "unknown"],
+    ["Recent Problems", `${channel.recentActivity.blockedOrFailureCount} since ${formatTimestamp(channel.recentActivity.since)}`],
+  ];
+
+  return details;
+}
+
+function getChannelIntelligenceById(channelId) {
+  return (channelIntelligence?.channels ?? []).find((channel) => channel.channelId === channelId) ?? null;
+}
+
+function getChannelHealthReason(channel) {
+  if (channel.healthLabel === "attention") {
+    if (channel.recentActivity.blockedOrFailureCount > 0) {
+      return `${channel.recentActivity.blockedOrFailureCount} recent blocked or failed automation event${channel.recentActivity.blockedOrFailureCount === 1 ? "" : "s"} were found.`;
+    }
+
+    if (channel.automation.blockedReason) {
+      return `Automation is currently blocked by ${channel.automation.blockedReason}.`;
+    }
+  }
+
+  if (channel.healthLabel === "needs setup") {
+    if (channel.profile.status === "missing") {
+      return "No saved channel profile exists yet, so CDawg does not know the channel purpose, tone, or preferred content.";
+    }
+
+    if (channel.topic.status === "missing") {
+      return "The channel has a saved profile but no topic mapping or profile topic override.";
+    }
+  }
+
+  if (channel.healthLabel === "inactive") {
+    return "No enabled feed, daily trivia target, automation mode, or recent automation activity was found from the available operational data.";
+  }
+
+  if (channel.healthLabel === "healthy") {
+    return "Existing setup has no operational readiness issue from the current data sources.";
+  }
+
+  return "CDawg does not have enough metadata to make a confident readiness call for this channel.";
+}
+
+function getChannelDetectedGaps(channel) {
+  const gaps = [];
+
+  if (channel.profile.status === "missing") {
+    gaps.push("Missing saved channel profile.");
+  }
+
+  if (channel.topic.status === "missing") {
+    gaps.push("Missing topic mapping or profile topic override.");
+  }
+
+  if (channel.automation.blockedReason) {
+    gaps.push(`Automation blocked by ${channel.automation.blockedReason}.`);
+  }
+
+  if (channel.feeds.enabled === 0 && !channel.dailyTrivia.relevant && channel.automation.mode === "none") {
+    gaps.push("No active content automation found.");
+  }
+
+  if (channel.profile.status === "saved" && channel.roleWorkflows.relevantRoleIds.length > 0 && channel.roleWorkflows.panels === 0) {
+    gaps.push("Relevant role exists but no matching role signup panel was found.");
+  }
+
+  if (channel.profile.status === "saved" && channel.roleWorkflows.relevantRoleIds.length > 0 && channel.roleWorkflows.followups === 0) {
+    gaps.push("Relevant role exists but no matching role follow-up message was found.");
+  }
+
+  if (channel.recentActivity.blockedOrFailureCount > 0) {
+    gaps.push("Recent automation problems need review.");
+  }
+
+  return gaps;
+}
+
+function getChannelExistingFeatures(channel) {
+  const features = [];
+
+  if (channel.profile.status === "saved") {
+    features.push(`Profile saved: ${channel.profile.purpose ?? "purpose set"} / ${channel.profile.tone ?? "tone unset"}.`);
+  }
+
+  if (channel.topic.topic) {
+    features.push(`Topic available: ${channel.topic.topic} (${channel.topic.status}).`);
+  }
+
+  if (channel.automation.mode !== "none") {
+    features.push(`Automation mode: ${channel.automation.mode}.`);
+  }
+
+  if (channel.feeds.total > 0) {
+    features.push(`${channel.feeds.enabled} enabled feed${channel.feeds.enabled === 1 ? "" : "s"} / ${channel.feeds.total} total.`);
+  }
+
+  if (channel.dailyTrivia.relevant) {
+    features.push(`Daily trivia target: ${channel.dailyTrivia.enabled ? "enabled" : "disabled"}.`);
+  }
+
+  if (channel.roleWorkflows.panels > 0) {
+    features.push(`${channel.roleWorkflows.panels} relevant role signup panel${channel.roleWorkflows.panels === 1 ? "" : "s"}.`);
+  }
+
+  if (channel.roleWorkflows.followups > 0) {
+    features.push(`${channel.roleWorkflows.followups} relevant role follow-up${channel.roleWorkflows.followups === 1 ? "" : "s"}.`);
+  }
+
+  if (channel.recentActivity.count > 0) {
+    features.push(`${channel.recentActivity.count} recent automation event${channel.recentActivity.count === 1 ? "" : "s"} in the activity window.`);
+  }
+
+  if (channel.engagement && channel.engagement.engagementLabel !== "unknown") {
+    features.push(`Engagement signal: ${channel.engagement.last24hMessages} messages in 24h, ${channel.engagement.last7dMessages} in 7d, approximately ${channel.engagement.approxActiveUsers24h} active users in 24h.`);
+  }
+
+  return features;
+}
+
+function getEngagementTone(label) {
+  if (label === "active") {
+    return "active";
+  }
+
+  if (label === "dormant") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function createEngagementSnapshot(channel) {
+  const snapshot = channel.engagement;
+
+  if (!snapshot) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty compact-empty";
+    empty.textContent = "Engagement summary is unavailable for this channel.";
+    return empty;
+  }
+
+  const grid = document.createElement("dl");
+  grid.className = "channel-action-summary-grid";
+  const details = [
+    ["Signal", snapshot.engagementLabel],
+    ["Messages 24h", snapshot.last24hMessages],
+    ["Messages 7d", snapshot.last7dMessages],
+    ["Approx users 24h", snapshot.approxActiveUsers24h],
+    ["Last activity", `${formatTimestamp(snapshot.lastActivityAt)} (${formatRelativeTime(snapshot.lastActivityAt)})`],
+  ];
+
+  for (const [term, value] of details) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = String(value);
+    grid.append(dt, dd);
+  }
+
+  return grid;
+}
+
+function createDrawerSection(titleText, content) {
+  const section = document.createElement("section");
+  const title = document.createElement("h4");
+  title.textContent = titleText;
+  section.className = "channel-action-section";
+  section.append(title, content);
+  return section;
+}
+
+function createDrawerList(items, emptyCopy) {
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty compact-empty";
+    empty.textContent = emptyCopy;
+    return empty;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "channel-action-list";
+
+  for (const item of items) {
+    const entry = document.createElement("li");
+    entry.textContent = item;
+    list.append(entry);
+  }
+
+  return list;
+}
+
+function getRecentActivityForDrawer(channelId) {
+  return automationActivityItems.filter((item) => item.channelId === channelId).slice(0, 5);
+}
+
+function createDrawerActivityList(channelId) {
+  const items = getRecentActivityForDrawer(channelId);
+
+  if (items.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty compact-empty";
+    empty.textContent = automationActivityItems.length === 0
+      ? "Recent automation activity has not loaded yet, or no events have been recorded."
+      : "No recent automation activity is loaded for this channel.";
+    return empty;
+  }
+
+  const list = document.createElement("div");
+  list.className = "channel-action-activity-list";
+
+  for (const item of items) {
+    list.append(createAutomationActivityItem(item));
+  }
+
+  return list;
+}
+
+function setDrawerHash(channelId) {
+  const nextHash = `channel-intelligence=${encodeURIComponent(channelId)}`;
+
+  if (window.location.hash.slice(1) !== nextHash) {
+    window.history.replaceState(null, "", `#${nextHash}`);
+  }
+}
+
+function getDrawerChannelIdFromHash() {
+  const hash = window.location.hash.slice(1);
+  const match = hash.match(/^channel-intelligence=(.+)$/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+function clearDrawerHash() {
+  if (window.location.hash.startsWith("#channel-intelligence=")) {
+    window.history.replaceState(null, "", window.location.pathname + window.location.search);
+  }
+}
+
+function ensureChannelSetupChannelOption(channel) {
+  if (!channelSetupChannel || !channel?.channelId) {
+    return false;
+  }
+
+  if (!Array.from(channelSetupChannel.options).some((option) => option.value === channel.channelId)) {
+    const option = document.createElement("option");
+    option.value = channel.channelId;
+    option.textContent = `#${channel.channelName} (${channel.channelType})`;
+    channelSetupChannel.append(option);
+  }
+
+  return true;
+}
+
+function openChannelProfileSetupFromDrawer(channel) {
+  closeChannelActionDrawer();
+  openChannelSetupAssistant();
+  ensureChannelSetupChannelOption(channel);
+
+  if (channelSetupChannel) {
+    channelSetupChannel.value = channel.channelId;
+    applySavedChannelProfileToAssistant(channel.channelId);
+    renderChannelSetupAssistant();
+  }
+
+  setActiveControlTab("overview");
+  window.requestAnimationFrame(() => {
+    document.querySelector("#channel-setup-assistant")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function highlightManagedChannel(channelId, selector) {
+  window.requestAnimationFrame(() => {
+    const target = document.querySelector(selector);
+
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("is-channel-action-target");
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    window.setTimeout(() => target.classList.remove("is-channel-action-target"), 2200);
+  });
+}
+
+function highlightOpportunityTarget(selector) {
+  window.requestAnimationFrame(() => {
+    const target = document.querySelector(selector);
+
+    if (!target) {
+      return;
+    }
+
+    target.classList.add("is-opportunity-context-target");
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    window.setTimeout(() => target.classList.remove("is-opportunity-context-target"), 2600);
+  });
+}
+
+function openAutomationControlsFromDrawer(channel) {
+  closeChannelActionDrawer();
+  setActiveControlTab("channels");
+  if (channelOperationsFilter) {
+    channelOperationsFilter.value = "all";
+  }
+  renderChannelOperations();
+  highlightManagedChannel(channel.channelId, `[data-channel-operation-id="${channel.channelId}"]`);
+}
+
+function openFeedConfigFromDrawer(channel) {
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("channels", "automation-scheduled-posts"));
+
+  const existingFeed = feeds.find((feed) => feed.channelId === channel.channelId);
+
+  if (existingFeed) {
+    populateFeedForm(existingFeed);
+    return;
+  }
+
+  resetFeedForm();
+  setPresetOrManualChannel(feedForm, channel.channelId);
+  showFeedForm();
+  setFeedStatus(`Draft prepared for ${channel.channelName}. Review before saving.`);
+  window.requestAnimationFrame(() => {
+    feedForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function openDailyTriviaFromDrawer(channel) {
+  const preset = findPresetForChannel(channel.channelId);
+
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("channels", "automation-daily-trivia"));
+  configureDailyTrivia();
+
+  if (preset) {
+    dailyTriviaForm.elements.channelPreset.value = preset.channelId;
+    setDailyTriviaStatus(`Daily trivia form targeted to ${channel.channelName}. Review before saving.`);
+  } else {
+    setDailyTriviaStatus("This channel is not in the dashboard channel preset list, so Daily Trivia cannot preselect it yet.", "error");
+  }
+}
+
+function openRolePanelFromDrawer(channel) {
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons"));
+
+  const panel = roleAccessPanels.find(
+    (entry) => entry.targetChannelId === channel.channelId || channel.roleWorkflows.relevantRoleIds.includes(entry.roleId),
+  );
+
+  if (panel) {
+    populateRoleAccessPanelForm(panel);
+    return;
+  }
+
+  createRoleAccessPanelDraft();
+  setRoleAccessPanelStatus("No matching role signup button exists yet. Blank draft opened; review before saving.");
+}
+
+function openRoleFollowupsFromDrawer(channel) {
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("access", "community-role-followups"));
+
+  const followup = roleFollowups.find(
+    (entry) => entry.channelId === channel.channelId || channel.roleWorkflows.relevantRoleIds.includes(entry.roleId),
+  );
+
+  if (followup) {
+    populateRoleFollowupForm(followup);
+    return;
+  }
+
+  createRoleFollowupDraft();
+  roleFollowupForm.elements.channelId.value = channel.channelId;
+  const firstRoleId = channel.roleWorkflows.relevantRoleIds[0];
+  if (firstRoleId) {
+    roleFollowupForm.elements.roleId.value = firstRoleId;
+  }
+  syncDiscordMetadataSelections();
+  renderRoleFollowupPreview();
+  setRoleFollowupStatus("No matching role follow-up exists yet. Draft opened; review before saving.");
+}
+
+function openManualContentFromDrawer(channel) {
+  const preset = findPresetForChannel(channel.channelId);
+
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
+
+  if (preset) {
+    manualPushForm.elements.channelPreset.value = preset.channelId;
+    syncManualPushPresetSelection(true);
+    setManualPushStatus(`Manual content form targeted to ${channel.channelName}. Review before sending.`);
+  } else {
+    setManualPushStatus("This channel is not in the dashboard channel preset list, so manual generated content cannot preselect it yet.", "error");
+  }
+}
+
+function openComposerFromDrawer(channel) {
+  closeChannelActionDrawer();
+  navigateMissionAction(createMissionNavigation("push", "post-now-message"));
+
+  if (Array.from(composerForm.elements.channelId.options).some((option) => option.value === channel.channelId)) {
+    composerForm.elements.channelId.value = channel.channelId;
+    syncDiscordMetadataSelections();
+    setComposerStatus(`Composer targeted to ${channel.channelName}. Review before posting.`);
+  } else {
+    setComposerStatus("This channel is not available in the composer channel list, so it cannot be preselected yet.", "error");
+  }
+}
+
+function createDrawerActionButton(label, handler, options = {}) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = options.secondary === false ? "" : "secondary";
+  button.textContent = label;
+  button.disabled = options.disabled === true;
+  if (options.title) {
+    button.title = options.title;
+  }
+  button.addEventListener("click", handler);
+  return button;
+}
+
+function createDrawerActions(channel) {
+  const actions = document.createElement("div");
+  const hasPreset = Boolean(findPresetForChannel(channel.channelId));
+  actions.className = "channel-action-buttons";
+
+  actions.append(
+    createDrawerActionButton("Go to Profile Setup", () => openChannelProfileSetupFromDrawer(channel)),
+    createDrawerActionButton("Manage Automation", () => openAutomationControlsFromDrawer(channel)),
+    createDrawerActionButton("Manage Feeds", () => openFeedConfigFromDrawer(channel)),
+    createDrawerActionButton("Daily Trivia", () => openDailyTriviaFromDrawer(channel), {
+      disabled: !hasPreset,
+      title: hasPreset ? "" : "Daily Trivia currently uses dashboard channel presets only.",
+    }),
+    createDrawerActionButton("Role Panels", () => openRolePanelFromDrawer(channel)),
+    createDrawerActionButton("Role Follow-Ups", () => openRoleFollowupsFromDrawer(channel)),
+    createDrawerActionButton("Manual Content", () => openManualContentFromDrawer(channel), {
+      disabled: !hasPreset,
+      title: hasPreset ? "" : "Manual generated content currently uses dashboard channel presets only.",
+    }),
+    createDrawerActionButton("Composer", () => openComposerFromDrawer(channel), {
+      disabled: !Array.from(composerForm.elements.channelId.options).some((option) => option.value === channel.channelId),
+      title: "Composer can preselect channels available in loaded Discord metadata.",
+    }),
+  );
+
+  return actions;
+}
+
+function getActionTarget(action) {
+  return action?.targetDashboardSection ?? action?.target ?? "none";
+}
+
+function runDrawerAction(channel, action) {
+  const target = getActionTarget(action);
+
+  if (target === "profile" || target === "topic") {
+    openChannelProfileSetupFromDrawer(channel);
+    return;
+  }
+
+  if (target === "automation") {
+    openAutomationControlsFromDrawer(channel);
+    return;
+  }
+
+  if (target === "feeds") {
+    openFeedConfigFromDrawer(channel);
+    return;
+  }
+
+  if (target === "daily-trivia") {
+    openDailyTriviaFromDrawer(channel);
+    return;
+  }
+
+  if (target === "role-workflows") {
+    openRolePanelFromDrawer(channel);
+    return;
+  }
+
+  if (target === "activity") {
+    closeChannelActionDrawer();
+    navigateMissionAction(createMissionNavigation("overview", "dashboard-recent-problems"));
+    return;
+  }
+
+  if (target === "manual-content") {
+    openManualContentFromDrawer(channel);
+    return;
+  }
+
+  if (target === "composer") {
+    openComposerFromDrawer(channel);
+    return;
+  }
+
+  openChannelProfileSetupFromDrawer(channel);
+}
+
+function createDrawerRecommendedActions(channel) {
+  const actions = Array.isArray(channel.recommendedActions) && channel.recommendedActions.length > 0
+    ? channel.recommendedActions
+    : [
+        {
+          id: "fallback-next-action",
+          label: channel.recommendedNextAction.label,
+          targetDashboardSection: channel.recommendedNextAction.target,
+          priority: channel.recommendedNextAction.target === "none" ? "low" : "medium",
+          reason: channel.recommendedNextAction.reason,
+        },
+      ];
+  const list = document.createElement("div");
+  list.className = "channel-action-recommended-actions";
+
+  for (const action of actions) {
+    const row = document.createElement("article");
+    const copy = document.createElement("div");
+    const title = document.createElement("div");
+    const label = document.createElement("strong");
+    const priority = createStatusBadge(action.priority ?? "medium", action.priority === "high" ? "blocked" : action.priority === "low" ? "neutral" : "active");
+    const reason = document.createElement("p");
+    const button = document.createElement("button");
+
+    row.className = "channel-action-recommended-action";
+    copy.className = "channel-action-recommended-copy";
+    title.className = "channel-action-recommended-title";
+    label.textContent = action.label ?? "Review channel";
+    reason.textContent = action.reason ?? "Review this existing dashboard workflow.";
+    button.type = "button";
+    button.className = "secondary";
+    button.textContent = "Open";
+    button.addEventListener("click", () => runDrawerAction(channel, action));
+
+    title.append(label, priority);
+    copy.append(title, reason);
+    row.append(copy, button);
+    list.append(row);
+  }
+
+  return list;
+}
+
+function openChannelActionDrawer(channelId, options = {}) {
+  const channel = getChannelIntelligenceById(channelId);
+
+  if (!channel || !channelActionDrawer || !channelActionDrawerBody) {
+    return;
+  }
+
+  activeChannelActionChannelId = channelId;
+  closeOpportunityActionDrawer({ preserveHash: true });
+  channelActionDrawer.hidden = false;
+  channelActionDrawerHealth.textContent = channel.healthLabel;
+  channelActionDrawerHealth.className = `status-badge ${getChannelIntelligenceTone(channel.healthLabel)}`;
+  channelActionDrawerTitle.textContent = `#${channel.channelName}`;
+  channelActionDrawerSummary.textContent = `${channel.channelType} • ${channel.channelId}`;
+  channelActionDrawerBody.replaceChildren();
+
+  const summary = document.createElement("dl");
+  summary.className = "channel-action-summary-grid";
+  for (const [term, value] of getChannelIntelligenceDetailLines(channel)) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = value;
+    summary.append(dt, dd);
+  }
+
+  const healthReasons = Array.isArray(channel.healthReasons) && channel.healthReasons.length > 0
+    ? channel.healthReasons
+    : [getChannelHealthReason(channel)];
+  const detectedGaps = Array.isArray(channel.detectedGaps)
+    ? channel.detectedGaps
+    : getChannelDetectedGaps(channel);
+  const configuredFeatures = Array.isArray(channel.configuredFeatures)
+    ? channel.configuredFeatures
+    : getChannelExistingFeatures(channel);
+  const managementLimitations = Array.isArray(channel.managementLimitations)
+    ? channel.managementLimitations
+    : [];
+
+  const recommendation = document.createElement("div");
+  recommendation.className = "channel-action-recommendation";
+  const recommendationTitle = document.createElement("strong");
+  const recommendationReason = document.createElement("p");
+  recommendationTitle.textContent = channel.recommendedNextAction.label;
+  recommendationReason.textContent = channel.recommendedNextAction.reason;
+  recommendation.append(recommendationTitle, recommendationReason);
+
+  const trustMeta = createMissionTrustMeta([
+    { label: "Source", value: channel.trust?.sources?.join(", ") },
+    { label: "Confidence", value: channel.trust?.confidence ?? "medium" },
+    { label: "Freshness", value: channel.trust?.freshness ?? `generated ${formatRelativeTime(channelIntelligence?.generatedAt)}` },
+  ]);
+
+  const fallback = document.createElement("p");
+  fallback.className = "channel-action-fallback";
+  fallback.textContent = (channel.manageable === true || findPresetForChannel(channel.channelId) || guildChannels.some((entry) => entry.id === channel.channelId))
+    ? "Actions below route to existing dashboard controls. Review any prepared forms before saving or posting."
+    : "Some controls cannot preselect this channel because the current dashboard only manages certain workflows through channel presets or loaded sendable channel metadata.";
+
+  channelActionDrawerBody.append(
+    createDrawerSection("Channel Summary", summary),
+    createDrawerSection("Why This Health Label", createDrawerList(healthReasons, "No health reason was provided.")),
+    createDrawerSection("Recommended Next Action", recommendation),
+    createDrawerSection("Recommended Actions", createDrawerRecommendedActions(channel)),
+    createDrawerSection("Detected Gaps", createDrawerList(detectedGaps, "No operational readiness gaps detected from the available data.")),
+    createDrawerSection("Configured Features", createDrawerList(configuredFeatures, "No configured features detected for this channel yet.")),
+    createDrawerSection("Engagement Snapshot", createEngagementSnapshot(channel)),
+    createDrawerSection("Recent Relevant Activity", createDrawerActivityList(channel.channelId)),
+    createDrawerSection("Management Limitations", createDrawerList(managementLimitations, "No management limitations reported for this channel.")),
+    createDrawerSection("Source / Trust", trustMeta),
+    createDrawerSection("Navigation", createDrawerActions(channel)),
+    fallback,
+  );
+
+  if (!options.skipHash) {
+    setDrawerHash(channelId);
+  }
+
+  window.requestAnimationFrame(() => {
+    channelActionDrawer.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function closeChannelActionDrawer(options = {}) {
+  activeChannelActionChannelId = null;
+  if (channelActionDrawer) {
+    channelActionDrawer.hidden = true;
+  }
+  if (!options.preserveHash) {
+    clearDrawerHash();
+  }
+}
+
+function createChannelIntelligenceCard(channel) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const heading = document.createElement("div");
+  const title = document.createElement("h3");
+  const subtitle = document.createElement("p");
+  const badges = document.createElement("div");
+  const details = document.createElement("dl");
+  const recommendation = document.createElement("div");
+  const recommendationTitle = document.createElement("strong");
+  const recommendationReason = document.createElement("p");
+  const trustMeta = createMissionTrustMeta([
+    { label: "Source", value: channel.trust?.sources?.slice(0, 4).join(", ") },
+    { label: "Confidence", value: channel.trust?.confidence ?? "medium" },
+    { label: "Freshness", value: channel.trust?.freshness ?? `generated ${formatRelativeTime(channelIntelligence?.generatedAt)}` },
+  ]);
+  const actionButton = document.createElement("button");
+
+  card.className = `channel-intelligence-card health-${String(channel.healthLabel).replace(/\s+/g, "-")}`;
+  card.dataset.channelIntelligenceId = channel.channelId;
+  card.tabIndex = 0;
+  card.setAttribute("role", "button");
+  card.setAttribute("aria-label", `Open action details for ${channel.channelName}`);
+  header.className = "channel-intelligence-card-header";
+  heading.className = "channel-intelligence-heading";
+  badges.className = "channel-operation-badges";
+  details.className = "channel-intelligence-details";
+  recommendation.className = "channel-intelligence-recommendation";
+
+  title.textContent = channel.channelName;
+  subtitle.textContent = `${channel.channelType} • ${channel.channelId}`;
+  badges.append(
+    createStatusBadge(channel.healthLabel, getChannelIntelligenceTone(channel.healthLabel)),
+    createStatusBadge(channel.engagement?.engagementLabel ?? "engagement unknown", getEngagementTone(channel.engagement?.engagementLabel)),
+    createStatusBadge(channel.recommendedNextAction.target, "neutral"),
+  );
+
+  for (const [term, value] of getChannelIntelligenceDetailLines(channel)) {
+    const dt = document.createElement("dt");
+    const dd = document.createElement("dd");
+    dt.textContent = term;
+    dd.textContent = value;
+    details.append(dt, dd);
+  }
+
+  recommendationTitle.textContent = channel.recommendedNextAction.label;
+  recommendationReason.textContent = channel.recommendedNextAction.reason;
+  recommendation.append(recommendationTitle, recommendationReason);
+
+  actionButton.type = "button";
+  actionButton.className = "secondary";
+  actionButton.textContent = "Open Action Drawer";
+  actionButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openChannelActionDrawer(channel.channelId);
+  });
+  card.addEventListener("click", () => openChannelActionDrawer(channel.channelId));
+  card.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      openChannelActionDrawer(channel.channelId);
+    }
+  });
+
+  heading.append(title, subtitle);
+  header.append(heading, badges);
+  card.append(header, details, recommendation, trustMeta, actionButton);
+  return card;
+}
+
+function renderChannelIntelligence() {
+  if (!channelIntelligenceList) {
+    return;
+  }
+
+  renderChannelIntelligenceSummary();
+  channelIntelligenceList.replaceChildren();
+
+  if (channelIntelligenceLoadError) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = `Channel intelligence is unavailable. ${channelIntelligenceLoadError}`;
+    channelIntelligenceList.append(emptyState);
+    return;
+  }
+
+  if (channelIntelligence && channelIntelligence.metadataAvailable === false) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "Discord channel metadata is unavailable, so CDawg cannot derive channel intelligence yet. Start the bot API with Discord access and refresh.";
+    channelIntelligenceList.append(emptyState);
+    return;
+  }
+
+  const channels = getChannelIntelligenceFilteredItems();
+
+  if (channels.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = channelIntelligence
+      ? "No channels match the selected health filter."
+      : "Channel intelligence has not loaded yet.";
+    channelIntelligenceList.append(emptyState);
+    return;
+  }
+
+  for (const channel of channels) {
+    channelIntelligenceList.append(createChannelIntelligenceCard(channel));
+  }
+
+  if (activeChannelActionChannelId) {
+    openChannelActionDrawer(activeChannelActionChannelId, { skipHash: true });
+  }
+}
+
 function getProviderFailureCount() {
   const failures = lastMetricsSnapshot?.contentProviders?.apiFailureCounts;
 
@@ -2111,27 +3919,43 @@ function setActiveContentStudioMode(mode) {
   }
 }
 
+function createMissionTrustMeta(items) {
+  const meta = document.createElement("div");
+  meta.className = "mission-trust-meta";
+
+  for (const item of items.filter((entry) => entry?.value)) {
+    const pill = document.createElement("span");
+    pill.textContent = `${item.label}: ${item.value}`;
+    meta.append(pill);
+  }
+
+  return meta;
+}
+
 function createMissionActionCard(opportunity) {
   const card = document.createElement("article");
   const header = document.createElement("div");
   const title = document.createElement("h3");
   const badge = createStatusBadge(opportunity.severity, getMissionSeverityTone(opportunity.severity));
   const detail = document.createElement("p");
-  const source = document.createElement("small");
+  const trustMeta = createMissionTrustMeta([
+    { label: "Source", value: opportunity.source },
+    { label: "Confidence", value: opportunity.confidence ?? "deterministic check" },
+    { label: "Freshness", value: opportunity.freshness ?? "current dashboard refresh" },
+  ]);
   const action = document.createElement("button");
 
   card.className = `mission-action-card mission-severity-${opportunity.severity.replace(/\s+/g, "-")}`;
   header.className = "mission-action-card-header";
   title.textContent = opportunity.name;
   detail.textContent = opportunity.detail;
-  source.textContent = `Source: ${opportunity.source}`;
   action.type = "button";
   action.className = "secondary";
   action.textContent = opportunity.actionLabel;
   action.addEventListener("click", () => navigateMissionAction(opportunity.navigation));
 
   header.append(title, badge);
-  card.append(header, detail, source, action);
+  card.append(header, detail, trustMeta, action);
   return card;
 }
 
@@ -2335,7 +4159,7 @@ function createDiscoveryCardId(source, key) {
   return `${normalizedSource}:${normalizedKey || "card"}`;
 }
 
-const SHOW_MOCK_DISCOVERY_CARDS = true;
+const SHOW_MOCK_DISCOVERY_CARDS = window.localStorage.getItem(mockDiscoveryStorageKey) === "true";
 
 function createDiscoveryCardNavigation() {
   return createMissionNavigation("push", "content-discovery-review");
@@ -2836,6 +4660,48 @@ function createDiscoveryWorkflowMenu(item) {
   return details;
 }
 
+function getDiscoveryConfidenceLabel(item) {
+  if (item?.isMock) {
+    return "demo only";
+  }
+
+  if (item?.workflowItemId) {
+    return item.safetyStatus === "needs-review" ? "persisted, needs review" : "persisted source item";
+  }
+
+  return "current dashboard state";
+}
+
+function getDiscoveryFreshnessLabel(item) {
+  const timestamp = item?.publishedAt ?? item?.discoveredAt ?? item?.workflowUpdatedAt;
+
+  if (typeof timestamp === "number" && Number.isFinite(timestamp) && timestamp > 0) {
+    return `${formatTimestamp(timestamp)} (${formatRelativeTime(timestamp)})`;
+  }
+
+  if (item?.sourceName === "Today in History") {
+    return historyReview?.dateLabel ?? historyReview?.dateKey ?? "today's preview";
+  }
+
+  if (item?.sourceName === "Daily Trivia") {
+    return "current automation status";
+  }
+
+  if (item?.sourceName === "Upcoming Scheduled Posts") {
+    return "current feed schedule";
+  }
+
+  if (item?.sourceName === "Saved Messages") {
+    return "current saved templates";
+  }
+
+  if (item?.sourceName === "Underused Content Types") {
+    return "current metrics snapshot";
+  }
+
+  return null;
+}
+
 function createContentDiscoveryCard(item) {
   const card = document.createElement("article");
   const header = document.createElement("div");
@@ -2856,6 +4722,12 @@ function createContentDiscoveryCard(item) {
   const channelDetail = document.createElement("dd");
   const reasonTerm = document.createElement("dt");
   const reasonDetail = document.createElement("dd");
+  const sourceTerm = document.createElement("dt");
+  const sourceDetail = document.createElement("dd");
+  const confidenceTerm = document.createElement("dt");
+  const confidenceDetail = document.createElement("dd");
+  const freshnessTerm = document.createElement("dt");
+  const freshnessDetail = document.createElement("dd");
   const actions = document.createElement("div");
   const reviewAction = item.actions.find((entry) => entry.id === "review") ?? item.actions[0];
   const action = document.createElement("button");
@@ -2875,6 +4747,12 @@ function createContentDiscoveryCard(item) {
   reasonTerm.textContent = "Why CDawg suggested it";
   reasonDetail.textContent = formatDiscoveryReason(item.suggestedReason);
   reasonDetail.className = "mission-discovery-reason";
+  sourceTerm.textContent = "Source";
+  sourceDetail.textContent = getDiscoverySourceLabel(item);
+  confidenceTerm.textContent = "Confidence";
+  confidenceDetail.textContent = getDiscoveryConfidenceLabel(item);
+  freshnessTerm.textContent = "Freshness";
+  freshnessDetail.textContent = getDiscoveryFreshnessLabel(item) ?? "current dashboard refresh";
   action.type = "button";
   action.className = "secondary";
   action.textContent = reviewAction?.label ?? "Review";
@@ -2895,7 +4773,18 @@ function createContentDiscoveryCard(item) {
   if (thumbnail) {
     card.append(thumbnail);
   }
-  context.append(channelTerm, channelDetail, reasonTerm, reasonDetail);
+  context.append(
+    channelTerm,
+    channelDetail,
+    sourceTerm,
+    sourceDetail,
+    confidenceTerm,
+    confidenceDetail,
+    freshnessTerm,
+    freshnessDetail,
+    reasonTerm,
+    reasonDetail,
+  );
   actions.append(contentTypeBadge, action);
   if (workflowMenu) {
     actions.append(workflowMenu);
@@ -3064,6 +4953,12 @@ function createContentDiscoveryReviewDetail(card) {
   const channelDetail = document.createElement("dd");
   const reasonTerm = document.createElement("dt");
   const reasonDetail = document.createElement("dd");
+  const sourceTerm = document.createElement("dt");
+  const sourceDetail = document.createElement("dd");
+  const confidenceTerm = document.createElement("dt");
+  const confidenceDetail = document.createElement("dd");
+  const freshnessTerm = document.createElement("dt");
+  const freshnessDetail = document.createElement("dd");
   const scoreTerm = document.createElement("dt");
   const scoreDetail = document.createElement("dd");
   const typeTerm = document.createElement("dt");
@@ -3093,6 +4988,12 @@ function createContentDiscoveryReviewDetail(card) {
   channelDetail.textContent = card.suggestedChannel?.label ?? "Choose when preparing";
   reasonTerm.textContent = "Why CDawg suggested it";
   reasonDetail.textContent = formatDiscoveryReason(card.suggestedReason);
+  sourceTerm.textContent = "Source";
+  sourceDetail.textContent = getDiscoverySourceLabel(card);
+  confidenceTerm.textContent = "Confidence";
+  confidenceDetail.textContent = getDiscoveryConfidenceLabel(card);
+  freshnessTerm.textContent = "Freshness";
+  freshnessDetail.textContent = getDiscoveryFreshnessLabel(card) ?? "current dashboard refresh";
   scoreTerm.textContent = "Ranking score";
   scoreDetail.textContent = scoreLabel || "Not scored";
   typeTerm.textContent = "Suggested content type";
@@ -3145,7 +5046,22 @@ function createContentDiscoveryReviewDetail(card) {
   }
   heading.append(title, description);
   header.append(heading, badges);
-  details.append(channelTerm, channelDetail, reasonTerm, reasonDetail, scoreTerm, scoreDetail, typeTerm, typeDetail);
+  details.append(
+    channelTerm,
+    channelDetail,
+    sourceTerm,
+    sourceDetail,
+    confidenceTerm,
+    confidenceDetail,
+    freshnessTerm,
+    freshnessDetail,
+    reasonTerm,
+    reasonDetail,
+    scoreTerm,
+    scoreDetail,
+    typeTerm,
+    typeDetail,
+  );
   actions.prepend(prepareButton, generateButton);
   if (workflowMenu) {
     actions.append(workflowMenu);
@@ -3720,8 +5636,8 @@ function renderMissionFoundItems() {
     const emptyState = document.createElement("p");
     emptyState.className = "mission-found-empty channel-operation-empty";
     emptyState.textContent = discoveryItemsLoadError
-      ? `Persisted discovery items failed to load. Local suggestions are still available where possible. ${discoveryItemsLoadError}`
-      : "I don't have any content suggestions yet. Try adding scheduled posts or checking Content Studio.";
+      ? `Persisted discovery items failed to load, so no saved discovery finds can be shown. ${discoveryItemsLoadError}`
+      : "No real content finds are available yet. Add RSS discovery sources, create scheduled posts, save message templates, or configure Daily Trivia to give Mission Control real opportunities to surface.";
     missionFoundList.append(emptyState);
     if (activeContentStudioMode === "discovery") {
       renderContentDiscoveryReview();
@@ -4369,6 +6285,7 @@ async function saveChannelSetupProfile() {
     applySavedChannelProfileToAssistant(payload.channelId);
     renderChannelSetupAssistant();
     renderMissionControl();
+    await loadChannelIntelligence();
     setChannelSetupAssistantStatus("channel profile saved", "active");
   } catch (error) {
     setChannelSetupAssistantStatus(`Profile save failed: ${error.message}`, "blocked");
@@ -4405,6 +6322,7 @@ async function deleteChannelSetupProfile() {
     channelProfiles = Array.isArray(data.channelProfiles) ? data.channelProfiles : [];
     resetChannelSetupAssistant({ preserveChannel: true });
     renderMissionControl();
+    await loadChannelIntelligence();
     setChannelSetupAssistantStatus("channel profile deleted", "active");
   } catch (error) {
     setChannelSetupAssistantStatus(`Profile delete failed: ${error.message}`, "blocked");
@@ -4742,6 +6660,7 @@ function renderMissionControl() {
 
   renderMissionFoundItems();
   renderMissionChannelProfiles();
+  renderBackendOpportunities();
 
   missionActionList.replaceChildren();
   if (actionNeeded.length === 0) {
@@ -5073,6 +6992,7 @@ function createAutomationActivityItem(item) {
 
   meta.append(
     createAutomationDetailLine("When", formatTimestamp(item.timestamp)),
+    createAutomationDetailLine("Freshness", formatRelativeTime(item.timestamp)),
     createAutomationDetailLine("Channel", getActivityChannelLabel(item)),
     createAutomationDetailLine("Source", item.source ?? "unknown"),
   );
@@ -5375,6 +7295,7 @@ function renderChannelOperations() {
     const lastSend = document.createElement("p");
 
     row.className = "channel-row";
+    row.dataset.channelOperationId = channelStatus.channelId;
     row.classList.add(channelStatus.blockedReason ? `state-${channelStatus.blockedReason}` : "state-active");
     summary.className = "channel-row-summary";
     summaryMain.className = "channel-row-summary-main";
@@ -6426,11 +8347,13 @@ async function loadHealth() {
     lastHealthSnapshot = data;
     renderHealthCards(data);
     renderOpsSnapshot();
+    renderEngagementDashboard();
     setPrettyJson(healthOutput, data);
   } catch (error) {
     lastHealthSnapshot = { ok: false, botReady: false };
     healthCards.replaceChildren(createHealthCard("Health", "Unavailable", "bad"));
     renderOpsSnapshot();
+    renderEngagementDashboard();
     healthOutput.textContent = `Failed to load health.\n${error.message}`;
   }
 }
@@ -6606,11 +8529,13 @@ async function loadChannelProfiles() {
     renderChannelSetupAssistant();
     renderMissionControl();
     renderContentSourceLibrary();
+    renderChannelIntelligence();
   } catch (error) {
     channelProfiles = [];
     renderChannelSetupAssistant();
     renderMissionControl();
     renderContentSourceLibrary();
+    renderChannelIntelligence();
     setChannelSetupAssistantStatus(`Channel profiles failed to load: ${error.message}`, "blocked");
   }
 }
@@ -6724,6 +8649,69 @@ async function loadChannelOperations() {
     renderChannelSetupAssistant();
     renderOpsSnapshot();
     channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
+  }
+}
+
+async function loadChannelIntelligence() {
+  try {
+    const data = await fetchJson("/api/channel-intelligence");
+    channelIntelligence = data;
+    channelIntelligenceLoadError = null;
+    renderChannelIntelligence();
+    renderEngagementDashboard();
+    const hashChannelId = getDrawerChannelIdFromHash();
+    if (hashChannelId && getChannelIntelligenceById(hashChannelId)) {
+      openChannelActionDrawer(hashChannelId, { skipHash: true });
+    }
+  } catch (error) {
+    channelIntelligence = null;
+    channelIntelligenceLoadError = error.message;
+    renderChannelIntelligence();
+    renderEngagementDashboard();
+  }
+}
+
+async function loadEngagementSummary() {
+  try {
+    const data = await fetchJson("/api/engagement-summary");
+    engagementSummary = data;
+    engagementSummaryLoadError = null;
+    renderEngagementDashboard();
+  } catch (error) {
+    engagementSummary = null;
+    engagementSummaryLoadError = error.message;
+    renderEngagementDashboard();
+  }
+}
+
+async function loadContentOutcomes() {
+  try {
+    const data = await fetchJson("/api/content-outcomes?limit=50");
+    contentOutcomes = Array.isArray(data.items) ? data.items : [];
+    contentOutcomesLoadError = null;
+    renderContentOutcomes();
+  } catch (error) {
+    contentOutcomes = [];
+    contentOutcomesLoadError = error.message;
+    renderContentOutcomes();
+  }
+}
+
+async function loadOpportunities() {
+  try {
+    const data = await fetchJson("/api/opportunities");
+    backendOpportunities = Array.isArray(data.opportunities) ? data.opportunities : [];
+    backendOpportunitiesLoadError = null;
+    renderBackendOpportunities();
+    restoreOpportunityContextFromUrl();
+    const hashOpportunityId = getOpportunityIdFromHash();
+    if (hashOpportunityId && getOpportunityById(hashOpportunityId)) {
+      openOpportunityActionDrawer(hashOpportunityId, { skipHash: true });
+    }
+  } catch (error) {
+    backendOpportunities = [];
+    backendOpportunitiesLoadError = error.message;
+    renderBackendOpportunities();
   }
 }
 
@@ -6940,7 +8928,7 @@ async function saveDailyTriviaChallenge(event) {
     renderDailyTriviaChallenge();
     setPrettyJson(dailyTriviaOutput, data);
     setDailyTriviaStatus("Daily trivia saved.", "success");
-    await loadChannelOperations();
+    await Promise.all([loadChannelOperations(), loadChannelIntelligence()]);
   } catch (error) {
     setDailyTriviaStatus(`Daily trivia save failed: ${error.message}`, "error");
   }
@@ -6982,7 +8970,7 @@ async function saveFeed(event) {
     setPrettyJson(feedsOutput, data);
     setFeedStatus(feedId ? "Scheduled post updated." : "Scheduled post created.", "success");
     resetFeedForm();
-    await Promise.all([loadFeeds(), loadChannelOperations()]);
+    await Promise.all([loadFeeds(), loadChannelOperations(), loadChannelIntelligence()]);
   } catch (error) {
     setFeedStatus(`Scheduled post save failed: ${error.message}`, "error");
   }
@@ -7014,6 +9002,7 @@ async function saveRoleAccessPanel(event) {
     renderRoleAccessPanels();
     populateRoleAccessPanelForm(data.panel);
     setPrettyJson(roleAccessPanelsOutput, data);
+    await loadChannelIntelligence();
     setRoleAccessPanelStatus("Draft saved.", "success");
   } catch (error) {
     setRoleAccessPanelStatus(`Save failed: ${error.message}`, "error");
@@ -7091,6 +9080,7 @@ async function deleteRoleAccessPanel(panelId) {
     if (roleAccessPanelForm.elements.id.value.trim() === panelId) {
       resetRoleAccessPanelForm();
     }
+    await loadChannelIntelligence();
     setRoleAccessPanelStatus(`Deleted ${panelId}.`, "success");
   } catch (error) {
     setRoleAccessPanelStatus(`Delete failed: ${error.message}`, "error");
@@ -7123,6 +9113,7 @@ async function saveRoleFollowup(event) {
     renderRoleFollowups();
     populateRoleFollowupForm(data.followup);
     setPrettyJson(roleFollowupsOutput, data);
+    await loadChannelIntelligence();
     setRoleFollowupStatus("Follow-up saved.", "success");
   } catch (error) {
     setRoleFollowupStatus(`Save failed: ${error.message}`, "error");
@@ -7153,6 +9144,7 @@ async function deleteRoleFollowup(followupId) {
     if (roleFollowupForm.elements.id.value.trim() === followupId) {
       resetRoleFollowupForm();
     }
+    await loadChannelIntelligence();
     setRoleFollowupStatus(`Deleted ${followupId}.`, "success");
   } catch (error) {
     setRoleFollowupStatus(`Delete failed: ${error.message}`, "error");
@@ -7184,7 +9176,7 @@ async function setFeedEnabledState(feedId, enabled) {
     });
 
     setPrettyJson(feedsOutput, data);
-    await Promise.all([loadFeeds(), loadChannelOperations()]);
+    await Promise.all([loadFeeds(), loadChannelOperations(), loadChannelIntelligence()]);
   } catch (error) {
     feedsOutput.textContent = `Scheduled post toggle failed.\n${error.message}`;
   }
@@ -7206,7 +9198,7 @@ async function deleteFeed(feedId) {
     if (feedForm.elements.feedId.value === feedId) {
       resetFeedForm();
     }
-    await Promise.all([loadFeeds(), loadChannelOperations()]);
+    await Promise.all([loadFeeds(), loadChannelOperations(), loadChannelIntelligence()]);
   } catch (error) {
     feedsOutput.textContent = `Scheduled post delete failed.\n${error.message}`;
   }
@@ -7246,7 +9238,7 @@ async function applyChannelOperation(channelId, operation, durationMs) {
     });
 
     setPrettyJson(channelOperationsOutput, data);
-    await loadChannelOperations();
+    await Promise.all([loadChannelOperations(), loadChannelIntelligence()]);
   } catch (error) {
     channelOperationsOutput.textContent = `Channel operation failed.\n${error.message}`;
   }
@@ -7301,7 +9293,7 @@ async function toggleAutomationMaster() {
     applySettingsToForm(data.settings);
     renderAutomationMaster();
     setPrettyJson(settingsOutput, data);
-    await Promise.all([loadChannelOperations(), loadFeeds(), loadDailyTriviaChallenge()]);
+    await Promise.all([loadChannelOperations(), loadFeeds(), loadDailyTriviaChallenge(), loadChannelIntelligence()]);
   } catch (error) {
     automationMasterDetail.textContent = `Automation master update failed: ${error.message}`;
   }
@@ -7323,6 +9315,10 @@ async function reloadAll() {
     loadRoleAccessPanels(),
     loadRoleFollowups(),
     loadChannelProfiles(),
+    loadChannelIntelligence(),
+    loadEngagementSummary(),
+    loadContentOutcomes(),
+    loadOpportunities(),
     loadDiscoverySources(),
     loadDiscoveryItems(),
     loadComposerTemplates(),
@@ -7507,6 +9503,9 @@ taskCommunityButton.addEventListener("click", () => setActiveControlTab("access"
 taskRecentProblemsButton.addEventListener("click", jumpToRecentProblems);
 taskSettingsButton.addEventListener("click", () => setActiveControlTab("settings"));
 communityOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
+channelActionDrawerClose?.addEventListener("click", () => closeChannelActionDrawer());
+opportunityActionDrawerClose?.addEventListener("click", () => closeOpportunityActionDrawer());
+opportunityContextDismiss?.addEventListener("click", dismissOpportunityContext);
 refreshHealthButton.addEventListener("click", loadHealth);
 refreshSettingsButton.addEventListener("click", loadSettings);
 refreshMetricsButton.addEventListener("click", loadMetrics);
@@ -7514,6 +9513,7 @@ refreshChannelOperationsButton.addEventListener("click", loadChannelOperations);
 refreshFeedsButton.addEventListener("click", loadFeeds);
 refreshRoleAccessPanelsButton.addEventListener("click", loadRoleAccessPanels);
 refreshRoleFollowupsButton.addEventListener("click", loadRoleFollowups);
+refreshEngagementButton?.addEventListener("click", () => void Promise.all([loadEngagementSummary(), loadContentOutcomes()]));
 refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
@@ -7525,6 +9525,10 @@ createRoleAccessPanelButton?.addEventListener("click", createRoleAccessPanelDraf
 createRoleFollowupButton?.addEventListener("click", createRoleFollowupDraft);
 channelOperationsFilter.addEventListener("change", renderChannelOperations);
 channelOperationsSort.addEventListener("change", renderChannelOperations);
+channelIntelligenceFilter?.addEventListener("change", renderChannelIntelligence);
+engagementWindowFilter?.addEventListener("change", renderEngagementDashboard);
+engagementStatusFilter?.addEventListener("change", renderEngagementDashboard);
+contentOutcomesSourceFilter?.addEventListener("change", renderContentOutcomes);
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 missionOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
@@ -7546,6 +9550,19 @@ channelSetupOpenFollowupsButton?.addEventListener("click", prefillRoleFollowupFr
 channelSetupOpenFeedsButton?.addEventListener("click", prefillFeedFromChannelSetup);
 channelSetupOpenGenerateButton?.addEventListener("click", prefillManualPushFromChannelSetup);
 channelSetupResetButton?.addEventListener("click", resetChannelSetupAssistant);
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && channelActionDrawer && !channelActionDrawer.hidden) {
+    closeChannelActionDrawer();
+    return;
+  }
+
+  if (event.key === "Escape" && opportunityActionDrawer && !opportunityActionDrawer.hidden) {
+    closeOpportunityActionDrawer();
+  }
+});
+
+window.addEventListener("hashchange", handleDashboardHashChange);
 
 configureAutoRefresh();
 setActiveContentStudioMode(activeContentStudioMode);

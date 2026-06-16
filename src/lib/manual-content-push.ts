@@ -5,6 +5,7 @@ import type { ContentType } from "./content-provider.js";
 import type { Topic } from "../config/topics.js";
 import { getChannelAutomationStatus, getNextAutomatedContentPlan, recordAutomatedContentSend } from "../systems/channel-automation-status.js";
 import { recordAutomationActivity } from "../systems/automation-activity.js";
+import { recordContentOutcome, type ContentOutcomeSource } from "../systems/content-outcomes.js";
 import { formatThisDayInHistoryMessage } from "./history-content.js";
 import { postInteractiveTriviaSession, type TriviaSessionPresentation } from "./trivia-session.js";
 import { getEligibleTriviaItem, type TriviaIneligibilityCode } from "./trivia-topic-eligibility.js";
@@ -81,6 +82,26 @@ function getChannelName(channel: unknown) {
   return channel && typeof channel === "object" && "name" in channel && typeof channel.name === "string"
     ? channel.name
     : null;
+}
+
+function getOutcomeSource(source: ManualContentPushRequest["source"]): ContentOutcomeSource {
+  if (source === "scheduler") {
+    return "scheduler";
+  }
+
+  if (source === "feed") {
+    return "feed";
+  }
+
+  if (source === "daily-challenge") {
+    return "dailyTrivia";
+  }
+
+  if (source === "passive-chat") {
+    return "passiveChat";
+  }
+
+  return "manualPush";
 }
 
 function recordContentPushActivity(
@@ -226,6 +247,14 @@ export async function pushManualContentToChannel(
       message: `Sent ${request.contentType} content.`,
       channelName: getChannelName(channel),
     });
+    recordContentOutcome({
+      channelId: request.channelId,
+      channelName: getChannelName(channel),
+      source: getOutcomeSource(request.source),
+      contentType: request.contentType,
+      messageId: sentMessage.id,
+      label: request.triviaPresentation?.variant === "daily-challenge" ? "Daily trivia challenge" : "Trivia content",
+    });
 
     return {
       ok: true,
@@ -271,6 +300,14 @@ export async function pushManualContentToChannel(
     status: "success",
     message: `Sent ${request.contentType} content.`,
     channelName: getChannelName(channel),
+  });
+  recordContentOutcome({
+    channelId: request.channelId,
+    channelName: getChannelName(channel),
+    source: getOutcomeSource(request.source),
+    contentType: request.contentType,
+    messageId: sentMessage.id,
+    label: `${request.contentType} content`,
   });
 
   return {
@@ -357,6 +394,14 @@ export async function pushHistoryEventToChannel(
     channelName: getChannelName(channel),
     contentType: "history",
     message: "Sent history preview.",
+  });
+  recordContentOutcome({
+    channelId: request.channelId,
+    channelName: getChannelName(channel),
+    source: "historyPush",
+    contentType: "history",
+    messageId: sentMessage.id,
+    label: request.event.title,
   });
 
   return {

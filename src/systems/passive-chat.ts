@@ -12,6 +12,8 @@ import { recordPassiveChatTrigger } from "./bot-metrics.js";
 import { getDogPassivePrompt, getDogStatusSummary, recordDogPassivePrompt } from "./cdawg-dog.js";
 import { getAutomatedContentBlock } from "./channel-operations.js";
 import { recordAutomatedContentSend } from "./channel-automation-status.js";
+import { recordAutomationActivity } from "./automation-activity.js";
+import { recordContentOutcome } from "./content-outcomes.js";
 
 type ChannelPassiveState = {
   lastUserMessageAt: number;
@@ -39,6 +41,8 @@ type PassiveReplyCandidate =
 let lastPassiveReplyAt = 0;
 const lastPassiveReplyAtByChannelId = new Map<string, number>();
 const passiveStateByChannelId = new Map<string, ChannelPassiveState>();
+const recentPassiveBlockedActivityByKey = new Map<string, number>();
+const PASSIVE_BLOCKED_ACTIVITY_DEDUPE_MS = 60 * 60 * 1000;
 
 function logPassiveDecision(channelId: string, reason: string, details?: string, authorId?: string) {
   if (!getPassiveChatSettings().debugLogging) {
@@ -58,6 +62,17 @@ function logPassiveDecision(channelId: string, reason: string, details?: string,
   }
 
   console.log(`[passive-chat] ${parts.join(" ")}`);
+}
+
+function shouldRecordPassiveBlockedActivity(key: string, now: number) {
+  const lastRecordedAt = recentPassiveBlockedActivityByKey.get(key) ?? 0;
+
+  if (now - lastRecordedAt < PASSIVE_BLOCKED_ACTIVITY_DEDUPE_MS) {
+    return false;
+  }
+
+  recentPassiveBlockedActivityByKey.set(key, now);
+  return true;
 }
 
 function getOrCreateChannelState(channelId: string): ChannelPassiveState {
@@ -222,6 +237,18 @@ async function evaluatePassiveChatChannel(client: Client, channelId: string, now
       `skip.channel-${automationBlock.reason}`,
       `blockedUntil=${automationBlock.blockedUntil ?? "unknown"}`,
     );
+
+    const activityKey = `passive-chat:${channelId}:${automationBlock.reason}`;
+    if (shouldRecordPassiveBlockedActivity(activityKey, now)) {
+      recordAutomationActivity({
+        source: "passive-chat",
+        status: "blocked",
+        channelId,
+        contentType: candidate.kind === "smart" ? candidate.contentType : null,
+        blockedReason: automationBlock.reason,
+        message: `Passive chat was ready to reply but blocked by ${automationBlock.reason}.`,
+      });
+    }
     return;
   }
 
@@ -229,14 +256,37 @@ async function evaluatePassiveChatChannel(client: Client, channelId: string, now
 
   if (!channel || !channel.isTextBased() || !("send" in channel)) {
     logPassiveDecision(channelId, "skip.channel-not-sendable");
+    recordAutomationActivity({
+      source: "passive-chat",
+      status: "failure",
+      channelId,
+      contentType: candidate.kind === "smart" ? candidate.contentType : null,
+      errorCode: "CHANNEL_NOT_SENDABLE",
+      message: "Passive chat found a reply opportunity, but the channel is not sendable.",
+    });
     return;
   }
 
   if (candidate.kind === "dog") {
-    await channel.send(candidate.reply);
+    const sentMessage = await channel.send(candidate.reply);
     recordDogPassivePrompt(candidate.reason.includes("hungry") ? "hungry" : candidate.reason.includes("tired") ? "tired" : "sad", now);
     markPassiveInteraction(channelId, now);
     recordAutomatedContentSend(channelId, "passive-chat", now);
+    recordAutomationActivity({
+      source: "passive-chat",
+      status: "success",
+      channelId,
+      message: "Sent Cdawg Dog passive prompt.",
+    });
+    recordContentOutcome({
+      postedAt: now,
+      channelId,
+      channelName: "name" in channel && typeof channel.name === "string" ? channel.name : null,
+      source: "passiveChat",
+      contentType: "dog",
+      messageId: sentMessage.id,
+      label: "Cdawg Dog passive prompt",
+    });
     logPassiveDecision(channelId, "send", `topic=${candidate.topic} ${candidate.reason}`);
     return;
   }
@@ -272,6 +322,13 @@ export async function evaluatePassiveChatChannels(client: Client, now = Date.now
       await evaluatePassiveChatChannel(client, channelId, now);
     } catch (error) {
       console.error(`[passive-chat] failed to evaluate channel=${channelId}:`, error);
+      recordAutomationActivity({
+        source: "passive-chat",
+        status: "failure",
+        channelId,
+        errorCode: "UNHANDLED_ERROR",
+        message: error instanceof Error ? error.message : "Passive chat failed while evaluating a channel.",
+      });
     }
   }
 }

@@ -51,6 +51,7 @@
           <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Content Studio</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="composer" aria-selected="false" hidden>Write a Message</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
+          <button type="button" class="control-tab" data-tab-target="engagement" aria-selected="false">Engagement</button>
           <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="followups" aria-selected="false" hidden>Role Follow-Up Messages</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
@@ -71,6 +72,14 @@
       </header>
 
       <section class="panel control-center">
+        <section id="opportunity-context-banner" class="opportunity-context-banner" hidden>
+          <div>
+            <span class="status-badge neutral">from opportunity</span>
+            <h3 id="opportunity-context-title">Opened from Opportunity</h3>
+            <p id="opportunity-context-detail">Review the related dashboard context.</p>
+          </div>
+          <button id="opportunity-context-dismiss" type="button" class="secondary">Dismiss</button>
+        </section>
         <section class="control-tab-panel" data-tab-panel="overview">
           <section class="control-block mission-control" aria-label="Mission Control">
             <div class="subpanel-header">
@@ -139,6 +148,30 @@
               <div id="mission-action-list" class="mission-action-list">
                 <p class="channel-operation-empty">Checking action-needed items...</p>
               </div>
+            </section>
+
+            <section class="mission-opportunities-panel">
+              <div class="ops-snapshot-group-header">
+                <div>
+                  <h3>Opportunities</h3>
+                  <p class="channel-operation-detail">Deterministic recommendations from operational, engagement, and outcome data.</p>
+                </div>
+                <span id="mission-backend-opportunity-count" class="status-badge neutral">0 opportunities</span>
+              </div>
+              <div id="mission-opportunities-list" class="mission-opportunities-list">
+                <p class="channel-operation-empty">Loading opportunities...</p>
+              </div>
+              <aside id="opportunity-action-drawer" class="channel-action-drawer opportunity-action-drawer" hidden aria-label="Opportunity details">
+                <div class="channel-action-drawer-header">
+                  <div>
+                    <span id="opportunity-action-drawer-priority" class="status-badge neutral">priority</span>
+                    <h3 id="opportunity-action-drawer-title">Opportunity Details</h3>
+                    <p id="opportunity-action-drawer-summary" class="channel-operation-detail">Choose an opportunity to review why it was detected.</p>
+                  </div>
+                  <button id="opportunity-action-drawer-close" type="button" class="secondary">Close</button>
+                </div>
+                <div id="opportunity-action-drawer-body" class="channel-action-drawer-body"></div>
+              </aside>
             </section>
 
             <section class="mission-found-panel">
@@ -1111,6 +1144,118 @@
           </section>
         </section>
 
+        <section class="control-tab-panel" data-tab-panel="engagement" hidden>
+          <div class="tab-stack">
+            <section class="control-block engagement-dashboard">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Engagement</h3>
+                  <p>Read-only channel activity signals from stored Discord message events.</p>
+                </div>
+                <div class="toolbar compact">
+                  <label>
+                    Window
+                    <select id="engagement-window-filter">
+                      <option value="last24h">24h</option>
+                      <option value="last1h">1h</option>
+                      <option value="last7d">7d</option>
+                    </select>
+                  </label>
+                  <label>
+                    Status
+                    <select id="engagement-status-filter">
+                      <option value="all">All statuses</option>
+                      <option value="active">Active</option>
+                      <option value="quiet">Quiet</option>
+                      <option value="dormant">Dormant</option>
+                      <option value="unknown">Unknown</option>
+                    </select>
+                  </label>
+                  <button id="refresh-engagement" type="button" class="secondary">Refresh</button>
+                </div>
+              </div>
+
+              <p class="engagement-privacy-note">Privacy note: message content is not stored or shown here. This dashboard uses lightweight activity signals only: timestamps, channel IDs/names, hashed authors, bot flags, message length buckets, and attachment/embed flags.</p>
+
+              <div id="engagement-empty-state" class="channel-operation-empty engagement-empty-state">Loading engagement activity...</div>
+
+              <div class="engagement-dashboard-content">
+                <div class="ops-card-grid engagement-metrics-grid" aria-label="Engagement totals">
+                  <article id="engagement-total-1h-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Messages 1h</span>
+                    <strong id="engagement-total-1h">0</strong>
+                  </article>
+                  <article id="engagement-total-24h-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Messages 24h</span>
+                    <strong id="engagement-total-24h">0</strong>
+                  </article>
+                  <article id="engagement-total-7d-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Messages 7d</span>
+                    <strong id="engagement-total-7d">0</strong>
+                  </article>
+                  <article id="engagement-active-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Active Channels 24h</span>
+                    <strong id="engagement-active-channels">0</strong>
+                  </article>
+                  <article id="engagement-quiet-channels-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Quiet / Dormant</span>
+                    <strong id="engagement-quiet-channels">0</strong>
+                  </article>
+                  <article id="engagement-human-bot-card" class="ops-status-card neutral">
+                    <span class="ops-status-label">Human / Bot</span>
+                    <strong id="engagement-human-bot">0 / 0</strong>
+                  </article>
+                </div>
+
+                <div class="engagement-lists-grid">
+                  <section class="metric-card engagement-list-card">
+                    <h3>Top Channels by Messages</h3>
+                    <div id="engagement-top-channels" class="engagement-channel-list"></div>
+                  </section>
+                  <section class="metric-card engagement-list-card">
+                    <h3>Most Unique Active Users</h3>
+                    <div id="engagement-top-users" class="engagement-channel-list"></div>
+                  </section>
+                  <section class="metric-card engagement-list-card">
+                    <h3>Most Recent Activity</h3>
+                    <div id="engagement-recent-activity" class="engagement-channel-list"></div>
+                  </section>
+                  <section class="metric-card engagement-list-card">
+                    <h3>Quiet / Dormant Channels</h3>
+                    <div id="engagement-quiet-list" class="engagement-channel-list"></div>
+                  </section>
+                </div>
+
+                <section class="metric-card content-outcomes-panel">
+                  <div class="content-outcomes-header">
+                    <div>
+                      <h3>Recent Posted Content Outcomes</h3>
+                      <p class="channel-operation-detail">Tracks whether bot/dashboard-posted content was followed by channel activity.</p>
+                    </div>
+                    <label>
+                      Source
+                      <select id="content-outcomes-source-filter">
+                        <option value="all">All sources</option>
+                        <option value="scheduler">Scheduler</option>
+                        <option value="feed">Feed</option>
+                        <option value="dailyTrivia">Daily Trivia</option>
+                        <option value="passiveChat">Passive Chat</option>
+                        <option value="manualPush">Manual Push</option>
+                        <option value="composer">Composer</option>
+                        <option value="historyPush">History Push</option>
+                        <option value="unknown">Unknown</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div id="content-outcomes-list" class="content-outcomes-list">
+                    <p class="channel-operation-empty">Loading posted content outcomes...</p>
+                  </div>
+                </section>
+              </div>
+            </section>
+          </div>
+        </section>
+
         <section class="control-tab-panel" data-tab-panel="access" hidden>
           <div class="tab-stack">
             <section class="control-block">
@@ -1127,8 +1272,8 @@
                   <span>Review role automation warnings and configuration issues.</span>
                 </a>
                 <a href="#community-channel-summary" class="automation-section-card">
-                  <strong>Channels CDawg Understands</strong>
-                  <span>Review channel setup from Mission Control.</span>
+                  <strong>Channel Intelligence</strong>
+                  <span>Review operational readiness and next actions by channel.</span>
                 </a>
                 <a href="#community-role-signup-buttons" class="automation-section-card">
                   <strong>Role Signup Buttons</strong>
@@ -1167,12 +1312,39 @@
               <section id="community-channel-summary" class="ops-snapshot-group ops-snapshot-group-wide community-builder-summary">
                 <div class="ops-snapshot-group-header">
                   <div>
-                    <h3>Channels CDawg Understands</h3>
-                    <p class="channel-operation-detail">Channel setup details live in Mission Control.</p>
+                    <h3>Channel Intelligence</h3>
+                    <p class="channel-operation-detail">Operational readiness by channel using existing setup, automation, and activity data.</p>
                   </div>
-                  <button id="community-open-channel-setup" type="button" class="secondary">Set Up a Channel</button>
+                  <div class="toolbar compact">
+                    <label>
+                      Health
+                      <select id="channel-intelligence-filter">
+                        <option value="all">All channels</option>
+                        <option value="attention">Attention</option>
+                        <option value="needs setup">Needs setup</option>
+                        <option value="inactive">Inactive</option>
+                        <option value="healthy">Healthy</option>
+                        <option value="unknown">Unknown</option>
+                      </select>
+                    </label>
+                    <button id="community-open-channel-setup" type="button" class="secondary">Set Up a Channel</button>
+                  </div>
                 </div>
-                <p class="channel-operation-empty">Open channel setup to review or improve CDawg's saved channel context.</p>
+                <div id="channel-intelligence-summary" class="channel-intelligence-summary"></div>
+                <div id="channel-intelligence-list" class="channel-intelligence-list">
+                  <p class="channel-operation-empty">Loading channel intelligence...</p>
+                </div>
+                <aside id="channel-action-drawer" class="channel-action-drawer" hidden aria-label="Channel action details">
+                  <div class="channel-action-drawer-header">
+                    <div>
+                      <span id="channel-action-drawer-health" class="status-badge neutral">unknown</span>
+                      <h3 id="channel-action-drawer-title">Channel Details</h3>
+                      <p id="channel-action-drawer-summary" class="channel-operation-detail">Choose a channel to review recommended actions.</p>
+                    </div>
+                    <button id="channel-action-drawer-close" type="button" class="secondary">Close</button>
+                  </div>
+                  <div id="channel-action-drawer-body" class="channel-action-drawer-body"></div>
+                </aside>
               </section>
             </section>
 

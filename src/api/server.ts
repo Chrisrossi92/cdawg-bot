@@ -95,6 +95,13 @@ import {
   validateDiscoverySourceDeleteRequest,
   validateDiscoverySourceInput,
 } from "../systems/discovery-sources.js";
+import {
+  getChannelIntelligence,
+  type ChannelIntelligenceMetadataChannel,
+} from "../systems/channel-intelligence.js";
+import { getEngagementSummary } from "../systems/engagement-activity.js";
+import { getContentOutcomeSummary, type ContentOutcomeSource } from "../systems/content-outcomes.js";
+import { getOpportunities } from "../systems/opportunity-engine.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -119,6 +126,7 @@ type DiscordGuildMetadata = {
 type ApiServerDependencies = {
   getHealthSnapshot: () => ApiHealthSnapshot;
   getGuildMetadata?: () => Promise<DiscordGuildMetadata>;
+  getChannelIntelligenceMetadata?: () => Promise<{ channels: ChannelIntelligenceMetadataChannel[] }>;
   postComposerMessage: (request: { channelId: string; message: string }) => Promise<ComposerPostResult>;
   pushManualContent: (request: { channelId: string; contentType: ManualPushContentType; topicOverride?: Topic | null }) => Promise<ManualContentPushResult>;
   triggerAutomatedContentNow: (request: { channelId: string }) => Promise<TriggerAutomatedContentNowResult>;
@@ -1462,6 +1470,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
   const getHealthSnapshot = dependencies?.getHealthSnapshot ?? (() => defaultHealthSnapshot);
   const getGuildMetadata = dependencies?.getGuildMetadata;
+  const getChannelIntelligenceMetadata = dependencies?.getChannelIntelligenceMetadata ?? getGuildMetadata;
   const postComposerMessage = dependencies?.postComposerMessage;
   const pushManualContent = dependencies?.pushManualContent;
   const triggerAutomatedContentNow = dependencies?.triggerAutomatedContentNow;
@@ -1559,6 +1568,33 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         return;
       }
 
+      if (requestUrl.pathname === "/api/engagement-summary") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, getEngagementSummary());
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/content-outcomes") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const source = requestUrl.searchParams.get("source");
+        const requestedLimit = Number(requestUrl.searchParams.get("limit"));
+        const limit = Number.isInteger(requestedLimit) && requestedLimit > 0 ? Math.min(requestedLimit, 100) : 50;
+
+        sendJson(response, 200, getContentOutcomeSummary({
+          source: source && source !== "all" ? (source as ContentOutcomeSource) : "all",
+          limit,
+        }));
+        return;
+      }
+
       if (requestUrl.pathname === "/api/channel-presets") {
         if (method !== "GET") {
           sendMethodNotAllowed(response);
@@ -1586,6 +1622,43 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         const metadata = await getGuildMetadata();
         sendJson(response, 200, metadata);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/channel-intelligence") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!getChannelIntelligenceMetadata) {
+          sendJson(response, 503, {
+            error: "Channel intelligence metadata route is unavailable.",
+          });
+          return;
+        }
+
+        const metadata = await getChannelIntelligenceMetadata();
+        sendJson(response, 200, getChannelIntelligence(metadata.channels));
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/opportunities") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!getChannelIntelligenceMetadata) {
+          sendJson(response, 503, {
+            error: "Opportunity engine metadata route is unavailable.",
+          });
+          return;
+        }
+
+        const metadata = await getChannelIntelligenceMetadata();
+        const channelIntelligence = getChannelIntelligence(metadata.channels);
+        sendJson(response, 200, getOpportunities(channelIntelligence));
         return;
       }
 

@@ -53,6 +53,8 @@ import { handlePassiveChatMessage } from "./systems/passive-chat.js";
 import { startApiServer } from "./api/server.js";
 import { pushManualContentToChannel, pushHistoryEventToChannel, triggerAutomatedContentNow } from "./lib/manual-content-push.js";
 import { getHistoryEventById } from "./lib/history-content.js";
+import { recordEngagementActivity } from "./systems/engagement-activity.js";
+import { recordContentOutcome } from "./systems/content-outcomes.js";
 
 dotenv.config();
 
@@ -181,6 +183,43 @@ client.once(Events.ClientReady, (readyClient) => {
           channels,
         };
       },
+      getChannelIntelligenceMetadata: async () => {
+        if (!guildId) {
+          return {
+            channels: [],
+          };
+        }
+
+        const guild = await readyClient.guilds.fetch(guildId);
+        await guild.channels.fetch();
+
+        const channels = [...guild.channels.cache.values()]
+          .filter((channel) => {
+            if (!channel) {
+              return false;
+            }
+
+            const supportedTypes = [ChannelType.GuildText, ChannelType.GuildAnnouncement, ChannelType.GuildForum];
+
+            if (!supportedTypes.includes(channel.type)) {
+              return false;
+            }
+
+            const permissions = channel.permissionsFor(readyClient.user);
+            return permissions?.has(PermissionFlagsBits.ViewChannel) === true;
+          })
+          .map((channel) => ({
+            id: channel.id,
+            name: channel.name,
+            type: ChannelType[channel.type] ?? String(channel.type),
+            parentId: channel.parentId ?? null,
+          }))
+          .sort((left, right) => left.name.localeCompare(right.name));
+
+        return {
+          channels,
+        };
+      },
       postComposerMessage: async (request) => {
         if (!client.isReady()) {
           return {
@@ -210,6 +249,14 @@ client.once(Events.ClientReady, (readyClient) => {
 
         try {
           const sentMessage = await channel.send(request.message);
+          recordContentOutcome({
+            channelId: request.channelId,
+            channelName: "name" in channel && typeof channel.name === "string" ? channel.name : null,
+            source: "composer",
+            contentType: "message",
+            messageId: sentMessage.id,
+            label: "Composer message",
+          });
           return {
             ok: true,
             channelId: request.channelId,
@@ -349,6 +396,17 @@ client.on(Events.GuildMemberUpdate, async (oldMember, newMember) => {
 });
 
 client.on(Events.MessageCreate, async (message) => {
+  recordEngagementActivity({
+    guildId: message.guildId ?? null,
+    channelId: message.channelId,
+    channelName: "name" in message.channel && typeof message.channel.name === "string" ? message.channel.name : null,
+    authorId: message.author.id,
+    isBot: message.author.bot,
+    messageLength: message.content.length,
+    hasAttachments: message.attachments.size > 0,
+    hasEmbeds: message.embeds.length > 0,
+  });
+
   if (message.author.bot) {
     return;
   }
