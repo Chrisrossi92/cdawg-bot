@@ -94,6 +94,16 @@ const taskRecentProblemsButton = document.querySelector("#task-recent-problems")
 const taskSettingsButton = document.querySelector("#task-settings");
 const communityOpenChannelSetupButton = document.querySelector("#community-open-channel-setup");
 const missionRefreshDashboardButton = document.querySelector("#mission-refresh-dashboard");
+const dailyBriefingHealth = document.querySelector("#daily-briefing-health");
+const dailyBriefingGreeting = document.querySelector("#daily-briefing-greeting");
+const dailyBriefingSummary = document.querySelector("#daily-briefing-summary");
+const dailyBriefingGeneratedAt = document.querySelector("#daily-briefing-generated-at");
+const dailyBriefingEmpty = document.querySelector("#daily-briefing-empty");
+const dailyBriefingContent = document.querySelector("#daily-briefing-content");
+const dailyBriefingHighlights = document.querySelector("#daily-briefing-highlights");
+const dailyBriefingConcerns = document.querySelector("#daily-briefing-concerns");
+const dailyBriefingRecommendations = document.querySelector("#daily-briefing-recommendations");
+const dailyBriefingMetrics = document.querySelector("#daily-briefing-metrics");
 const missionBriefingStatus = document.querySelector("#mission-briefing-status");
 const missionBriefingTitle = document.querySelector("#mission-briefing-title");
 const missionBriefingSummary = document.querySelector("#mission-briefing-summary");
@@ -295,6 +305,8 @@ let contentOutcomes = [];
 let contentOutcomesLoadError = null;
 let backendOpportunities = [];
 let backendOpportunitiesLoadError = null;
+let dailyBriefing = null;
+let dailyBriefingLoadError = null;
 let activeChannelActionChannelId = null;
 let activeOpportunityId = null;
 let activeOpportunityContext = null;
@@ -6593,6 +6605,129 @@ function resetChannelSetupAssistant(options = {}) {
   renderChannelSetupAssistant();
 }
 
+function getDailyBriefingGreeting() {
+  const hour = new Date().getHours();
+
+  if (hour < 12) {
+    return "Good Morning Chris";
+  }
+
+  if (hour < 17) {
+    return "Good Afternoon Chris";
+  }
+
+  return "Good Evening Chris";
+}
+
+function getDailyBriefingHealthTone(health) {
+  if (health === "Excellent" || health === "Good") {
+    return "active";
+  }
+
+  if (health === "Attention Needed") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function renderDailyBriefingList(target, items, emptyCopy) {
+  if (!target) {
+    return;
+  }
+
+  target.replaceChildren();
+
+  if (!Array.isArray(items) || items.length === 0) {
+    const item = document.createElement("li");
+    item.textContent = emptyCopy;
+    target.append(item);
+    return;
+  }
+
+  for (const entry of items) {
+    const item = document.createElement("li");
+    item.textContent = entry;
+    target.append(item);
+  }
+}
+
+function renderDailyBriefingMetrics(metrics) {
+  if (!dailyBriefingMetrics) {
+    return;
+  }
+
+  dailyBriefingMetrics.replaceChildren();
+
+  for (const [label, value] of [
+    ["Active Channels", metrics?.activeChannels ?? 0],
+    ["Dormant Channels", metrics?.dormantChannels ?? 0],
+    ["Opportunities", metrics?.opportunitiesCount ?? 0],
+    ["Successful Outcomes", metrics?.recentSuccessfulOutcomes ?? 0],
+    ["Failed Outcomes", metrics?.recentFailedOutcomes ?? 0],
+  ]) {
+    const item = document.createElement("article");
+    const name = document.createElement("span");
+    const count = document.createElement("strong");
+
+    item.className = "daily-briefing-metric";
+    name.textContent = label;
+    count.textContent = String(value);
+    item.append(name, count);
+    dailyBriefingMetrics.append(item);
+  }
+}
+
+function renderDailyBriefing() {
+  if (!dailyBriefingHealth || !dailyBriefingSummary || !dailyBriefingEmpty || !dailyBriefingContent) {
+    return;
+  }
+
+  if (dailyBriefingGreeting) {
+    dailyBriefingGreeting.textContent = getDailyBriefingGreeting();
+  }
+
+  if (dailyBriefingLoadError) {
+    dailyBriefingHealth.textContent = "unavailable";
+    dailyBriefingHealth.className = "status-badge blocked";
+    dailyBriefingSummary.textContent = "Daily briefing could not be generated from the current API response.";
+    dailyBriefingEmpty.hidden = false;
+    dailyBriefingEmpty.textContent = `Daily briefing unavailable. ${dailyBriefingLoadError}`;
+    dailyBriefingContent.hidden = true;
+    if (dailyBriefingGeneratedAt) {
+      dailyBriefingGeneratedAt.textContent = "not loaded";
+    }
+    return;
+  }
+
+  if (!dailyBriefing) {
+    dailyBriefingHealth.textContent = "loading";
+    dailyBriefingHealth.className = "status-badge neutral";
+    dailyBriefingSummary.textContent = "Building today's deterministic briefing from MyHub signals.";
+    dailyBriefingEmpty.hidden = false;
+    dailyBriefingEmpty.textContent = "Loading daily briefing...";
+    dailyBriefingContent.hidden = true;
+    if (dailyBriefingGeneratedAt) {
+      dailyBriefingGeneratedAt.textContent = "not loaded";
+    }
+    return;
+  }
+
+  dailyBriefingHealth.textContent = `overall health: ${dailyBriefing.overallHealth}`;
+  dailyBriefingHealth.className = `status-badge ${getDailyBriefingHealthTone(dailyBriefing.overallHealth)}`;
+  dailyBriefingSummary.textContent = dailyBriefing.summary ?? "No briefing summary is available.";
+  dailyBriefingEmpty.hidden = true;
+  dailyBriefingContent.hidden = false;
+  if (dailyBriefingGeneratedAt) {
+    dailyBriefingGeneratedAt.textContent = `generated ${formatRelativeTime(dailyBriefing.generatedAt)}`;
+  }
+
+  renderDailyBriefingList(dailyBriefingHighlights, dailyBriefing.highlights, "No highlights are available from the current signals.");
+  renderDailyBriefingList(dailyBriefingConcerns, dailyBriefing.concerns, "No concerns were detected from the current signals.");
+  renderDailyBriefingList(dailyBriefingRecommendations, dailyBriefing.recommendations, "No recommended actions are available right now.");
+  renderDailyBriefingMetrics(dailyBriefing.supportingMetrics);
+}
+
 function renderMissionControl() {
   if (!missionActionList) {
     return;
@@ -8715,6 +8850,19 @@ async function loadOpportunities() {
   }
 }
 
+async function loadDailyBriefing() {
+  try {
+    const data = await fetchJson("/api/daily-briefing");
+    dailyBriefing = data;
+    dailyBriefingLoadError = null;
+    renderDailyBriefing();
+  } catch (error) {
+    dailyBriefing = null;
+    dailyBriefingLoadError = error.message;
+    renderDailyBriefing();
+  }
+}
+
 async function rerollHistoryReview() {
   setHistoryReviewStatus("Picking another item...");
 
@@ -9319,6 +9467,7 @@ async function reloadAll() {
     loadEngagementSummary(),
     loadContentOutcomes(),
     loadOpportunities(),
+    loadDailyBriefing(),
     loadDiscoverySources(),
     loadDiscoveryItems(),
     loadComposerTemplates(),
@@ -9568,6 +9717,7 @@ configureAutoRefresh();
 setActiveContentStudioMode(activeContentStudioMode);
 setActiveControlTab(activeControlTab);
 renderAutomationMaster();
+renderDailyBriefing();
 renderOpsSnapshot();
 renderAutomationActivity();
 renderChannelSetupMetadataOptions();

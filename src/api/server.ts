@@ -102,6 +102,7 @@ import {
 import { getEngagementSummary } from "../systems/engagement-activity.js";
 import { getContentOutcomeSummary, type ContentOutcomeSource } from "../systems/content-outcomes.js";
 import { getOpportunities } from "../systems/opportunity-engine.js";
+import { getDailyBriefing } from "../systems/daily-briefing.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -1659,6 +1660,25 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         const metadata = await getChannelIntelligenceMetadata();
         const channelIntelligence = getChannelIntelligence(metadata.channels);
         sendJson(response, 200, getOpportunities(channelIntelligence));
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/daily-briefing") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        if (!getChannelIntelligenceMetadata) {
+          sendJson(response, 503, {
+            error: "Daily briefing metadata route is unavailable.",
+          });
+          return;
+        }
+
+        const metadata = await getChannelIntelligenceMetadata();
+        const channelIntelligence = getChannelIntelligence(metadata.channels);
+        sendJson(response, 200, getDailyBriefing(channelIntelligence));
         return;
       }
 

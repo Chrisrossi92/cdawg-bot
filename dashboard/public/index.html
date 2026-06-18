@@ -90,6 +90,36 @@
               <button id="mission-refresh-dashboard" type="button">Refresh Dashboard</button>
             </div>
 
+            <section class="daily-briefing-panel">
+              <div class="daily-briefing-header">
+                <div>
+                  <span id="daily-briefing-health" class="status-badge neutral">loading</span>
+                  <h3 id="daily-briefing-greeting">Good Afternoon Chris</h3>
+                  <p id="daily-briefing-summary">Building today's deterministic briefing from MyHub signals.</p>
+                </div>
+                <span id="daily-briefing-generated-at" class="mission-trust-meta">not loaded</span>
+              </div>
+              <div id="daily-briefing-empty" class="channel-operation-empty">Loading daily briefing...</div>
+              <div id="daily-briefing-content" class="daily-briefing-content" hidden>
+                <section class="daily-briefing-section">
+                  <h4>Highlights</h4>
+                  <ul id="daily-briefing-highlights" class="daily-briefing-list"></ul>
+                </section>
+                <section class="daily-briefing-section">
+                  <h4>Concerns</h4>
+                  <ul id="daily-briefing-concerns" class="daily-briefing-list"></ul>
+                </section>
+                <section class="daily-briefing-section">
+                  <h4>Recommended Actions</h4>
+                  <ol id="daily-briefing-recommendations" class="daily-briefing-list daily-briefing-recommendations"></ol>
+                </section>
+                <section class="daily-briefing-section daily-briefing-metrics">
+                  <h4>Supporting Metrics</h4>
+                  <div id="daily-briefing-metrics" class="daily-briefing-metrics-grid"></div>
+                </section>
+              </div>
+            </section>
+
             <section class="mission-briefing">
               <div class="mission-briefing-copy">
                 <span id="mission-briefing-status" class="status-badge neutral">loading</span>

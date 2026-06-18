@@ -1188,11 +1188,15 @@ small {
   margin-bottom: 18px;
 }
 
+.daily-briefing-panel,
 .mission-briefing {
   display: grid;
-  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
   gap: 12px;
   align-items: stretch;
+}
+
+.mission-briefing {
+  grid-template-columns: minmax(280px, 0.9fr) minmax(360px, 1.1fr);
 }
 
 .mission-briefing-copy,
@@ -1201,6 +1205,7 @@ small {
 .mission-found-panel,
 .mission-activity-panel,
 .mission-profile-panel,
+.daily-briefing-panel,
 .mission-setup-entry,
 .mission-channel-setup {
   padding: 14px;
@@ -1210,6 +1215,104 @@ small {
     linear-gradient(135deg, rgba(45, 212, 255, 0.055), transparent 34%),
     rgba(12, 24, 40, 0.66);
   box-shadow: var(--shadow-soft);
+}
+
+.daily-briefing-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.daily-briefing-header h3,
+.daily-briefing-header p,
+.daily-briefing-section h4 {
+  margin: 0;
+}
+
+.daily-briefing-header h3 {
+  margin-top: 7px;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.daily-briefing-header p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.daily-briefing-content {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.daily-briefing-content[hidden] {
+  display: none;
+}
+
+.daily-briefing-section {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.28);
+}
+
+.daily-briefing-section h4 {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.daily-briefing-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.daily-briefing-metrics {
+  grid-column: 1 / -1;
+}
+
+.daily-briefing-metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.daily-briefing-metric {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.3);
+}
+
+.daily-briefing-metric span {
+  overflow: hidden;
+  color: var(--muted-soft);
+  font-size: 10px;
+  font-weight: 900;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.daily-briefing-metric strong {
+  font-size: 18px;
+  line-height: 1;
 }
 
 .mission-briefing-copy {
@@ -3930,6 +4033,7 @@ pre {
 @media (max-width: 1080px) {
   .command-bar-top,
   .overview-layout,
+  .daily-briefing-content,
   .ops-snapshot-grid {
     grid-template-columns: 1fr;
   }
@@ -4016,6 +4120,7 @@ pre {
 
   .mission-briefing,
   .mission-briefing-grid,
+  .daily-briefing-metrics-grid,
   .channel-setup-grid,
   .channel-setup-summary,
   .mission-profile-meta {
