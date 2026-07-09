@@ -71,6 +71,12 @@ const communityTotalPanelsCard = document.querySelector("#community-total-panels
 const communityTotalFollowupsCard = document.querySelector("#community-total-followups-card");
 const communityMissingRoleCard = document.querySelector("#community-missing-role-card");
 const communityMissingChannelCard = document.querySelector("#community-missing-channel-card");
+const communityNewMembersList = document.querySelector("#community-new-members-list");
+const communityFollowupList = document.querySelector("#community-followup-list");
+const communityActivityWindow = document.querySelector("#community-activity-window");
+const communityActivitySummary = document.querySelector("#community-activity-summary");
+const communityActiveChannels = document.querySelector("#community-active-channels");
+const communityRecognitionSummary = document.querySelector("#community-recognition-summary");
 const channelIntelligenceFilter = document.querySelector("#channel-intelligence-filter");
 const channelIntelligenceSummary = document.querySelector("#channel-intelligence-summary");
 const channelIntelligenceList = document.querySelector("#channel-intelligence-list");
@@ -744,17 +750,17 @@ function renderPresetOptions(targetSelect, previousValue) {
 
 function getRoleLabel(roleId) {
   const role = guildRoles.find((entry) => entry.id === roleId);
-  return role ? role.name : roleId || "not set";
+  return role ? role.name : roleId ? "Role not found" : "not set";
 }
 
 function getChannelLabel(channelId) {
   const channel = guildChannels.find((entry) => entry.id === channelId);
-  return channel ? `#${channel.name}` : channelId || "not set";
+  return channel ? `#${channel.name}` : channelId ? "Channel not found" : "not set";
 }
 
 function getDetailedRoleLabel(roleId) {
   const role = guildRoles.find((entry) => entry.id === roleId);
-  return role ? `${role.name} (${role.id})` : roleId || "not set";
+  return role ? role.name : roleId ? "Role not found" : "not set";
 }
 
 function getDetailedChannelLabel(channelId, emptyLabel = "choose when posting") {
@@ -763,7 +769,7 @@ function getDetailedChannelLabel(channelId, emptyLabel = "choose when posting") 
   }
 
   const channel = guildChannels.find((entry) => entry.id === channelId);
-  return channel ? `#${channel.name} (${channel.id})` : channelId;
+  return channel ? `#${channel.name}` : "Channel not found";
 }
 
 function renderDiscordMetadataOptions() {
@@ -1409,11 +1415,11 @@ function getMissingMetadataWarnings(roleId, channelId) {
   const warnings = [];
 
   if (roleId && !metadataHasRole(roleId)) {
-    warnings.push(`Selected role ${roleId} was not found in Discord metadata.`);
+    warnings.push("The selected role was not found in the current Discord role list.");
   }
 
   if (channelId && !metadataHasChannel(channelId)) {
-    warnings.push(`Selected channel ${channelId} was not found in Discord metadata.`);
+    warnings.push("The selected channel was not found in the current Discord channel list.");
   }
 
   return warnings;
@@ -1443,6 +1449,210 @@ function renderCommunityHealth() {
   setOpsCardState(communityMissingRoleCard, getCountTone(missingRoleCount));
   setOpsValue(communityMissingChannel, missingChannelCount);
   setOpsCardState(communityMissingChannelCard, getCountTone(missingChannelCount));
+  renderCommunityFollowupNeeds();
+  renderCommunityRecognition();
+}
+
+function createCommunityOwnerItem(titleText, detailText, options = {}) {
+  const item = document.createElement("article");
+  const copy = document.createElement("div");
+  const title = document.createElement("h3");
+  const detail = document.createElement("p");
+
+  item.className = `community-owner-item ${options.tone ?? "neutral"}`;
+  copy.className = "community-owner-item-copy";
+  title.textContent = titleText;
+  detail.className = "channel-operation-detail";
+  detail.textContent = detailText;
+  copy.append(title, detail);
+  item.append(copy);
+
+  if (options.badge) {
+    item.append(createStatusBadge(options.badge, options.badgeTone ?? options.tone ?? "neutral"));
+  }
+
+  if (options.actionLabel && options.onAction) {
+    const action = document.createElement("button");
+    action.type = "button";
+    action.className = "secondary";
+    action.textContent = options.actionLabel;
+    action.addEventListener("click", options.onAction);
+    item.append(action);
+  }
+
+  return item;
+}
+
+function renderCommunityFollowupNeeds() {
+  if (!communityFollowupList) {
+    return;
+  }
+
+  const items = [];
+  const panelsMissingRole = roleAccessPanels.filter((panel) => hasMissingRole(panel.roleId));
+  const panelsMissingChannel = roleAccessPanels.filter((panel) => hasMissingChannel(panel.targetChannelId));
+  const inactivePanels = roleAccessPanels.filter((panel) => panel.active === false);
+  const followupsMissingRole = roleFollowups.filter((followup) => hasMissingRole(followup.roleId));
+  const followupsMissingChannel = roleFollowups.filter((followup) => hasMissingChannel(followup.channelId));
+  const disabledFollowups = roleFollowups.filter((followup) => followup.enabled === false);
+
+  if (!guildMetadataLoaded) {
+    items.push(createCommunityOwnerItem(
+      "Role and channel list is unavailable",
+      "The dashboard can still show saved setup, but it cannot confirm whether roles and channels exist right now.",
+      { tone: "neutral", badge: "check connection", actionLabel: "Refresh", onAction: () => void loadGuildMetadata() },
+    ));
+  }
+
+  if (panelsMissingRole.length > 0 || panelsMissingChannel.length > 0) {
+    items.push(createCommunityOwnerItem(
+      "A role selection needs setup",
+      "At least one role selection is missing the role or channel it needs before members can rely on it.",
+      { tone: "blocked", badge: "needs action", actionLabel: "Review access setup", onAction: () => navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons")) },
+    ));
+  }
+
+  if (followupsMissingRole.length > 0 || followupsMissingChannel.length > 0) {
+    items.push(createCommunityOwnerItem(
+      "An access follow-up needs setup",
+      "At least one follow-up message is missing the role or channel it needs before it can send correctly.",
+      { tone: "blocked", badge: "needs action", actionLabel: "Edit follow-up message", onAction: () => navigateMissionAction(createMissionNavigation("access", "community-role-followups")) },
+    ));
+  }
+
+  if (inactivePanels.length > 0) {
+    items.push(createCommunityOwnerItem(
+      "A role selection is saved but inactive",
+      "Members can only use active role selection buttons.",
+      { tone: "neutral", badge: "review", actionLabel: "Review access setup", onAction: () => navigateMissionAction(createMissionNavigation("access", "community-role-signup-buttons")) },
+    ));
+  }
+
+  if (disabledFollowups.length > 0) {
+    items.push(createCommunityOwnerItem(
+      "An access follow-up is turned off",
+      "The follow-up is saved, but it will not post when someone receives the role.",
+      { tone: "neutral", badge: "review", actionLabel: "Edit follow-up message", onAction: () => navigateMissionAction(createMissionNavigation("access", "community-role-followups")) },
+    ));
+  }
+
+  communityFollowupList.replaceChildren();
+  if (items.length === 0) {
+    communityFollowupList.append(createCommunityOwnerItem(
+      "No follow-up needs found",
+      "Saved role selections and access follow-ups do not show setup problems in the currently loaded data.",
+      { tone: "active", badge: "clear" },
+    ));
+    return;
+  }
+
+  communityFollowupList.append(...items);
+}
+
+function getCommunityActivityWindowKey() {
+  return communityActivityWindow?.value || "last24h";
+}
+
+function getCommunityActivityStatus(row) {
+  if (row.status === "active") {
+    return "Conversation is active";
+  }
+
+  if (row.status === "quiet") {
+    return "Quiet today";
+  }
+
+  if (row.status === "dormant") {
+    return "Quiet recently";
+  }
+
+  return "Activity not clear yet";
+}
+
+function renderCommunityActivity() {
+  if (!communityActivitySummary || !communityActiveChannels) {
+    return;
+  }
+
+  const windowKey = getCommunityActivityWindowKey();
+  const rows = getEngagementRows(windowKey)
+    .filter((row) => Number(row.messageCount) > 0 || row.lastKnownActivityAt)
+    .sort((left, right) => (right.messageCount - left.messageCount) || ((right.lastKnownActivityAt ?? 0) - (left.lastKnownActivityAt ?? 0)));
+  const totalMessages = rows.reduce((total, row) => total + (Number(row.messageCount) || 0), 0);
+  const activeCount = rows.filter((row) => row.status === "active").length;
+
+  communityActivitySummary.replaceChildren();
+  communityActiveChannels.replaceChildren();
+
+  if (engagementSummaryLoadError) {
+    communityActivitySummary.append(createCommunityOwnerItem(
+      "Community activity is unavailable",
+      engagementSummaryLoadError,
+      { tone: "blocked", badge: "unavailable" },
+    ));
+    return;
+  }
+
+  if (rows.length === 0) {
+    communityActivitySummary.append(createCommunityOwnerItem(
+      "No recent activity has been recorded",
+      "Recent Discord activity will appear here after the bot is connected and messages are observed.",
+      { tone: "neutral", badge: "waiting" },
+    ));
+    return;
+  }
+
+  communityActivitySummary.append(createCommunityOwnerItem(
+    activeCount > 0 ? "Conversation is active" : "Community is quiet right now",
+    `${totalMessages} message${totalMessages === 1 ? "" : "s"} across ${rows.length} channel${rows.length === 1 ? "" : "s"} in the selected window.`,
+    { tone: activeCount > 0 ? "active" : "neutral", badge: activeCount > 0 ? "active" : "quiet" },
+  ));
+
+  for (const row of rows.slice(0, 6)) {
+    communityActiveChannels.append(createCommunityOwnerItem(
+      `#${getEngagementChannelName(row.channelId, row.channelName)}`,
+      `${getCommunityActivityStatus(row)}. ${row.messageCount} message${row.messageCount === 1 ? "" : "s"}; about ${row.approxActiveUsers} active participant${row.approxActiveUsers === 1 ? "" : "s"}.`,
+      { tone: row.status === "active" ? "active" : "neutral", badge: getCommunityActivityStatus(row) },
+    ));
+  }
+}
+
+function renderCommunityRecognition() {
+  if (!communityRecognitionSummary) {
+    return;
+  }
+
+  communityRecognitionSummary.replaceChildren();
+
+  if (dailyTriviaChallenge?.latestSession?.winnerUserId) {
+    communityRecognitionSummary.append(createCommunityOwnerItem(
+      "Daily Trivia has a recent winner",
+      "A winner was recorded in the latest trivia session. Use the Daily Trivia controls for the full session state.",
+      { tone: "active", badge: "recognition", actionLabel: "Review Daily Trivia", onAction: () => navigateMissionAction(createMissionNavigation("channels", "automation-daily-trivia")) },
+    ));
+  } else if (dailyTriviaChallenge?.enabled === true) {
+    communityRecognitionSummary.append(createCommunityOwnerItem(
+      "Daily Trivia is ready for recognition",
+      "Trivia can recognize participation when members answer challenges.",
+      { tone: "active", badge: "enabled", actionLabel: "Review Daily Trivia", onAction: () => navigateMissionAction(createMissionNavigation("channels", "automation-daily-trivia")) },
+    ));
+  }
+
+  if (dogSystemEnabled && dogState) {
+    communityRecognitionSummary.append(createCommunityOwnerItem(
+      "Community game is tracking participation",
+      "The community game can award XP when members interact with it.",
+      { tone: "active", badge: "XP available", actionLabel: "Review Community Game", onAction: () => navigateMissionAction(createMissionNavigation("channels", "automation-community-game")) },
+    ));
+  }
+
+  if (communityRecognitionSummary.children.length === 0) {
+    communityRecognitionSummary.append(createCommunityOwnerItem(
+      "Recognition data is limited",
+      "The dashboard does not currently have a member leaderboard feed. XP leaderboard and admin changes remain available through Discord commands.",
+      { tone: "neutral", badge: "limited data" },
+    ));
+  }
 }
 
 function getEngagementWindowKey() {
@@ -1502,7 +1712,7 @@ function getEngagementChannelName(channelId, fallbackName) {
   }
 
   const metadataChannel = guildChannels.find((channel) => channel.id === channelId);
-  return metadataChannel?.name ?? channelId;
+  return metadataChannel?.name ?? "channel name unavailable";
 }
 
 function getKnownEngagementChannelIds() {
@@ -1778,7 +1988,7 @@ function renderPalworldLaunchControl() {
     ...(automationStatus?.blockedReason ? [`Automation is ${getBlockedReasonLabel(automationStatus.blockedReason).toLowerCase()}.`] : []),
   ].filter((item, index, list) => item && list.indexOf(item) === index);
 
-  palworldLaunchChannel.textContent = channelId ? `${channelLabel} (${channelId})` : "Palworld channel not configured";
+  palworldLaunchChannel.textContent = channelId ? channelLabel : "Palworld channel not configured";
   palworldLaunchStatusBadge.textContent = !channelId
     ? "setup needed"
     : automationStatus?.blockedReason
@@ -2479,6 +2689,11 @@ function handleDashboardHashChange() {
 
 function applyLegacyTabHash() {
   const hash = window.location.hash.slice(1).toLowerCase();
+  if (hash.startsWith("community-")) {
+    setActiveControlTab("access");
+    return;
+  }
+
   const tabByHash = {
     dashboard: "overview",
     home: "overview",
@@ -2712,6 +2927,7 @@ function renderEngagementDashboard() {
   renderEngagementChannelList(engagementTopUsers, byUsers, `users ${windowLabel}`, (row) => row.approxActiveUsers, "No unique-user signal in the selected window.");
   renderEngagementChannelList(engagementRecentActivity, byRecent, "last seen", (row) => formatTimestamp(row.lastKnownActivityAt), "No recent activity timestamp is available.");
   renderEngagementChannelList(engagementQuietList, quietRows, `msgs ${windowLabel}`, (row) => row.messageCount, "No quiet or dormant channels match the selected filters.");
+  renderCommunityActivity();
   renderContentOutcomes();
 }
 
@@ -8360,7 +8576,7 @@ function validateRoleAccessPanelPayload(payload) {
 function getRoleAccessReadiness(panel) {
   if (!panel.title || !panel.body || !panel.buttonLabel) {
     return {
-      label: "Incomplete",
+      label: "Needs setup",
       tone: "blocked",
       detail: "Name, message, and button label are required before posting.",
     };
@@ -8368,7 +8584,7 @@ function getRoleAccessReadiness(panel) {
 
   if (!panel.roleId) {
     return {
-      label: "Missing Role",
+      label: "Needs role",
       tone: "blocked",
       detail: "Choose or enter the role this panel should assign.",
     };
@@ -8376,7 +8592,7 @@ function getRoleAccessReadiness(panel) {
 
   if (!panel.targetChannelId) {
     return {
-      label: "Missing Channel",
+      label: "Needs channel",
       tone: "blocked",
       detail: "Choose or enter the channel where this panel should be posted.",
     };
@@ -8384,7 +8600,7 @@ function getRoleAccessReadiness(panel) {
 
   if (guildMetadataLoaded && !metadataHasChannel(panel.targetChannelId)) {
     return {
-      label: "Bot Cannot Post",
+      label: "Needs channel",
       tone: "blocked",
       detail: "The selected channel is not available in the sendable Discord channel list.",
     };
@@ -8392,16 +8608,16 @@ function getRoleAccessReadiness(panel) {
 
   if (guildMetadataLoaded && !metadataHasRole(panel.roleId)) {
     return {
-      label: "Missing Role",
+      label: "Needs role",
       tone: "blocked",
       detail: "The selected role was not found in Discord metadata.",
     };
   }
 
   return {
-    label: "Ready to Post",
+    label: "Ready",
     tone: "active",
-    detail: panel.active ? "Panel can be saved and posted." : "Panel can be posted, but its button will be inactive.",
+    detail: panel.active ? "Members can use this role selection after it is posted." : "This setup is saved, but its button is turned off.",
   };
 }
 
@@ -8452,7 +8668,7 @@ function renderRoleAccessPreview() {
   channelContext.textContent = `Post to channel: ${getDetailedChannelLabel(panel.targetChannelId, "not set")}`;
   statusContext.textContent = `Button state: ${panel.active ? "active" : "inactive"}`;
   readinessContext.textContent = `Post readiness: ${readiness.detail}`;
-  customIdContext.textContent = `Button custom ID: role-access-panel:${panel.id || "panel-id"}`;
+  customIdContext.textContent = "Button tracking: configured";
   context.append(roleContext, channelContext, statusContext, readinessContext, customIdContext);
 
   embed.append(embedTitle, embedBody);
@@ -8521,9 +8737,9 @@ function renderRoleAccessPanels() {
     const emptyCopy = document.createElement("p");
 
     emptyState.className = "channel-operation-card role-access-empty-callout";
-    emptyTitle.textContent = "Start with the access";
+    emptyTitle.textContent = "Create a role selection";
     emptyCopy.className = "channel-operation-detail";
-    emptyCopy.textContent = "Start by naming what this message gives access to (e.g. Windrose, Valheim, etc.)";
+    emptyCopy.textContent = "Start by naming what this gives members access to, such as a game server or private community.";
     emptyState.append(emptyTitle, emptyCopy);
     roleAccessPanelsList.append(emptyState);
     return;
@@ -8548,27 +8764,29 @@ function renderRoleAccessPanels() {
     title.textContent = panel.title;
     badges.className = "channel-operation-badges";
     badges.append(
-      createStatusBadge(panel.active ? "active" : "inactive", panel.active ? "active" : "neutral"),
+      createStatusBadge(panel.active ? "available" : "turned off", panel.active ? "active" : "neutral"),
       createStatusBadge(readiness.label, readiness.tone),
     );
     if (metadataWarnings.length > 0) {
-      badges.append(createStatusBadge("metadata warning", "blocked"));
+      badges.append(createStatusBadge("setup warning", "blocked"));
     }
     roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
-    roleDetail.textContent = `Role: ${getDetailedRoleLabel(panel.roleId)}`;
+    roleDetail.textContent = `Gives access through: ${getDetailedRoleLabel(panel.roleId)}`;
     channelDetail.className = "channel-operation-detail";
-    channelDetail.textContent = `Channel: ${getDetailedChannelLabel(panel.targetChannelId, "not set")}`;
+    channelDetail.textContent = `Posted in: ${getDetailedChannelLabel(panel.targetChannelId, "not set")}`;
     readinessDetail.className = "channel-operation-detail";
     readinessDetail.textContent = readiness.detail;
     metadataWarning.className = "channel-operation-detail role-followup-warning";
     metadataWarning.textContent = metadataWarnings.join(" ");
     metadataWarning.hidden = metadataWarnings.length === 0;
     postedDetail.className = "channel-operation-detail";
-    postedDetail.textContent = `Last posted: ${formatTimestamp(panel.lastPostedAt)} (${formatRelativeTime(panel.lastPostedAt)})`;
+    postedDetail.textContent = panel.lastPostedAt
+      ? `Last posted ${formatRelativeTime(panel.lastPostedAt)}.`
+      : "Not posted from the dashboard yet.";
     actions.className = "channel-operation-actions";
     actions.append(
-      createChannelActionButton("Edit Draft", () => populateRoleAccessPanelForm(panel)),
-      createChannelActionButton("Post Button Message", () => void postRoleAccessPanel(panel.id)),
+      createChannelActionButton("Review access setup", () => populateRoleAccessPanelForm(panel)),
+      createChannelActionButton("Post role selection", () => void postRoleAccessPanel(panel.id)),
       createChannelActionButton("Delete", () => void deleteRoleAccessPanel(panel.id)),
     );
 
@@ -8630,7 +8848,7 @@ function renderRoleFollowupPreview() {
 
   const header = document.createElement("div");
   const headerTitle = document.createElement("span");
-  const statusBadge = createStatusBadge(followup.enabled ? "active" : "inactive", followup.enabled ? "active" : "neutral");
+  const statusBadge = createStatusBadge(followup.enabled ? "will send" : "turned off", followup.enabled ? "active" : "neutral");
   const flow = document.createElement("div");
   const trigger = document.createElement("p");
   const action = document.createElement("p");
@@ -8643,8 +8861,8 @@ function renderRoleFollowupPreview() {
   header.className = "discord-panel-preview-header";
   headerTitle.textContent = "Follow-up preview";
   flow.className = "role-followup-preview-flow";
-  trigger.textContent = `User gets role: ${getDetailedRoleLabel(followup.roleId)}`;
-  action.textContent = `Cdawg posts in channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
+  trigger.textContent = `When someone receives: ${getDetailedRoleLabel(followup.roleId)}`;
+  action.textContent = `Cdawg posts in: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
   message.className = "discord-panel-preview-embed";
   previewNote.className = "role-followup-preview-note";
   previewNote.textContent = "Preview only. Discord sends the configured message when the role is added.";
@@ -8776,9 +8994,9 @@ function renderRoleFollowups() {
     const emptyCopy = document.createElement("p");
 
     emptyState.className = "channel-operation-card role-access-empty-callout";
-    emptyTitle.textContent = "Create a role follow-up";
+    emptyTitle.textContent = "Create an access follow-up";
     emptyCopy.className = "channel-operation-detail";
-    emptyCopy.textContent = "Start by choosing the Discord role that should trigger an automatic message.";
+    emptyCopy.textContent = "Start by choosing which access should trigger a welcome or next-step message.";
     emptyState.append(emptyTitle, emptyCopy);
     roleFollowupsList.append(emptyState);
     return;
@@ -8798,16 +9016,16 @@ function renderRoleFollowups() {
 
     row.className = "channel-operation-card compact role-followup-card";
     main.className = "channel-operation-main";
-    title.textContent = getRoleLabel(followup.roleId);
+    title.textContent = `${getRoleLabel(followup.roleId)} follow-up`;
     badges.className = "channel-operation-badges";
-    badges.append(createStatusBadge(followup.enabled ? "active" : "inactive", followup.enabled ? "active" : "neutral"));
+    badges.append(createStatusBadge(followup.enabled ? "will send" : "turned off", followup.enabled ? "active" : "neutral"));
     if (metadataWarnings.length > 0) {
-      badges.append(createStatusBadge("metadata warning", "blocked"));
+      badges.append(createStatusBadge("setup warning", "blocked"));
     }
     roleDetail.className = "channel-operation-detail channel-operation-detail-strong";
-    roleDetail.textContent = `Role: ${getDetailedRoleLabel(followup.roleId)}`;
+    roleDetail.textContent = `When someone receives: ${getDetailedRoleLabel(followup.roleId)}`;
     channelDetail.className = "channel-operation-detail";
-    channelDetail.textContent = `Channel: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
+    channelDetail.textContent = `Cdawg posts in: ${getDetailedChannelLabel(followup.channelId, "not set")}`;
     metadataWarning.className = "channel-operation-detail role-followup-warning";
     metadataWarning.textContent = metadataWarnings.join(" ");
     metadataWarning.hidden = metadataWarnings.length === 0;
@@ -8815,7 +9033,7 @@ function renderRoleFollowups() {
     messagePreview.textContent = followup.message.length > 140 ? `${followup.message.slice(0, 140)}...` : followup.message;
     actions.className = "channel-operation-actions";
     actions.append(
-      createChannelActionButton("Edit", () => populateRoleFollowupForm(followup)),
+      createChannelActionButton("Edit follow-up message", () => populateRoleFollowupForm(followup)),
       createChannelActionButton("Delete", () => void deleteRoleFollowup(followup.id)),
     );
 
@@ -9332,10 +9550,12 @@ async function loadDailyTriviaChallenge() {
     dailyTriviaChallenge = data.dailyTriviaChallenge ?? null;
     renderAutomationMaster();
     renderDailyTriviaChallenge();
+    renderCommunityRecognition();
     setPrettyJson(dailyTriviaOutput, data);
   } catch (error) {
     dailyTriviaChallenge = null;
     renderDailyTriviaChallenge();
+    renderCommunityRecognition();
     dailyTriviaOutput.textContent = `Failed to load daily trivia.\n${error.message}`;
     setDailyTriviaStatus(`Daily trivia load failed: ${error.message}`, "error");
   }
@@ -9363,11 +9583,13 @@ async function loadDogState() {
     dogSystemEnabled = data.enabled === true;
     dogState = dogSystemEnabled ? data.dog ?? null : null;
     renderDogSummary();
+    renderCommunityRecognition();
     setPrettyJson(dogOutput, data);
   } catch (error) {
     dogSystemEnabled = false;
     dogState = null;
     renderDogSummary();
+    renderCommunityRecognition();
     dogOutput.textContent = `Failed to load dog state.\n${error.message}`;
   }
 }
@@ -10361,7 +10583,11 @@ channelOperationsSort.addEventListener("change", renderChannelOperations);
 channelIntelligenceFilter?.addEventListener("change", renderChannelIntelligence);
 engagementWindowFilter?.addEventListener("change", renderEngagementDashboard);
 engagementStatusFilter?.addEventListener("change", renderEngagementDashboard);
+communityActivityWindow?.addEventListener("change", renderCommunityActivity);
 contentOutcomesSourceFilter?.addEventListener("change", renderContentOutcomes);
+for (const button of document.querySelectorAll("[data-community-open-automation]")) {
+  button.addEventListener("click", () => navigateMissionAction(createMissionNavigation("channels", button.dataset.communityOpenAutomation)));
+}
 palworldPostInfoButton?.addEventListener("click", () => void postPalworldLaunchMessage("server-info"));
 palworldPostPromptButton?.addEventListener("click", () => void postPalworldLaunchMessage("joining-prompt"));
 palworldPauseAutomationButton?.addEventListener("click", () => void setPalworldAutomationPaused(true));

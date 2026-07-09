@@ -1271,8 +1271,8 @@
             <section class="control-block engagement-dashboard">
               <div class="subpanel-header">
                 <div>
-                  <h3>Engagement</h3>
-                  <p>Read-only channel activity signals from stored Discord message events.</p>
+                  <h3>Community Activity</h3>
+                  <p>Read-only conversation activity signals from stored Discord message events.</p>
                 </div>
                 <div class="toolbar compact">
                   <label>
@@ -1302,7 +1302,7 @@
               <div id="engagement-empty-state" class="channel-operation-empty engagement-empty-state">Loading engagement activity...</div>
 
               <div class="engagement-dashboard-content">
-                <div class="ops-card-grid engagement-metrics-grid" aria-label="Engagement totals">
+                <div class="ops-card-grid engagement-metrics-grid" aria-label="Community activity totals">
                   <article id="engagement-total-1h-card" class="ops-status-card neutral">
                     <span class="ops-status-label">Messages 1h</span>
                     <strong id="engagement-total-1h">0</strong>
@@ -1335,7 +1335,7 @@
                     <div id="engagement-top-channels" class="engagement-channel-list"></div>
                   </section>
                   <section class="metric-card engagement-list-card">
-                    <h3>Most Unique Active Users</h3>
+                  <h3>Most Active Participants</h3>
                     <div id="engagement-top-users" class="engagement-channel-list"></div>
                   </section>
                   <section class="metric-card engagement-list-card">
@@ -1380,44 +1380,70 @@
 
         <section class="control-tab-panel" data-tab-panel="access" hidden>
           <div class="tab-stack">
-            <section class="control-block">
+            <section class="control-block community-overview">
               <div class="subpanel-header">
                 <div>
                   <h3>Community</h3>
-                  <p>Manage role signup buttons and messages that are triggered by role changes.</p>
+                  <p>See who needs help, who has access, who is active, and who deserves recognition.</p>
                 </div>
               </div>
 
-              <div class="automation-section-grid" aria-label="Community sections">
-                <a href="#community-health" class="automation-section-card">
-                  <strong>Community Status</strong>
-                  <span>Review role automation warnings and configuration issues.</span>
+              <div class="automation-section-grid community-section-nav" aria-label="Community sections">
+                <a href="#community-new-members" class="automation-section-card">
+                  <strong>New Members</strong>
+                  <span>Recent join information when the bot has it.</span>
                 </a>
-                <a href="#community-channel-summary" class="automation-section-card">
-                  <strong>Channel Understanding</strong>
-                  <span>Review readiness and next actions by channel.</span>
+                <a href="#community-health" class="automation-section-card">
+                  <strong>Needs Follow-Up</strong>
+                  <span>Access and welcome-message setup that needs attention.</span>
                 </a>
                 <a href="#community-role-signup-buttons" class="automation-section-card">
-                  <strong>Role Signup Buttons</strong>
-                  <span>Review or create button messages that grant roles.</span>
+                  <strong>Roles &amp; Server Access</strong>
+                  <span>Review who can unlock each community or server.</span>
                 </a>
-                <a href="#community-role-followups" class="automation-section-card">
-                  <strong>Role Follow-Up Messages</strong>
-                  <span>Review or create messages triggered by role changes.</span>
+                <a href="#community-activity" class="automation-section-card">
+                  <strong>Active Community</strong>
+                  <span>Recent conversation activity in plain English.</span>
+                </a>
+                <a href="#community-recognition" class="automation-section-card">
+                  <strong>Recognition &amp; XP</strong>
+                  <span>How participation and recognition are tracked.</span>
+                </a>
+                <a href="#community-channel-summary" class="automation-section-card">
+                  <strong>Channel Setup</strong>
+                  <span>Tell the bot what each channel is for.</span>
                 </a>
               </div>
+
+              <section id="community-new-members" class="ops-snapshot-group ops-snapshot-group-wide community-owner-section">
+                <div class="ops-snapshot-group-header">
+                  <div>
+                    <h3>New Members</h3>
+                    <p class="channel-operation-detail">Recent joins appear here only when that history is available.</p>
+                  </div>
+                </div>
+                <div id="community-new-members-list" class="community-owner-list">
+                  <p class="channel-operation-empty">Join history is not available in the current dashboard data. New member details will appear here after that signal exists.</p>
+                </div>
+              </section>
 
               <section id="community-health" class="ops-snapshot-group ops-snapshot-group-wide">
                 <div class="ops-snapshot-group-header">
-                  <h3>Community Status</h3>
+                  <div>
+                    <h3>Needs Follow-Up</h3>
+                    <p class="channel-operation-detail">Access and welcome-message setup that needs a decision or fix.</p>
+                  </div>
+                </div>
+                <div id="community-followup-list" class="community-owner-list">
+                  <p class="channel-operation-empty">Checking access follow-up needs...</p>
                 </div>
                 <div class="ops-card-grid">
                   <article id="community-total-panels-card" class="ops-status-card neutral">
-                    <span class="ops-status-label">Role Signup Buttons</span>
+                    <span class="ops-status-label">Role Selections</span>
                     <strong id="community-total-panels">0</strong>
                   </article>
                   <article id="community-total-followups-card" class="ops-status-card neutral">
-                    <span class="ops-status-label">Follow-Up Messages</span>
+                    <span class="ops-status-label">Access Follow-Ups</span>
                     <strong id="community-total-followups">0</strong>
                   </article>
                   <article id="community-missing-role-card" class="ops-status-card neutral">
@@ -1434,8 +1460,8 @@
               <section id="community-channel-summary" class="ops-snapshot-group ops-snapshot-group-wide community-builder-summary">
                 <div class="ops-snapshot-group-header">
                   <div>
-                    <h3>Channel Understanding</h3>
-                    <p class="channel-operation-detail">Readiness by channel using existing setup, automation, and activity data.</p>
+                    <h3>Channel Setup</h3>
+                    <p class="channel-operation-detail">Tell the bot what this channel is for so recommendations and follow-ups make sense.</p>
                   </div>
                   <div class="toolbar compact">
                     <label>
@@ -1449,7 +1475,7 @@
                         <option value="unknown">Unknown</option>
                       </select>
                     </label>
-                    <button id="community-open-channel-setup" type="button" class="secondary">Set Up a Channel</button>
+                    <button id="community-open-channel-setup" type="button" class="secondary">Tell the bot about a channel</button>
                   </div>
                 </div>
                 <div id="channel-intelligence-summary" class="channel-intelligence-summary"></div>
@@ -1473,11 +1499,11 @@
             <section id="community-role-signup-buttons" class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Role Signup Buttons</h3>
-                  <p>Allow members to assign roles to themselves.</p>
+                  <h3>Roles &amp; Server Access</h3>
+                  <p>Help members choose which games, servers, or communities they can access.</p>
                 </div>
                 <div class="toolbar">
-                  <button id="create-role-access-panel" type="button">Create Role Signup Button</button>
+                  <button id="create-role-access-panel" type="button">Create Role Selection</button>
                   <button id="refresh-role-access-panels" type="button" class="secondary">Refresh</button>
                 </div>
               </div>
@@ -1595,11 +1621,11 @@
             <section id="community-role-followups" class="control-block">
               <div class="subpanel-header">
                 <div>
-                  <h3>Role Follow-Up Messages</h3>
-                  <p>Automatically send a message when someone receives a selected role.</p>
+                  <h3>Access Follow-Ups</h3>
+                  <p>Automatically welcome or guide someone after they receive access.</p>
                 </div>
                 <div class="toolbar">
-                  <button id="create-role-followup" type="button">Create Follow-Up Message</button>
+                  <button id="create-role-followup" type="button">Create Access Follow-Up</button>
                   <button id="refresh-role-followups" type="button" class="secondary">Refresh</button>
                 </div>
               </div>
@@ -1722,6 +1748,49 @@
                 <pre id="role-followups-output">Loading...</pre>
               </details>
             </section>
+
+            <section id="community-activity" class="control-block community-activity-panel">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Active Community</h3>
+                  <p>Recent conversation activity without message contents.</p>
+                </div>
+                <div class="toolbar compact">
+                  <label>
+                    Window
+                    <select id="community-activity-window">
+                      <option value="last24h">Today</option>
+                      <option value="last1h">Last hour</option>
+                      <option value="last7d">This week</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+              <div id="community-activity-summary" class="community-owner-list">
+                <p class="channel-operation-empty">Loading community activity...</p>
+              </div>
+              <div id="community-active-channels" class="engagement-channel-list"></div>
+            </section>
+
+            <section id="community-recognition" class="control-block community-recognition-panel">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Recognition &amp; XP</h3>
+                  <p>XP is the bot&apos;s lightweight way to recognize participation. Detailed XP commands still live in Discord.</p>
+                </div>
+              </div>
+              <div id="community-recognition-summary" class="community-owner-list">
+                <p class="channel-operation-empty">Loading recognition signals...</p>
+              </div>
+              <details class="details-block">
+                <summary>Advanced Recognition Settings</summary>
+                <div class="community-owner-actions">
+                  <button type="button" class="secondary" data-community-open-automation="automation-daily-trivia">Review Daily Trivia</button>
+                  <button type="button" class="secondary" data-community-open-automation="automation-community-game">Review Community Game</button>
+                </div>
+                <p class="channel-operation-detail">Grant, remove, and set XP are Discord admin commands. They are intentionally not shown as primary owner actions here.</p>
+              </details>
+            </section>
           </div>
         </section>
 
@@ -1729,8 +1798,8 @@
           <section class="control-block">
             <div class="subpanel-header">
               <div>
-                <h3>Role Follow-Up Messages moved to Community</h3>
-                <p>Role follow-up messages now live on the Community page.</p>
+                <h3>Access Follow-Ups moved to Community</h3>
+                <p>Access follow-ups now live on the Community page.</p>
               </div>
             </div>
           </section>

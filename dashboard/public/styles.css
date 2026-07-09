@@ -3567,6 +3567,102 @@ small {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+.community-overview {
+  display: contents;
+}
+
+.community-overview > .subpanel-header {
+  order: 0;
+}
+
+.community-section-nav {
+  order: 0;
+}
+
+#community-new-members {
+  order: 1;
+}
+
+#community-health {
+  order: 2;
+}
+
+#community-role-signup-buttons {
+  order: 3;
+}
+
+#community-role-followups {
+  order: 3;
+}
+
+#community-activity {
+  order: 4;
+}
+
+#community-recognition {
+  order: 5;
+}
+
+#community-channel-summary {
+  order: 6;
+}
+
+.community-owner-section,
+.community-activity-panel,
+.community-recognition-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.community-owner-list {
+  display: grid;
+  gap: 10px;
+}
+
+.community-owner-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid rgba(120, 185, 255, 0.18);
+  border-radius: 12px;
+  background: rgba(5, 12, 22, 0.42);
+}
+
+.community-owner-item.blocked {
+  border-color: rgba(255, 107, 114, 0.28);
+  background: rgba(255, 107, 114, 0.08);
+}
+
+.community-owner-item.active {
+  border-color: rgba(74, 222, 128, 0.24);
+  background: rgba(74, 222, 128, 0.08);
+}
+
+.community-owner-item-copy {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.community-owner-item h3 {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.community-owner-item .status-badge {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.community-owner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .community-builder-form[hidden] {
   display: none;
 }
@@ -4395,6 +4491,15 @@ pre {
 
   #community-health .ops-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .community-owner-item {
+    grid-template-columns: 1fr;
+  }
+
+  .community-owner-item .status-badge,
+  .community-owner-item button {
+    justify-self: start;
   }
 }
 
