@@ -13,6 +13,23 @@ const opportunityContextBanner = document.querySelector("#opportunity-context-ba
 const opportunityContextTitle = document.querySelector("#opportunity-context-title");
 const opportunityContextDetail = document.querySelector("#opportunity-context-detail");
 const opportunityContextDismiss = document.querySelector("#opportunity-context-dismiss");
+const palworldLaunchStatusBadge = document.querySelector("#palworld-launch-status-badge");
+const palworldLaunchChannel = document.querySelector("#palworld-launch-channel");
+const palworldActivity = document.querySelector("#palworld-activity");
+const palworldActivityDetail = document.querySelector("#palworld-activity-detail");
+const palworldAutomation = document.querySelector("#palworld-automation");
+const palworldAutomationDetail = document.querySelector("#palworld-automation-detail");
+const palworldLastPost = document.querySelector("#palworld-last-post");
+const palworldLastPostDetail = document.querySelector("#palworld-last-post-detail");
+const palworldNextPost = document.querySelector("#palworld-next-post");
+const palworldNextPostDetail = document.querySelector("#palworld-next-post-detail");
+const palworldOutcomes = document.querySelector("#palworld-outcomes");
+const palworldWarnings = document.querySelector("#palworld-warnings");
+const palworldPostInfoButton = document.querySelector("#palworld-post-info");
+const palworldPostPromptButton = document.querySelector("#palworld-post-prompt");
+const palworldPauseAutomationButton = document.querySelector("#palworld-pause-automation");
+const palworldResumeAutomationButton = document.querySelector("#palworld-resume-automation");
+const palworldActionStatus = document.querySelector("#palworld-action-status");
 const opsApiStatus = document.querySelector("#ops-api-status");
 const opsBotStatus = document.querySelector("#ops-bot-status");
 const opsUptime = document.querySelector("#ops-uptime");
@@ -278,6 +295,10 @@ const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
 const composerDraftStorageKey = "cdawg-dashboard-composer-draft";
 const mockDiscoveryStorageKey = "cdawg-dashboard-show-mock-discovery";
 const autoRefreshIntervalMs = 15000;
+const palworldServerInfoReminder =
+  "**Palworld 1.0 launch reminder**\n\nIf you're joining us, check the server info channel before logging in so you have the current connection details, rules, and launch-week notes. Drop questions here and I will help keep everyone pointed in the right direction.";
+const palworldJoiningPrompt =
+  "**Palworld launch check-in**\n\nWhich server are you joining for 1.0, and what are you working on first: base building, exploration, boss prep, breeding, or helping new players get settled?";
 
 let lastSettingsSnapshot = null;
 let lastHealthSnapshot = null;
@@ -1664,6 +1685,178 @@ function createContentOutcomeCard(item) {
   header.append(titleBlock, badges);
   card.append(header, stats);
   return card;
+}
+
+function getPalworldPreset() {
+  return channelPresets.find((preset) => preset.defaultTopic === "palworld") ??
+    channelPresets.find((preset) => /palworld/i.test(preset.label ?? ""));
+}
+
+function getPalworldChannelId() {
+  return getPalworldPreset()?.channelId ?? null;
+}
+
+function getPalworldChannelLabel() {
+  const preset = getPalworldPreset();
+  return preset?.label ?? "Palworld channel";
+}
+
+function getPalworldAutomationStatus() {
+  const channelId = getPalworldChannelId();
+  return channelId ? channelAutomationStatuses.find((status) => status.channelId === channelId) ?? null : null;
+}
+
+function getPalworldEngagementWindow(windowKey) {
+  const channelId = getPalworldChannelId();
+  if (!channelId) {
+    return null;
+  }
+
+  return engagementSummary?.windows?.[windowKey]?.find((entry) => entry.channelId === channelId) ?? null;
+}
+
+function getPalworldOutcomes() {
+  const channelId = getPalworldChannelId();
+  return channelId ? contentOutcomes.filter((item) => item.channelId === channelId) : [];
+}
+
+function getPalworldIntelligence() {
+  const channelId = getPalworldChannelId();
+  return channelId ? getChannelIntelligenceById(channelId) : null;
+}
+
+function setPalworldStatus(message, kind = "neutral") {
+  if (!palworldActionStatus) {
+    return;
+  }
+
+  palworldActionStatus.textContent = message;
+  palworldActionStatus.className = `form-status ${kind}`;
+}
+
+function renderPalworldLaunchMetric(target, detailTarget, value, detail) {
+  if (target) {
+    target.textContent = value;
+  }
+
+  if (detailTarget) {
+    detailTarget.textContent = detail;
+  }
+}
+
+function createPalworldListItem(titleText, detailText, tone = "neutral") {
+  const item = document.createElement("article");
+  const title = document.createElement("strong");
+  const detail = document.createElement("span");
+
+  item.className = `palworld-list-item ${tone}`;
+  title.textContent = titleText;
+  detail.textContent = detailText;
+  item.append(title, detail);
+  return item;
+}
+
+function renderPalworldLaunchControl() {
+  if (!palworldLaunchStatusBadge) {
+    return;
+  }
+
+  const channelId = getPalworldChannelId();
+  const channelLabel = getPalworldChannelLabel();
+  const automationStatus = getPalworldAutomationStatus();
+  const last24h = getPalworldEngagementWindow("last24h");
+  const last7d = getPalworldEngagementWindow("last7d");
+  const outcomes = getPalworldOutcomes();
+  const lastOutcome = outcomes[0] ?? null;
+  const intelligence = getPalworldIntelligence();
+  const warningItems = [
+    ...(intelligence?.detectedGaps ?? []),
+    ...(channelId && !automationStatus ? ["Automation status has not loaded for the Palworld channel."] : []),
+    ...(automationStatus?.blockedReason ? [`Automation is ${getBlockedReasonLabel(automationStatus.blockedReason).toLowerCase()}.`] : []),
+  ].filter((item, index, list) => item && list.indexOf(item) === index);
+
+  palworldLaunchChannel.textContent = channelId ? `${channelLabel} (${channelId})` : "Palworld channel not configured";
+  palworldLaunchStatusBadge.textContent = !channelId
+    ? "setup needed"
+    : automationStatus?.blockedReason
+      ? "review"
+      : warningItems.length > 0
+        ? "warnings"
+        : "ready";
+  palworldLaunchStatusBadge.className = `status-badge ${!channelId || automationStatus?.blockedReason ? "blocked" : warningItems.length > 0 ? "neutral" : "active"}`;
+
+  renderPalworldLaunchMetric(
+    palworldActivity,
+    palworldActivityDetail,
+    last24h ? `${last24h.messageCount} messages` : "No 24h activity",
+    last24h
+      ? `${last24h.approxActiveUsers} active users in 24h; ${last7d?.messageCount ?? 0} messages in 7d.`
+      : engagementSummaryLoadError
+        ? `Engagement unavailable: ${engagementSummaryLoadError}`
+        : "No Palworld activity has been recorded in the loaded 24h window.",
+  );
+
+  renderPalworldLaunchMetric(
+    palworldAutomation,
+    palworldAutomationDetail,
+    automationStatus ? getBlockedReasonLabel(automationStatus.blockedReason) : "Unknown",
+    automationStatus
+      ? `${getAutomationModeLabel(automationStatus.automationMode)}. ${getChannelOperationStatusText(automationStatus)}.`
+      : "No automation status has loaded for the Palworld channel.",
+  );
+
+  renderPalworldLaunchMetric(
+    palworldLastPost,
+    palworldLastPostDetail,
+    lastOutcome ? formatRelativeTime(lastOutcome.postedAt) : "None tracked",
+    lastOutcome
+      ? `${lastOutcome.label ?? getContentOutcomeSourceLabel(lastOutcome.source)} - ${lastOutcome.activity?.outcomeLabel ?? "unknown"} response.`
+      : "No tracked Palworld bot or dashboard post is available yet.",
+  );
+
+  renderPalworldLaunchMetric(
+    palworldNextPost,
+    palworldNextPostDetail,
+    automationStatus?.nextEligibleSendAt ? formatRelativeTime(automationStatus.nextEligibleSendAt) : "None loaded",
+    automationStatus?.nextEligibleSendAt
+      ? `${formatTimestamp(automationStatus.nextEligibleSendAt)} via ${getAutomationModeLabel(automationStatus.automationMode)}.`
+      : "No next scheduled Palworld post is available from the loaded automation state.",
+  );
+
+  palworldOutcomes.replaceChildren();
+  if (contentOutcomesLoadError) {
+    palworldOutcomes.append(createPalworldListItem("Outcomes unavailable", contentOutcomesLoadError, "blocked"));
+  } else if (outcomes.length === 0) {
+    palworldOutcomes.append(createPalworldListItem("No tracked Palworld posts yet", "Post from this panel or Content Studio to start outcome tracking."));
+  } else {
+    for (const outcome of outcomes.slice(0, 3)) {
+      palworldOutcomes.append(createPalworldListItem(
+        outcome.label ?? getContentOutcomeSourceLabel(outcome.source),
+        `${formatRelativeTime(outcome.postedAt)} - ${outcome.activity?.humanMessages60m ?? 0} human messages in 60m`,
+        getContentOutcomeTone(outcome.activity?.outcomeLabel),
+      ));
+    }
+  }
+
+  palworldWarnings.replaceChildren();
+  if (!channelId) {
+    palworldWarnings.append(createPalworldListItem("Palworld channel missing", "No dashboard preset with default topic palworld was found.", "blocked"));
+  } else if (channelIntelligenceLoadError) {
+    palworldWarnings.append(createPalworldListItem("Readiness unavailable", channelIntelligenceLoadError, "blocked"));
+  } else if (warningItems.length === 0) {
+    palworldWarnings.append(createPalworldListItem("No readiness warnings", "Current loaded signals do not show Palworld setup gaps.", "active"));
+  } else {
+    for (const warning of warningItems.slice(0, 4)) {
+      palworldWarnings.append(createPalworldListItem("Review", warning, "blocked"));
+    }
+  }
+
+  const actionButtons = [palworldPostInfoButton, palworldPostPromptButton, palworldPauseAutomationButton, palworldResumeAutomationButton];
+  for (const button of actionButtons) {
+    if (button) {
+      button.disabled = !channelId;
+    }
+  }
 }
 
 function renderContentOutcomes() {
@@ -6743,6 +6936,8 @@ function renderMissionControl() {
     return;
   }
 
+  renderPalworldLaunchControl();
+
   const opportunities = buildMissionOpportunities();
   const actionNeeded = opportunities.filter((item) => item.severity === "action needed" || item.severity === "warning");
   const recentProblems = automationActivityItems.filter((item) => item.status === "failure" || item.status === "blocked");
@@ -8796,12 +8991,14 @@ async function loadChannelOperations() {
     renderAutomationMaster();
     renderChannelOperations();
     renderChannelSetupAssistant();
+    renderPalworldLaunchControl();
     renderOpsSnapshot();
     setPrettyJson(channelOperationsOutput, data);
   } catch (error) {
     channelAutomationStatuses = [];
     renderChannelOperations();
     renderChannelSetupAssistant();
+    renderPalworldLaunchControl();
     renderOpsSnapshot();
     channelOperationsOutput.textContent = `Failed to load channel automation status.\n${error.message}`;
   }
@@ -8814,6 +9011,7 @@ async function loadChannelIntelligence() {
     channelIntelligenceLoadError = null;
     renderChannelIntelligence();
     renderEngagementDashboard();
+    renderPalworldLaunchControl();
     const hashChannelId = getDrawerChannelIdFromHash();
     if (hashChannelId && getChannelIntelligenceById(hashChannelId)) {
       openChannelActionDrawer(hashChannelId, { skipHash: true });
@@ -8823,6 +9021,7 @@ async function loadChannelIntelligence() {
     channelIntelligenceLoadError = error.message;
     renderChannelIntelligence();
     renderEngagementDashboard();
+    renderPalworldLaunchControl();
   }
 }
 
@@ -8832,10 +9031,12 @@ async function loadEngagementSummary() {
     engagementSummary = data;
     engagementSummaryLoadError = null;
     renderEngagementDashboard();
+    renderPalworldLaunchControl();
   } catch (error) {
     engagementSummary = null;
     engagementSummaryLoadError = error.message;
     renderEngagementDashboard();
+    renderPalworldLaunchControl();
   }
 }
 
@@ -8845,10 +9046,73 @@ async function loadContentOutcomes() {
     contentOutcomes = Array.isArray(data.items) ? data.items : [];
     contentOutcomesLoadError = null;
     renderContentOutcomes();
+    renderPalworldLaunchControl();
   } catch (error) {
     contentOutcomes = [];
     contentOutcomesLoadError = error.message;
     renderContentOutcomes();
+    renderPalworldLaunchControl();
+  }
+}
+
+async function postPalworldLaunchMessage(kind) {
+  const channelId = getPalworldChannelId();
+  const message = kind === "server-info" ? palworldServerInfoReminder : palworldJoiningPrompt;
+
+  if (!channelId) {
+    setPalworldStatus("Palworld channel is not configured.", "error");
+    return;
+  }
+
+  const confirmed = window.confirm(`Post this to ${getPalworldChannelLabel()}?\n\n${message}`);
+
+  if (!confirmed) {
+    setPalworldStatus("Post canceled.", "neutral");
+    return;
+  }
+
+  setPalworldStatus("Posting Palworld message...");
+
+  try {
+    const data = await fetchJson("/api/composer/post", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        channelId,
+        message,
+      }),
+    });
+
+    setPalworldStatus(`Posted to ${getChannelLabel(data.channelId)}.`, "success");
+    await Promise.all([loadContentOutcomes(), loadHealth()]);
+  } catch (error) {
+    setPalworldStatus(`Post failed: ${error.message}`, "error");
+  }
+}
+
+async function setPalworldAutomationPaused(paused) {
+  const channelId = getPalworldChannelId();
+
+  if (!channelId) {
+    setPalworldStatus("Palworld channel is not configured.", "error");
+    return;
+  }
+
+  setPalworldStatus(paused ? "Pausing Palworld automation..." : "Resuming Palworld automation...");
+
+  try {
+    if (paused) {
+      await applyChannelAutomationEnabled(channelId, false);
+    } else {
+      await applyChannelOperation(channelId, "resume");
+    }
+
+    await loadChannelIntelligence();
+    setPalworldStatus(paused ? "Palworld automation paused." : "Palworld automation resumed.", "success");
+  } catch (error) {
+    setPalworldStatus(`Automation update failed: ${error.message}`, "error");
   }
 }
 
@@ -9704,6 +9968,10 @@ channelIntelligenceFilter?.addEventListener("change", renderChannelIntelligence)
 engagementWindowFilter?.addEventListener("change", renderEngagementDashboard);
 engagementStatusFilter?.addEventListener("change", renderEngagementDashboard);
 contentOutcomesSourceFilter?.addEventListener("change", renderContentOutcomes);
+palworldPostInfoButton?.addEventListener("click", () => void postPalworldLaunchMessage("server-info"));
+palworldPostPromptButton?.addEventListener("click", () => void postPalworldLaunchMessage("joining-prompt"));
+palworldPauseAutomationButton?.addEventListener("click", () => void setPalworldAutomationPaused(true));
+palworldResumeAutomationButton?.addEventListener("click", () => void setPalworldAutomationPaused(false));
 autoRefreshEnabledInput.addEventListener("change", configureAutoRefresh);
 
 missionOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);

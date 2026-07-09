@@ -1205,6 +1205,7 @@ small {
 .mission-found-panel,
 .mission-activity-panel,
 .mission-profile-panel,
+.palworld-launch-panel,
 .daily-briefing-panel,
 .mission-setup-entry,
 .mission-channel-setup {
@@ -1375,9 +1376,98 @@ small {
 .mission-found-panel,
 .mission-activity-panel,
 .mission-profile-panel,
+.palworld-launch-panel,
 .mission-channel-setup {
   display: grid;
   gap: 12px;
+}
+
+.palworld-launch-panel {
+  align-content: start;
+}
+
+.palworld-launch-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.palworld-launch-grid .ops-status-card {
+  min-width: 0;
+}
+
+.palworld-launch-grid small {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted-soft);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.palworld-launch-body {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.palworld-launch-body section {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.3);
+}
+
+.palworld-launch-body h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.palworld-compact-list {
+  display: grid;
+  gap: 7px;
+}
+
+.palworld-list-item {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid rgba(120, 185, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.24);
+}
+
+.palworld-list-item.active {
+  border-color: rgba(42, 157, 88, 0.38);
+}
+
+.palworld-list-item.blocked {
+  border-color: rgba(244, 92, 92, 0.42);
+}
+
+.palworld-list-item strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.palworld-list-item span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.palworld-launch-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .mission-setup-entry {
@@ -4028,12 +4118,17 @@ pre {
   .form-grid-3 {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .palworld-launch-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 1080px) {
   .command-bar-top,
   .overview-layout,
   .daily-briefing-content,
+  .palworld-launch-body,
   .ops-snapshot-grid {
     grid-template-columns: 1fr;
   }
@@ -4173,6 +4268,7 @@ pre {
   .channel-intelligence-summary,
   .channel-intelligence-details,
   .channel-action-summary-grid,
+  .palworld-launch-grid,
   .ops-card-grid,
   .ops-card-grid-compact,
   .ops-integrity-grid,

@@ -174,6 +174,60 @@
               </div>
             </section>
 
+            <section class="palworld-launch-panel" aria-label="Palworld Launch Control">
+              <div class="ops-snapshot-group-header">
+                <div>
+                  <span id="palworld-launch-status-badge" class="status-badge neutral">loading</span>
+                  <h3>Palworld Launch Control</h3>
+                  <p class="channel-operation-detail">Compact launch-week controls for the Palworld community channel.</p>
+                </div>
+                <span id="palworld-launch-channel" class="mission-trust-meta">channel loading</span>
+              </div>
+              <div class="palworld-launch-grid">
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Channel Activity</span>
+                  <strong id="palworld-activity">Loading</strong>
+                  <small id="palworld-activity-detail">Waiting for engagement data.</small>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Automation</span>
+                  <strong id="palworld-automation">Loading</strong>
+                  <small id="palworld-automation-detail">Waiting for automation status.</small>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Last Bot Post</span>
+                  <strong id="palworld-last-post">None</strong>
+                  <small id="palworld-last-post-detail">No tracked Palworld post yet.</small>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Next Scheduled Post</span>
+                  <strong id="palworld-next-post">None</strong>
+                  <small id="palworld-next-post-detail">No eligible scheduled post loaded.</small>
+                </article>
+              </div>
+              <div class="palworld-launch-body">
+                <section>
+                  <h4>Recent Outcomes</h4>
+                  <div id="palworld-outcomes" class="palworld-compact-list">
+                    <p class="channel-operation-empty compact-empty">Loading Palworld outcomes...</p>
+                  </div>
+                </section>
+                <section>
+                  <h4>Readiness Warnings</h4>
+                  <div id="palworld-warnings" class="palworld-compact-list">
+                    <p class="channel-operation-empty compact-empty">Checking Palworld readiness...</p>
+                  </div>
+                </section>
+              </div>
+              <div class="palworld-launch-actions">
+                <button id="palworld-post-info" type="button">Post Server Info Reminder</button>
+                <button id="palworld-post-prompt" type="button" class="secondary">Post Joining Prompt</button>
+                <button id="palworld-pause-automation" type="button" class="secondary">Pause Palworld Automation</button>
+                <button id="palworld-resume-automation" type="button" class="secondary">Resume Palworld Automation</button>
+              </div>
+              <p id="palworld-action-status" class="form-status" role="status" aria-live="polite"></p>
+            </section>
+
             <section class="mission-action-panel">
               <div class="ops-snapshot-group-header">
                 <h3>Action Needed</h3>
