@@ -948,204 +948,40 @@
           <div class="subpanel-header">
             <div>
               <h3>Create &amp; Post</h3>
-              <p>Choose what you want to prepare, then work in one focused panel.</p>
+              <p>Write, review, schedule, and send posts with explicit owner approval.</p>
             </div>
           </div>
-          <div class="content-studio-choice-area" aria-label="Create and Post mode selector">
-            <h3>What do you want to do?</h3>
+          <div class="content-studio-choice-area" aria-label="Create and Post section shortcuts">
+            <h3>Explore</h3>
             <div class="automation-section-grid content-studio-choice-grid">
+              <button type="button" class="automation-section-card content-studio-choice is-active" data-content-studio-mode-target="write" aria-pressed="true">
+                <strong>Create a Post</strong>
+                <span>Write, preview, and send one message after confirmation.</span>
+              </button>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="generate" aria-pressed="false">
+                <strong>Ready-to-Use Posts</strong>
+                <span>Use prompts, reminders, trivia, history, and saved messages.</span>
+              </button>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="scheduled" aria-pressed="false">
+                <strong>Scheduled Posts</strong>
+                <span>See what will post, where it goes, and whether it is paused.</span>
+              </button>
               <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="discovery" aria-pressed="false">
-                <strong>Content Discovery</strong>
-                <span>Review content opportunities CDawg found before preparing anything.</span>
+                <strong>Ideas to Review</strong>
+                <span>Review suggestions before turning them into drafts.</span>
               </button>
-              <button type="button" class="automation-section-card content-studio-choice is-active" data-content-studio-mode-target="generate" aria-pressed="true">
-                <strong>Generate Content</strong>
-                <span>Create and send generated content like jokes, facts, trivia, prompts, or history items.</span>
-              </button>
-              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="write" aria-pressed="false">
-                <strong>Write a Message</strong>
-                <span>Write and send a custom message from the bot.</span>
-              </button>
-              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="saved" aria-pressed="false">
-                <strong>Use Saved Message</strong>
-                <span>Reuse saved message templates if available.</span>
-              </button>
-              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="history" aria-pressed="false">
-                <strong>Today in History</strong>
-                <span>Preview, pick another item, and send a history post.</span>
+              <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="outcomes" aria-pressed="false">
+                <strong>Recent Posts</strong>
+                <span>Check recent bot posts and follow-up activity.</span>
               </button>
             </div>
           </div>
           <div class="tab-stack">
-            <section id="content-discovery-review" class="control-block" data-content-studio-panel="discovery" hidden>
+            <section id="post-now-message" class="control-block content-create-post-section" data-content-studio-panel="write saved">
               <div class="subpanel-header">
                 <div>
-                  <h3>Content Discovery</h3>
-                  <p>Review a found opportunity, then choose a safe next step.</p>
-                </div>
-              </div>
-              <div id="content-discovery-review-panel" class="content-discovery-review-panel">
-                <p class="channel-operation-empty">No discovery card selected.</p>
-              </div>
-              <details class="details-block content-discovery-sources-panel">
-                <summary>Discovery Sources</summary>
-                <div class="content-discovery-sources-header">
-                  <div>
-                    <h4>RSS Sources</h4>
-                    <p>Refresh is manual only. Nothing posts or schedules automatically.</p>
-                  </div>
-                  <div class="toolbar">
-                    <button id="refresh-enabled-rss-discovery-sources" type="button" class="secondary">Refresh Enabled RSS Sources</button>
-                    <button id="add-rss-discovery-source" type="button" class="secondary">Add Content Source</button>
-                  </div>
-                </div>
-                <section id="content-source-library" class="content-source-library" hidden>
-                  <div class="content-source-library-header">
-                    <div>
-                      <h4>Content Source Library</h4>
-                      <p>Choose a curated RSS source to save. Refresh stays manual.</p>
-                    </div>
-                    <label>
-                      Recommend For
-                      <select id="content-source-library-profile">
-                        <option value="">Any channel profile</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div id="content-source-library-recommendations" class="content-source-library-recommendations"></div>
-                  <div id="content-source-library-categories" class="content-source-library-categories" aria-label="Content source categories"></div>
-                  <div id="content-source-library-list" class="content-source-library-list"></div>
-                </section>
-                <details class="details-block advanced-source-setup">
-                  <summary>Advanced Source Setup</summary>
-                  <button id="add-manual-rss-discovery-source" type="button" class="secondary">Add Manual RSS Source</button>
-                  <form id="rss-discovery-source-form" class="settings-form discovery-source-form" hidden>
-                    <input name="id" type="hidden" />
-                    <div class="form-grid form-grid-2">
-                      <label>
-                        Name
-                        <input name="name" type="text" maxlength="120" placeholder="Community news feed" required />
-                      </label>
-                      <label>
-                        Feed URL
-                        <input name="url" type="url" placeholder="https://example.com/feed.xml" required />
-                        <small>RSS source URLs must use https.</small>
-                      </label>
-                      <label>
-                        Enabled
-                        <select name="enabled">
-                          <option value="true">Enabled</option>
-                          <option value="false">Disabled</option>
-                        </select>
-                      </label>
-                      <label>
-                        Default Tags
-                        <input name="defaultTags" type="text" placeholder="news, community" />
-                        <small>Comma-separated lowercase tags.</small>
-                      </label>
-                      <label class="form-field-wide">
-                        Preferred Channels
-                        <select name="preferredChannelIds" multiple size="5">
-                          <option value="">Loading channels...</option>
-                        </select>
-                        <small>Optional. Hold Command/Ctrl to choose more than one channel.</small>
-                      </label>
-                    </div>
-                    <div class="settings-actions form-actions-row">
-                      <button type="submit">Save RSS Source</button>
-                      <button id="cancel-rss-discovery-source" type="button" class="secondary">Cancel</button>
-                      <button id="delete-rss-discovery-source" type="button" class="secondary" hidden>Delete</button>
-                    </div>
-                  </form>
-                </details>
-                <div id="rss-discovery-source-status" class="form-status"></div>
-                <div id="rss-discovery-sources-list" class="feed-list discovery-source-list">
-                  <p class="channel-operation-empty">No RSS sources configured yet.</p>
-                </div>
-              </details>
-            </section>
-
-            <section id="post-now-history" class="control-block" data-content-studio-panel="history" hidden>
-              <div class="subpanel-header">
-                <div>
-                  <h3>Today in History</h3>
-                  <p>Preview, pick another item, and send today’s history content without enabling automatic posting.</p>
-                </div>
-                <div class="toolbar">
-                  <button id="refresh-history-review" type="button" class="secondary">Refresh</button>
-                  <button id="reroll-history-review" type="button" class="secondary">Pick Another Item</button>
-                  <button id="push-history-preview" type="button">Send This Preview</button>
-                </div>
-              </div>
-              <div id="history-review-card" class="history-review-card">
-                <p class="channel-operation-empty">Loading history review...</p>
-              </div>
-              <div id="history-review-status" class="history-review-status"></div>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
-                <pre id="history-review-output">Loading...</pre>
-              </details>
-            </section>
-
-            <section id="post-now-generated-content" class="control-block" data-content-studio-panel="generate">
-              <div class="subpanel-header">
-                <div>
-                  <h3>Generate Content</h3>
-                  <p>Create and send generated content like jokes, facts, trivia, prompts, or history items.</p>
-                </div>
-              </div>
-              <form id="manual-push-form" class="settings-form command-form compact-send-form">
-                <section class="form-group form-command-panel">
-                  <h3>Send Generated Content</h3>
-                  <div class="form-grid form-grid-3 content-studio-generate-core">
-                    <label>
-                      Content Type
-                      <select name="contentType">
-                        <option value="history">history</option>
-                        <option value="joke">joke</option>
-                        <option value="prompt">prompt</option>
-                        <option value="fact">fact</option>
-                        <option value="trivia">trivia</option>
-                      </select>
-                    </label>
-                    <label>
-                      Saved Channel
-                      <select name="channelPreset">
-                        <option value="">Loading saved channels...</option>
-                      </select>
-                      <small id="manual-push-channel-meta">Select a saved channel to use its channel ID.</small>
-                    </label>
-                  </div>
-                  <details class="details-block content-studio-advanced">
-                    <summary>Advanced</summary>
-                    <label>
-                      Topic Override
-                      <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic override" />
-                      <small>Leave blank to use the channel topic mapping.</small>
-                    </label>
-                  </details>
-                </section>
-
-                <div class="settings-actions form-actions-row">
-                  <button type="submit">Send Generated Content</button>
-                  <span id="manual-push-status"></span>
-                </div>
-              </form>
-              <details class="details-block control-debug-details">
-                <summary>Technical Details</summary>
-                <pre id="manual-push-output">Waiting for request...</pre>
-              </details>
-            </section>
-
-            <section id="post-now-message" class="control-block" data-content-studio-panel="write saved" hidden>
-              <div class="subpanel-header">
-                <div class="content-studio-write-heading">
-                  <h3>Write a Message</h3>
-                  <p>Write and send a custom message from the bot.</p>
-                </div>
-                <div class="content-studio-saved-heading">
-                  <h3>Use Saved Message</h3>
-                  <p>Load, edit, save, or delete saved messages without posting automatically.</p>
+                  <h3>Create a Post</h3>
+                  <p>Choose a destination, write the message, check the preview, then confirm before CDawg posts.</p>
                 </div>
               </div>
 
@@ -1153,7 +989,7 @@
                 <section class="form-group editor-side-panel content-studio-write-panel">
                   <h3>Destination</h3>
                   <label>
-                    Discord Channel
+                    Post in
                     <select name="channelIdSelect" data-discord-channel-select data-target-input="channelId">
                       <option value="">Loading channels...</option>
                     </select>
@@ -1176,7 +1012,7 @@
                 <section class="form-group composer-message-group editor-main-panel content-studio-write-panel">
                   <h3>Message</h3>
                   <label>
-                    Message
+                    What CDawg will say
                     <textarea name="message" rows="10" maxlength="2000" placeholder="Write the Discord message..." required></textarea>
                     <small id="composer-character-count">0 / 2000 characters</small>
                   </label>
@@ -1215,6 +1051,7 @@
 
                 <section id="post-now-saved-messages" class="form-group composer-templates-panel editor-tools-panel content-studio-saved-panel">
                   <h3>Saved Messages</h3>
+                  <p class="channel-operation-detail">Reusable posts stay here. Loading one fills the editor so it can be reviewed before posting.</p>
                   <label>
                     Saved message name
                     <input name="templateName" type="text" placeholder="Community reminder" />
@@ -1228,7 +1065,7 @@
                 </section>
 
                 <div class="settings-actions form-actions-row content-studio-write-panel">
-                  <button type="submit">Post Message</button>
+                  <button type="submit">Post Now</button>
                   <button id="save-composer-draft" type="button" class="secondary">Save Draft</button>
                   <button id="clear-composer" type="button" class="secondary">Clear</button>
                   <small id="composer-discovery-note" hidden>This draft came from a discovery item. If posted, CDawg will mark it posted.</small>
@@ -1241,6 +1078,213 @@
                 <pre id="composer-output">No message request yet.</pre>
               </details>
             </section>
+
+            <section id="post-now-generated-content" class="control-block content-ready-posts-section" data-content-studio-panel="generate">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Ready-to-Use Posts</h3>
+                  <p>Prepare a post from existing bot content. Nothing sends until you confirm the destination.</p>
+                </div>
+              </div>
+              <div class="content-ready-post-grid">
+                <form id="manual-push-form" class="settings-form command-form compact-send-form content-ready-post-card">
+                  <section class="form-group form-command-panel">
+                    <h3>Community Prompt or Reminder</h3>
+                    <p class="channel-operation-detail">Use an existing post type such as a prompt, fact, joke, trivia item, or Palworld-friendly reminder.</p>
+                    <div class="form-grid form-grid-2 content-studio-generate-core">
+                      <label>
+                        Post type
+                        <select name="contentType">
+                          <option value="history">History</option>
+                          <option value="joke">Joke</option>
+                          <option value="prompt">Community prompt</option>
+                          <option value="fact">Fact</option>
+                          <option value="trivia">Trivia</option>
+                        </select>
+                      </label>
+                      <label>
+                        Post in
+                        <select name="channelPreset">
+                          <option value="">Loading saved channels...</option>
+                        </select>
+                        <small id="manual-push-channel-meta">Choose where this post will appear.</small>
+                      </label>
+                    </div>
+                    <details class="details-block content-studio-advanced">
+                      <summary>Optional details</summary>
+                      <label>
+                        Topic
+                        <input name="topicOverride" type="text" list="topic-options" placeholder="Optional topic" />
+                        <small>Leave blank to use the channel's normal topic.</small>
+                      </label>
+                    </details>
+                  </section>
+
+                  <div class="settings-actions form-actions-row">
+                    <button type="submit">Use This Post</button>
+                    <span id="manual-push-status"></span>
+                  </div>
+                </form>
+
+                <section id="post-now-history" class="control-block content-ready-post-card" data-content-studio-panel="history">
+                  <div class="subpanel-header">
+                    <div>
+                      <h3>Today in History</h3>
+                      <p>Preview, pick another item, and send a history post without enabling automatic posting.</p>
+                    </div>
+                    <div class="toolbar">
+                      <button id="refresh-history-review" type="button" class="secondary">Refresh</button>
+                      <button id="reroll-history-review" type="button" class="secondary">Pick Another Item</button>
+                      <button id="push-history-preview" type="button">Use This Post</button>
+                    </div>
+                  </div>
+                  <div id="history-review-card" class="history-review-card">
+                    <p class="channel-operation-empty">Loading history review...</p>
+                  </div>
+                  <div id="history-review-status" class="history-review-status"></div>
+                </section>
+              </div>
+            </section>
+
+            <section id="create-post-scheduled-posts" class="control-block content-scheduled-posts-section" data-content-studio-panel="scheduled">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Scheduled Posts</h3>
+                  <p>Review what CDawg is set to post automatically and whether each schedule is running or paused.</p>
+                </div>
+                <button id="create-feed-from-post" type="button">Add Scheduled Post</button>
+              </div>
+              <div id="create-post-scheduled-posts-list" class="feed-list"></div>
+            </section>
+
+            <section id="content-discovery-review" class="control-block content-ideas-section" data-content-studio-panel="discovery">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Ideas to Review</h3>
+                  <p>Suggestions for owner review. CDawg will not post these unless you turn one into a draft and confirm it.</p>
+                </div>
+              </div>
+              <div id="content-discovery-review-panel" class="content-discovery-review-panel">
+                <p class="channel-operation-empty">No idea selected.</p>
+              </div>
+            </section>
+
+            <section class="metric-card content-outcomes-panel content-recent-posts-section" data-content-studio-panel="outcomes">
+              <div class="content-outcomes-header">
+                <div>
+                  <h3>Recent Posts</h3>
+                  <p class="channel-operation-detail">Shows recent bot or dashboard posts and the follow-up activity observed afterward.</p>
+                </div>
+                <label>
+                  Show
+                  <select id="content-outcomes-source-filter">
+                    <option value="all">All posts</option>
+                    <option value="scheduler">Scheduled posts</option>
+                    <option value="feed">Automatic content sources</option>
+                    <option value="dailyTrivia">Daily trivia</option>
+                    <option value="passiveChat">Chat replies</option>
+                    <option value="manualPush">Post Now</option>
+                    <option value="composer">Written posts</option>
+                    <option value="historyPush">History posts</option>
+                    <option value="unknown">Unknown</option>
+                  </select>
+                </label>
+              </div>
+              <div id="content-outcomes-list" class="content-outcomes-list">
+                <p class="channel-operation-empty">Loading recent posts...</p>
+              </div>
+            </section>
+
+            <details id="create-post-advanced" class="details-block content-create-post-advanced" data-content-studio-panel="advanced">
+              <summary>Advanced</summary>
+              <div class="content-advanced-grid">
+                <details class="details-block content-discovery-sources-panel">
+                  <summary>Automatic Content Sources</summary>
+                  <div class="content-discovery-sources-header">
+                    <div>
+                      <h4>Sources</h4>
+                      <p>Refresh is manual only. Nothing posts or schedules automatically from this panel.</p>
+                    </div>
+                    <div class="toolbar">
+                      <button id="refresh-enabled-rss-discovery-sources" type="button" class="secondary">Refresh Enabled Sources</button>
+                      <button id="add-rss-discovery-source" type="button" class="secondary">Add Source</button>
+                    </div>
+                  </div>
+                  <section id="content-source-library" class="content-source-library" hidden>
+                    <div class="content-source-library-header">
+                      <div>
+                        <h4>Source Library</h4>
+                        <p>Choose a curated RSS source to save. Refresh stays manual.</p>
+                      </div>
+                      <label>
+                        Recommend For
+                        <select id="content-source-library-profile">
+                          <option value="">Any channel profile</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div id="content-source-library-recommendations" class="content-source-library-recommendations"></div>
+                    <div id="content-source-library-categories" class="content-source-library-categories" aria-label="Content source categories"></div>
+                    <div id="content-source-library-list" class="content-source-library-list"></div>
+                  </section>
+                  <details class="details-block advanced-source-setup">
+                    <summary>Technical Source Setup</summary>
+                    <button id="add-manual-rss-discovery-source" type="button" class="secondary">Add Manual RSS Source</button>
+                    <form id="rss-discovery-source-form" class="settings-form discovery-source-form" hidden>
+                      <input name="id" type="hidden" />
+                      <div class="form-grid form-grid-2">
+                        <label>
+                          Name
+                          <input name="name" type="text" maxlength="120" placeholder="Community news feed" required />
+                        </label>
+                        <label>
+                          Feed URL
+                          <input name="url" type="url" placeholder="https://example.com/feed.xml" required />
+                          <small>RSS source URLs must use https.</small>
+                        </label>
+                        <label>
+                          Enabled
+                          <select name="enabled">
+                            <option value="true">Enabled</option>
+                            <option value="false">Disabled</option>
+                          </select>
+                        </label>
+                        <label>
+                          Default Tags
+                          <input name="defaultTags" type="text" placeholder="news, community" />
+                          <small>Comma-separated lowercase tags.</small>
+                        </label>
+                        <label class="form-field-wide">
+                          Preferred Channels
+                          <select name="preferredChannelIds" multiple size="5">
+                            <option value="">Loading channels...</option>
+                          </select>
+                          <small>Optional. Hold Command/Ctrl to choose more than one channel.</small>
+                        </label>
+                      </div>
+                      <div class="settings-actions form-actions-row">
+                        <button type="submit">Save Source</button>
+                        <button id="cancel-rss-discovery-source" type="button" class="secondary">Cancel</button>
+                        <button id="delete-rss-discovery-source" type="button" class="secondary" hidden>Delete</button>
+                      </div>
+                    </form>
+                  </details>
+                  <div id="rss-discovery-source-status" class="form-status"></div>
+                  <div id="rss-discovery-sources-list" class="feed-list discovery-source-list">
+                    <p class="channel-operation-empty">No sources configured yet.</p>
+                  </div>
+                </details>
+
+                <details class="details-block control-debug-details">
+                  <summary>Post Now Technical Details</summary>
+                  <pre id="manual-push-output">Waiting for request...</pre>
+                </details>
+                <details class="details-block control-debug-details">
+                  <summary>History Technical Details</summary>
+                  <pre id="history-review-output">Loading...</pre>
+                </details>
+              </div>
+            </details>
           </div>
         </section>
 
@@ -1348,31 +1392,6 @@
                   </section>
                 </div>
 
-                <section class="metric-card content-outcomes-panel">
-                  <div class="content-outcomes-header">
-                    <div>
-                      <h3>Recent Posted Content Outcomes</h3>
-                      <p class="channel-operation-detail">Tracks whether bot/dashboard-posted content was followed by channel activity.</p>
-                    </div>
-                    <label>
-                      Source
-                      <select id="content-outcomes-source-filter">
-                        <option value="all">All sources</option>
-                        <option value="scheduler">Scheduler</option>
-                        <option value="feed">Feed</option>
-                        <option value="dailyTrivia">Daily Trivia</option>
-                        <option value="passiveChat">Passive Chat</option>
-                        <option value="manualPush">Manual Push</option>
-                        <option value="composer">Composer</option>
-                        <option value="historyPush">History Push</option>
-                        <option value="unknown">Unknown</option>
-                      </select>
-                    </label>
-                  </div>
-                  <div id="content-outcomes-list" class="content-outcomes-list">
-                    <p class="channel-operation-empty">Loading posted content outcomes...</p>
-                  </div>
-                </section>
               </div>
             </section>
           </div>

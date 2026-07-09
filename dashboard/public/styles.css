@@ -3204,23 +3204,8 @@ small {
   margin-top: 10px;
 }
 
-.content-studio-saved-heading,
-[data-tab-panel="push"][data-content-studio-mode="write"] .content-studio-saved-panel,
-[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-write-heading,
-[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-write-panel {
+.content-studio-saved-heading {
   display: none;
-}
-
-[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-saved-heading {
-  display: grid;
-}
-
-[data-tab-panel="push"][data-content-studio-mode="saved"] .composer-form {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-[data-tab-panel="push"][data-content-studio-mode="saved"] .content-studio-saved-panel {
-  grid-column: 1 / -1;
 }
 
 .content-discovery-review-panel {
@@ -3538,24 +3523,61 @@ small {
   grid-template-columns: minmax(0, 1fr);
 }
 
+#post-now-message,
+#post-now-generated-content,
+#create-post-scheduled-posts,
+#content-discovery-review,
+.content-recent-posts-section,
+.content-create-post-advanced {
+  scroll-margin-top: 18px;
+}
+
+.content-ready-post-grid,
+.content-advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.content-ready-post-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(120, 185, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.3);
+}
+
+.content-ready-post-card .subpanel-header {
+  margin-bottom: 0;
+}
+
+.content-scheduled-posts-section .feed-list,
+.content-recent-posts-section .content-outcomes-list {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.content-scheduled-post-card {
+  align-content: start;
+}
+
 #manual-push-form > .form-group {
-  grid-template-columns: repeat(3, minmax(180px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
 }
 
 #manual-push-form {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
-  align-items: end;
+  align-items: stretch;
 }
 
 #manual-push-form > .form-group {
-  grid-column: 1;
+  grid-column: 1 / -1;
 }
 
 #manual-push-form > .form-actions-row {
-  grid-column: 2;
-  align-self: stretch;
-  align-content: end;
+  grid-column: 1 / -1;
+  align-self: auto;
+  align-content: start;
   justify-content: flex-start;
 }
 
@@ -4448,6 +4470,11 @@ pre {
     grid-template-columns: 1fr;
   }
 
+  .content-ready-post-grid,
+  .content-advanced-grid {
+    grid-template-columns: 1fr;
+  }
+
   .overview-status-grid {
     grid-template-columns: 1fr;
   }
@@ -4519,6 +4546,8 @@ pre {
   .composer-form,
   .metrics-grid,
   .automation-activity-grid,
+  .content-ready-post-grid,
+  .content-advanced-grid,
   .engagement-metrics-grid,
   .engagement-lists-grid,
   .content-outcome-stats,

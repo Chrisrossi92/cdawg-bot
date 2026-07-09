@@ -215,6 +215,7 @@ const composerTemplatesList = document.querySelector("#composer-templates-list")
 const composerTemplateStatus = document.querySelector("#composer-template-status");
 const manualPushForm = document.querySelector("#manual-push-form");
 const manualPushStatus = document.querySelector("#manual-push-status");
+const createPostScheduledPostsList = document.querySelector("#create-post-scheduled-posts-list");
 const dailyTriviaForm = document.querySelector("#daily-trivia-form");
 const dailyTriviaStatus = document.querySelector("#daily-trivia-status");
 const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
@@ -281,6 +282,7 @@ const refreshHistoryReviewButton = document.querySelector("#refresh-history-revi
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
 const createFeedButton = document.querySelector("#create-feed");
+const createFeedFromPostButton = document.querySelector("#create-feed-from-post");
 const createFeedInlineButton = document.querySelector("#create-feed-inline");
 const configureDailyTriviaButton = document.querySelector("#configure-daily-trivia");
 const configureDailyTriviaInlineButton = document.querySelector("#configure-daily-trivia-inline");
@@ -347,7 +349,7 @@ let discoverySourcesLoadError = null;
 let discoveryItems = [];
 let discoveryItemsLoadError = null;
 let activeControlTab = "overview";
-let activeContentStudioMode = "generate";
+let activeContentStudioMode = "write";
 let activeContentSourceLibraryCategory = "Recommended";
 let activeDiscoveryQueueFilter = "new";
 let selectedDiscoveryCardId = null;
@@ -891,11 +893,11 @@ function syncManualPushPresetSelection(prefillTopic = true) {
   const selectedPreset = getSelectedChannelPreset();
 
   if (!selectedPreset) {
-    manualPushChannelMeta.textContent = "Select a saved channel to use its channel ID.";
+    manualPushChannelMeta.textContent = "Choose where this post will appear.";
     return;
   }
 
-  manualPushChannelMeta.textContent = `Channel ID: ${selectedPreset.channelId}`;
+  manualPushChannelMeta.textContent = `Destination: ${selectedPreset.label ?? getChannelLabel(selectedPreset.channelId)}`;
 
   if (prefillTopic) {
     manualPushForm.elements.topicOverride.value = selectedPreset.defaultTopic ?? "";
@@ -1833,17 +1835,32 @@ function getContentOutcomeTone(label) {
 
 function getContentOutcomeSourceLabel(source) {
   const labels = {
-    scheduler: "Scheduler",
-    feed: "Feed",
+    scheduler: "Scheduled post",
+    feed: "Automatic content source",
     dailyTrivia: "Daily Trivia",
-    passiveChat: "Passive Chat",
-    manualPush: "Manual Push",
-    composer: "Composer",
-    historyPush: "History Push",
+    passiveChat: "Chat reply",
+    manualPush: "Post Now",
+    composer: "Written post",
+    historyPush: "History post",
     unknown: "Unknown",
   };
 
   return labels[source] ?? "Unknown";
+}
+
+function getContentOutcomeActivityLabel(activity = {}) {
+  const humanMessages = Number(activity.humanMessages60m ?? activity.messages60m ?? 0);
+  const activeUsers = Number(activity.approxActiveUsers60m ?? 0);
+
+  if (humanMessages >= 3 || activeUsers >= 2) {
+    return "Started conversation";
+  }
+
+  if (humanMessages > 0) {
+    return "Received replies";
+  }
+
+  return "No follow-up activity yet";
 }
 
 function getFilteredContentOutcomes() {
@@ -1865,7 +1882,7 @@ function createContentOutcomeCard(item) {
   const badges = document.createElement("div");
   const stats = document.createElement("dl");
   const activity = item.activity ?? {};
-  const channelName = item.channelName || item.channelId || "unknown channel";
+  const channelName = item.channelName ? `#${item.channelName}` : getChannelLabel(item.channelId) || "channel unavailable";
 
   card.className = "content-outcome-card";
   header.className = "content-outcome-card-header";
@@ -1874,18 +1891,18 @@ function createContentOutcomeCard(item) {
   stats.className = "content-outcome-stats";
 
   title.textContent = item.label || `${getContentOutcomeSourceLabel(item.source)} post`;
-  meta.textContent = `#${channelName} • ${formatTimestamp(item.postedAt)} (${formatRelativeTime(item.postedAt)})`;
+  meta.textContent = `${channelName} • ${formatTimestamp(item.postedAt)} (${formatRelativeTime(item.postedAt)})`;
   badges.append(
-    createStatusBadge(activity.outcomeLabel ?? "unknown", getContentOutcomeTone(activity.outcomeLabel)),
+    createStatusBadge(getContentOutcomeActivityLabel(activity), getContentOutcomeTone(activity.outcomeLabel)),
     createStatusBadge(getContentOutcomeSourceLabel(item.source), "neutral"),
     createStatusBadge(item.contentType || "content", "neutral"),
   );
 
   for (const [term, value] of [
-    ["15m response", activity.messages15m ?? 0],
-    ["60m response", activity.messages60m ?? 0],
-    ["Active users 60m", activity.approxActiveUsers60m ?? 0],
-    ["Human / bot 60m", `${activity.humanMessages60m ?? 0} / ${activity.botMessages60m ?? 0}`],
+    ["Replies in first 15 min", activity.messages15m ?? 0],
+    ["Follow-up messages", activity.humanMessages60m ?? activity.messages60m ?? 0],
+    ["Participants", activity.approxActiveUsers60m ?? 0],
+    ["Bot follow-ups", activity.botMessages60m ?? 0],
   ]) {
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
@@ -2082,7 +2099,7 @@ function renderContentOutcomes() {
   if (contentOutcomesLoadError) {
     const empty = document.createElement("p");
     empty.className = "channel-operation-empty";
-    empty.textContent = `Content outcomes are unavailable. ${contentOutcomesLoadError}`;
+    empty.textContent = `Recent post results are unavailable. ${contentOutcomesLoadError}`;
     contentOutcomesList.append(empty);
     return;
   }
@@ -2090,7 +2107,7 @@ function renderContentOutcomes() {
   if (!Array.isArray(contentOutcomes) || contentOutcomes.length === 0) {
     const empty = document.createElement("p");
     empty.className = "channel-operation-empty";
-    empty.textContent = "No posted content has been tracked yet. Outcomes will appear after confirmed bot or dashboard posts.";
+    empty.textContent = "No recent posts have been tracked yet. Results will appear after confirmed bot or dashboard posts.";
     contentOutcomesList.append(empty);
     return;
   }
@@ -2100,7 +2117,7 @@ function renderContentOutcomes() {
   if (items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "channel-operation-empty";
-    empty.textContent = "No tracked posts match the selected source filter.";
+    empty.textContent = "No recent posts match the selected filter.";
     contentOutcomesList.append(empty);
     return;
   }
@@ -2323,7 +2340,7 @@ function getOpportunityCheckNext(opportunity) {
     return [
       "Review channel understanding for setup gaps.",
       "Check recent activity for channel activity and active-user counts.",
-      "Review Content Outcomes before deciding what content pattern to reuse.",
+      "Review Recent Posts before deciding what content pattern to reuse.",
     ];
   }
 
@@ -2471,7 +2488,8 @@ function navigateOpportunityToSection(section, opportunity) {
   }
 
   if (section === "content-outcomes") {
-    setActiveControlTab("engagement");
+    setActiveControlTab("push");
+    setActiveContentStudioMode("outcomes");
     if (contentOutcomesSourceFilter) {
       const sourceOption = Array.from(contentOutcomesSourceFilter.options).find((option) =>
         String(opportunity.title ?? "").toLowerCase().startsWith(option.value.toLowerCase()) ||
@@ -2561,7 +2579,7 @@ function createOpportunityNavigationActions(opportunity) {
   addButton("Recent Activity", "engagement", "Recent activity cannot currently preselect this exact recommendation.");
 
   if (category === "Successful Content Pattern" || category === "Failed Content Pattern") {
-    addButton("Content Outcomes", "content-outcomes", "Source filtering remains manual in the Content Outcomes panel.");
+    addButton("Recent Posts", "content-outcomes", "Filtering remains manual in the Recent Posts panel.");
   }
 
   if (category === "Automation Failure Risk" || category === "Quick Wins" || category === "Untended Channel") {
@@ -2691,6 +2709,31 @@ function applyLegacyTabHash() {
   const hash = window.location.hash.slice(1).toLowerCase();
   if (hash.startsWith("community-")) {
     setActiveControlTab("access");
+    return;
+  }
+
+  const contentPostSectionMode = getContentStudioModeForSection(hash);
+  if (contentPostSectionMode) {
+    setActiveControlTab("push");
+    setActiveContentStudioMode(contentPostSectionMode);
+    window.requestAnimationFrame(() => {
+      document.querySelector(`#${hash}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
+    return;
+  }
+
+  if (hash === "content-outcomes") {
+    setActiveControlTab("push");
+    setActiveContentStudioMode("outcomes");
+    window.requestAnimationFrame(() => {
+      document.querySelector(".content-outcomes-panel")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
     return;
   }
 
@@ -4481,6 +4524,18 @@ function getContentStudioModeForSection(sectionId) {
     return "discovery";
   }
 
+  if (sectionId === "create-post-scheduled-posts") {
+    return "scheduled";
+  }
+
+  if (sectionId === "recent-posts") {
+    return "outcomes";
+  }
+
+  if (sectionId === "create-post-advanced") {
+    return "advanced";
+  }
+
   if (sectionId === "post-now-generated-content") {
     return "generate";
   }
@@ -4509,19 +4564,14 @@ function setContentStudioModeForSection(sectionId) {
 }
 
 function setActiveContentStudioMode(mode) {
-  const validModes = new Set(["discovery", "generate", "write", "saved", "history"]);
-  const nextMode = validModes.has(mode) ? mode : "generate";
+  const validModes = new Set(["discovery", "generate", "write", "saved", "history", "scheduled", "outcomes", "advanced"]);
+  const nextMode = validModes.has(mode) ? mode : "write";
   activeContentStudioMode = nextMode;
 
   for (const button of contentStudioModeButtons) {
     const isActive = button.dataset.contentStudioModeTarget === nextMode;
     button.classList.toggle("is-active", isActive);
     button.setAttribute("aria-pressed", String(isActive));
-  }
-
-  for (const panel of contentStudioPanels) {
-    const panelModes = (panel.dataset.contentStudioPanel || "").split(/\s+/);
-    panel.hidden = !panelModes.includes(nextMode);
   }
 
   const pushPanel = document.querySelector("[data-tab-panel='push']");
@@ -4747,7 +4797,7 @@ function getDailyTriviaStatusSummary() {
     : dailyTriviaChallenge.nextRunAt
       ? `Next run: ${formatTimestamp(dailyTriviaChallenge.nextRunAt)} (${formatRelativeTime(dailyTriviaChallenge.nextRunAt)}).`
       : "Daily trivia is configured, but no next run is currently reported.";
-  const winner = latestSession?.winnerUserId ? ` Winner: ${latestSession.winnerUserId}.` : "";
+  const winner = latestSession?.winnerUserId ? " Winner recorded." : "";
 
   return {
     badge: createStatusBadge(statusLabel, dailyTriviaChallenge.blockedReason ? "blocked" : dailyTriviaChallenge.enabled === false ? "neutral" : "active"),
@@ -4798,7 +4848,7 @@ function getDiscoveryScoreLabel(score) {
     return null;
   }
 
-  return `${getDiscoveryMatchLabel(score)} · score ${Math.round(score)}`;
+  return getDiscoveryMatchLabel(score);
 }
 
 function getDiscoveryWorkflowState(item) {
@@ -5330,15 +5380,15 @@ function createDiscoveryWorkflowMenu(item) {
   const details = document.createElement("details");
   const summary = document.createElement("summary");
   const menu = document.createElement("div");
-  const saveButton = createChannelActionButton("Save For Later", () => void updateDiscoveryItemWorkflowState(item, "saved"));
-  const reviewedButton = createChannelActionButton("Mark Reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed"));
+  const saveButton = createChannelActionButton("Save for later", () => void updateDiscoveryItemWorkflowState(item, "saved"));
+  const reviewedButton = createChannelActionButton("Mark reviewed", () => void updateDiscoveryItemWorkflowState(item, "reviewed"));
   const dismissButton = createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(item, "dismissed"));
   const newButton = workflowState !== "new"
-    ? createChannelActionButton("Move Back to New", () => void updateDiscoveryItemWorkflowState(item, "new"))
+    ? createChannelActionButton("Move back to review", () => void updateDiscoveryItemWorkflowState(item, "new"))
     : null;
 
   details.className = "discovery-workflow-menu";
-  summary.textContent = "More";
+  summary.textContent = "More actions";
   summary.setAttribute("aria-label", "Discovery workflow actions");
   menu.className = "discovery-workflow-menu-items";
   menu.append(saveButton, reviewedButton, dismissButton);
@@ -5351,14 +5401,14 @@ function createDiscoveryWorkflowMenu(item) {
 
 function getDiscoveryConfidenceLabel(item) {
   if (item?.isMock) {
-    return "demo only";
+    return "Example suggestion";
   }
 
   if (item?.workflowItemId) {
-    return item.safetyStatus === "needs-review" ? "persisted, needs review" : "persisted source item";
+    return item.safetyStatus === "needs-review" ? "Needs owner review" : "Saved suggestion";
   }
 
-  return "current dashboard state";
+  return "Current dashboard suggestion";
 }
 
 function getDiscoveryFreshnessLabel(item) {
@@ -5444,7 +5494,7 @@ function createContentDiscoveryCard(item) {
   freshnessDetail.textContent = getDiscoveryFreshnessLabel(item) ?? "current dashboard refresh";
   action.type = "button";
   action.className = "secondary";
-  action.textContent = reviewAction?.label ?? "Review";
+  action.textContent = "Preview";
   action.addEventListener("click", () => openDiscoveryCardReview(item.id));
 
   heading.append(title, description);
@@ -5499,7 +5549,7 @@ function createDiscoveryReviewListCard(item) {
   const action = card.querySelector("button");
 
   if (action) {
-    action.textContent = "Select";
+    action.textContent = "Preview";
   }
 
   return card;
@@ -5683,20 +5733,20 @@ function createContentDiscoveryReviewDetail(card) {
   confidenceDetail.textContent = getDiscoveryConfidenceLabel(card);
   freshnessTerm.textContent = "Freshness";
   freshnessDetail.textContent = getDiscoveryFreshnessLabel(card) ?? "current dashboard refresh";
-  scoreTerm.textContent = "Ranking score";
-  scoreDetail.textContent = scoreLabel || "Not scored";
+  scoreTerm.textContent = "Review detail";
+  scoreDetail.textContent = scoreLabel || "No extra ranking detail";
   typeTerm.textContent = "Suggested content type";
   typeDetail.textContent = card.suggestedContentType;
   preparedDraftTitle.textContent = "Prepared Draft";
   preparedDraftPreview.textContent = card.preparedMessage || "";
 
   prepareButton.type = "button";
-  prepareButton.textContent = "Prepare Message";
+  prepareButton.textContent = "Use as Draft";
   prepareButton.addEventListener("click", () => void prepareDiscoveryMessage(card));
 
   generateButton.type = "button";
   generateButton.className = "secondary";
-  generateButton.textContent = "Generate Related Content";
+  generateButton.textContent = "Use as Post Now Draft";
   generateButton.addEventListener("click", () => prepareDiscoveryGeneration(card));
 
   if (isSafeDiscoveryUrl(card.sourceUrl) && !card.isMock) {
@@ -5712,11 +5762,14 @@ function createContentDiscoveryReviewDetail(card) {
 
   backButton.type = "button";
   backButton.className = "secondary";
-  backButton.textContent = "Back to Mission Control";
+  backButton.textContent = "Back to Ideas";
   backButton.addEventListener("click", () => {
-    setActiveControlTab("overview");
+    selectedDiscoveryCardId = null;
+    setActiveControlTab("push");
+    setActiveContentStudioMode("discovery");
+    renderContentDiscoveryReview();
     window.requestAnimationFrame(() => {
-      document.querySelector(".mission-control")?.scrollIntoView({
+      document.querySelector("#content-discovery-review")?.scrollIntoView({
         behavior: "smooth",
         block: "start",
       });
@@ -5752,6 +5805,9 @@ function createContentDiscoveryReviewDetail(card) {
     typeDetail,
   );
   actions.prepend(prepareButton, generateButton);
+  if (card.workflowItemId) {
+    actions.append(createChannelActionButton("Dismiss", () => void updateDiscoveryItemWorkflowState(card, "dismissed")));
+  }
   if (workflowMenu) {
     actions.append(workflowMenu);
   }
@@ -5782,7 +5838,7 @@ function renderContentDiscoveryReview() {
 
   const intro = document.createElement("p");
   intro.className = "content-discovery-review-intro";
-  intro.textContent = "Choose a discovery card to review before preparing a message or generated content.";
+  intro.textContent = "These are suggestions for review. Preview one, turn it into a draft, or dismiss it. Nothing posts automatically.";
   contentDiscoveryReviewPanel.append(intro);
   contentDiscoveryReviewPanel.append(createDiscoveryQueueFilters(discoveryCards));
 
@@ -8400,6 +8456,7 @@ function hideFeedForm() {
 function createFeedDraft() {
   resetFeedForm();
   showFeedForm();
+  setActiveControlTab("channels");
   window.requestAnimationFrame(() => {
     feedForm.scrollIntoView({
       behavior: "smooth",
@@ -8437,6 +8494,7 @@ function configureDailyTrivia() {
 }
 
 function populateFeedForm(feed) {
+  setActiveControlTab("channels");
   showFeedForm();
   const preset = findPresetForChannel(feed.channelId);
   feedForm.elements.feedId.value = feed.id;
@@ -8448,7 +8506,7 @@ function populateFeedForm(feed) {
   feedForm.elements.topicOverride.value = feed.topicOverride ?? "";
   feedForm.elements.allowedStartTime.value = feed.allowedWindow?.startTime ?? "";
   feedForm.elements.allowedEndTime.value = feed.allowedWindow?.endTime ?? "";
-  setFeedStatus(`Editing scheduled post ${feed.id}.`);
+  setFeedStatus("Editing scheduled post.");
   window.requestAnimationFrame(() => {
     feedForm.scrollIntoView({
       behavior: "smooth",
@@ -8457,7 +8515,128 @@ function populateFeedForm(feed) {
   });
 }
 
+function getScheduledPostStatusLabel(feed) {
+  if (!feed.enabled) {
+    return "Paused";
+  }
+
+  if (feed.blockedReason) {
+    return "Needs setup";
+  }
+
+  return "Running";
+}
+
+function getScheduledPostTone(feed) {
+  if (!feed.enabled) {
+    return "neutral";
+  }
+
+  if (feed.blockedReason) {
+    return "blocked";
+  }
+
+  return "active";
+}
+
+function getScheduledPostCadenceLabel(feed) {
+  const minutes = Number(feed.cadenceMinutes);
+
+  if (!Number.isFinite(minutes) || minutes <= 0) {
+    return "Schedule not reported";
+  }
+
+  if (minutes < 60) {
+    return `About every ${minutes} minutes`;
+  }
+
+  const hours = minutes / 60;
+  return Number.isInteger(hours)
+    ? `About every ${hours} hour${hours === 1 ? "" : "s"}`
+    : `About every ${minutes} minutes`;
+}
+
+function createScheduledPostCard(feed, { compact = false } = {}) {
+  const row = document.createElement("section");
+  const main = document.createElement("div");
+  const title = document.createElement("h3");
+  const badges = document.createElement("div");
+  const destination = document.createElement("p");
+  const nextPost = document.createElement("p");
+  const timing = document.createElement("p");
+  const detail = document.createElement("p");
+  const actions = document.createElement("div");
+  const channelLabel = feed.channelLabel ?? getChannelLabel(feed.channelId) ?? "channel unavailable";
+
+  row.className = `channel-operation-card compact${compact ? " content-scheduled-post-card" : ""}`;
+  main.className = "channel-operation-main";
+  badges.className = "channel-operation-badges";
+  destination.className = "channel-operation-detail channel-operation-detail-strong";
+  nextPost.className = "channel-operation-detail";
+  timing.className = "channel-operation-detail";
+  detail.className = "channel-operation-detail";
+  actions.className = "channel-operation-actions";
+
+  title.textContent = `${feed.contentType || "Post"} for ${channelLabel}`;
+  badges.append(
+    createStatusBadge(getScheduledPostStatusLabel(feed), getScheduledPostTone(feed)),
+    createStatusBadge(feed.contentType || "post", "neutral"),
+  );
+  destination.textContent = `Posts in ${channelLabel}`;
+  nextPost.textContent = feed.nextRunAt
+    ? `Next post: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`
+    : "Next post time is not available yet.";
+  timing.textContent = `${getScheduledPostCadenceLabel(feed)}${feed.allowedWindow ? ` during ${feed.allowedWindow.startTime}-${feed.allowedWindow.endTime}` : ""}.`;
+  detail.textContent = feed.blockedReason
+    ? `Needs attention: ${getFeedBlockedLabel(feed)}${feed.blockedUntil ? ` until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})` : ""}.`
+    : feed.topicOverride
+      ? `Topic: ${feed.topicOverride}.`
+      : feed.presetTopic
+        ? `Topic: ${feed.presetTopic}.`
+        : "No extra topic set.";
+
+  if (feed.overlapWarnings?.length) {
+    badges.append(createStatusBadge("Review timing", "blocked"));
+  }
+
+  actions.append(
+    createChannelActionButton("Edit", () => populateFeedForm(feed)),
+    createChannelActionButton(feed.enabled ? "Pause" : "Resume", () => void setFeedEnabledState(feed.id, !feed.enabled)),
+    createChannelActionButton("Delete", () => void deleteFeed(feed.id)),
+  );
+
+  main.append(title, badges, destination, nextPost, timing, detail);
+  row.append(main, actions);
+  return row;
+}
+
+function renderCreatePostScheduledPosts() {
+  if (!createPostScheduledPostsList) {
+    return;
+  }
+
+  createPostScheduledPostsList.replaceChildren();
+
+  if (feeds.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No scheduled posts are set up yet.";
+    createPostScheduledPostsList.append(emptyState);
+    return;
+  }
+
+  for (const feed of feeds) {
+    createPostScheduledPostsList.append(createScheduledPostCard(feed, { compact: true }));
+  }
+}
+
 function renderFeeds() {
+  renderCreatePostScheduledPosts();
+
+  if (!feedsList) {
+    return;
+  }
+
   feedsList.replaceChildren();
 
   if (feeds.length === 0) {
@@ -8469,51 +8648,7 @@ function renderFeeds() {
   }
 
   for (const feed of feeds) {
-    const row = document.createElement("section");
-    const main = document.createElement("div");
-    const title = document.createElement("h3");
-    const meta = document.createElement("p");
-    const primaryDetail = document.createElement("p");
-    const secondaryDetail = document.createElement("p");
-    const blockedDetail = document.createElement("p");
-    const badges = document.createElement("div");
-    const actions = document.createElement("div");
-
-    row.className = "channel-operation-card compact";
-    main.className = "channel-operation-main";
-    title.textContent = `${feed.channelLabel} • ${feed.contentType}`;
-    meta.className = "channel-operation-meta";
-    meta.textContent = `Channel ${feed.channelId}${feed.topicOverride ? ` • Topic override ${feed.topicOverride}` : ` • Topic ${feed.presetTopic ?? "none"}`}${feed.allowedWindow ? ` • Window ${feed.allowedWindow.startTime}-${feed.allowedWindow.endTime}` : ""}${feed.triviaEligibility && !feed.triviaEligibility.ok ? ` • ${feed.triviaEligibility.error}` : ""}`;
-    primaryDetail.className = "channel-operation-detail channel-operation-detail-strong";
-    primaryDetail.textContent = `Next run: ${formatTimestamp(feed.nextRunAt)} (${formatRelativeTime(feed.nextRunAt)})`;
-    secondaryDetail.className = "channel-operation-detail";
-    secondaryDetail.textContent = `Repeats every ${feed.cadenceMinutes} min • Last run: ${formatTimestamp(feed.lastExecutedAt)} (${formatRelativeTime(feed.lastExecutedAt)})`;
-    blockedDetail.className = "channel-operation-detail";
-    blockedDetail.textContent = feed.blockedReason
-      ? `Blocked: ${getFeedBlockedLabel(feed)}${feed.blockedUntil ? ` until ${formatTimestamp(feed.blockedUntil)} (${formatRelativeTime(feed.blockedUntil)})` : ""}`
-      : "Blocked: none";
-    badges.className = "channel-operation-badges";
-    badges.append(
-      createStatusBadge(feed.enabled ? "enabled" : "disabled", feed.enabled ? "active" : "neutral"),
-      createStatusBadge(feed.contentType, "neutral"),
-      createStatusBadge(feed.presetTopic ?? "custom", "neutral"),
-    );
-    if (feed.blockedReason) {
-      badges.append(createStatusBadge(getFeedBlockedLabel(feed), "blocked"));
-    }
-    for (const warning of feed.overlapWarnings ?? []) {
-      badges.append(createStatusBadge(warning.code === "AGGRESSIVE_CADENCE" ? "fast cadence" : "overlap", "blocked"));
-    }
-    actions.className = "channel-operation-actions";
-    actions.append(
-      createChannelActionButton("Edit", () => populateFeedForm(feed)),
-      createChannelActionButton(feed.enabled ? "Disable" : "Enable", () => void setFeedEnabledState(feed.id, !feed.enabled)),
-      createChannelActionButton("Delete", () => void deleteFeed(feed.id)),
-    );
-
-    main.append(title, badges, primaryDetail, blockedDetail, secondaryDetail, meta);
-    row.append(main, actions);
-    feedsList.append(row);
+    feedsList.append(createScheduledPostCard(feed));
   }
 }
 
@@ -9163,9 +9298,9 @@ function renderHistoryReview() {
 
   card.className = "channel-operation-card compact";
   header.className = "channel-operation-main";
-  title.textContent = `${historyReview.channelLabel} • This Day in History`;
+  title.textContent = `${historyReview.channelLabel ?? getChannelLabel(historyReview.channelId) ?? "History channel"} • This Day in History`;
   meta.className = "channel-operation-meta";
-  meta.textContent = `Date key ${historyReview.dateKey} • ${historyReview.dateLabel} • Pool size ${historyReview.totalEventsForDate} • Channel ${historyReview.channelId}`;
+  meta.textContent = `${historyReview.dateLabel} • ${historyReview.totalEventsForDate} available item${historyReview.totalEventsForDate === 1 ? "" : "s"}`;
   badges.className = "channel-operation-badges";
   badges.append(
     createStatusBadge(`date ${historyReview.dateKey}`, "neutral"),
@@ -9793,6 +9928,14 @@ async function pushHistoryReviewPreview() {
     return;
   }
 
+  const destination = historyReview.channelLabel ?? getChannelLabel(historyReview.channelId) ?? "the selected channel";
+  const confirmed = window.confirm(`Post this history item to ${destination}?\n\n${historyReview.previewEvent.title}`);
+
+  if (!confirmed) {
+    setHistoryReviewStatus("Post canceled.");
+    return;
+  }
+
   setHistoryReviewStatus("Sending preview...");
 
   try {
@@ -9812,7 +9955,8 @@ async function pushHistoryReviewPreview() {
     renderAutomationMaster();
     renderHistoryReview();
     setPrettyJson(historyReviewOutput, data);
-    setHistoryReviewStatus("History preview sent.", "success");
+    setHistoryReviewStatus(`Posted to ${destination}.`, "success");
+    await loadContentOutcomes();
   } catch (error) {
     setHistoryReviewStatus(`Send failed: ${error.message}`, "error");
   }
@@ -9872,9 +10016,24 @@ function buildManualPushPayload() {
 
 async function submitManualPush(event) {
   event.preventDefault();
-  setManualPushStatus("Sending...");
 
   const payload = buildManualPushPayload();
+  const selectedPreset = getSelectedChannelPreset();
+
+  if (!payload.channelId) {
+    setManualPushStatus("Choose where this post should appear.", "error");
+    return;
+  }
+
+  const destination = selectedPreset?.label ?? getChannelLabel(payload.channelId) ?? "the selected channel";
+  const confirmed = window.confirm(`Post a ${payload.contentType} to ${destination}?`);
+
+  if (!confirmed) {
+    setManualPushStatus("Post canceled.");
+    return;
+  }
+
+  setManualPushStatus("Posting...");
   setPrettyJson(manualPushOutput, payload);
 
   try {
@@ -9887,8 +10046,8 @@ async function submitManualPush(event) {
     });
 
     setPrettyJson(manualPushOutput, data);
-    setManualPushStatus(`Sent ${data.contentType} to ${data.channelId}.`, "success");
-    await loadHealth();
+    setManualPushStatus(`Posted ${data.contentType} to ${getChannelLabel(data.channelId) || destination}.`, "success");
+    await Promise.all([loadHealth(), loadContentOutcomes()]);
   } catch (error) {
     manualPushOutput.textContent = `Generated post failed.\n${error.message}`;
     setManualPushStatus(`Send failed: ${error.message}`, "error");
@@ -9910,6 +10069,14 @@ async function submitComposer(event) {
     return;
   }
 
+  const destination = getChannelLabel(payload.channelId) || "the selected channel";
+  const confirmed = window.confirm(`Post this message to ${destination}?\n\n${payload.message}`);
+
+  if (!confirmed) {
+    setComposerStatus("Post canceled.");
+    return;
+  }
+
   setComposerStatus("Posting...");
   setPrettyJson(composerOutput, payload);
 
@@ -9923,7 +10090,7 @@ async function submitComposer(event) {
     });
 
     setPrettyJson(composerOutput, data);
-    setComposerStatus(`Posted to ${getChannelLabel(data.channelId)}.`, "success");
+    setComposerStatus(`Posted to ${getChannelLabel(data.channelId) || destination}.`, "success");
     if (activePreparedDiscoveryItemId) {
       try {
         await updateDiscoveryItemWorkflowStateById(activePreparedDiscoveryItemId, "posted", {
@@ -9935,7 +10102,7 @@ async function submitComposer(event) {
         console.warn(`[discovery] posted state update failed: ${error.message}`);
       }
     }
-    await loadHealth();
+    await Promise.all([loadHealth(), loadContentOutcomes()]);
   } catch (error) {
     composerOutput.textContent = `Message post failed.\n${error.message}`;
     setComposerStatus(`Post failed: ${error.message}`, "error");
@@ -10410,6 +10577,22 @@ for (const button of contentStudioModeButtons) {
       selectedDiscoveryCardId = null;
     }
     setActiveContentStudioMode(targetMode);
+    const targetSectionByMode = {
+      write: "#post-now-message",
+      saved: "#post-now-saved-messages",
+      generate: "#post-now-generated-content",
+      history: "#post-now-history",
+      scheduled: "#create-post-scheduled-posts",
+      discovery: "#content-discovery-review",
+      outcomes: ".content-outcomes-panel",
+      advanced: "#create-post-advanced",
+    };
+    window.requestAnimationFrame(() => {
+      document.querySelector(targetSectionByMode[targetMode] || "#post-now-message")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   });
 }
 
@@ -10573,6 +10756,7 @@ refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryRevie
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
 createFeedButton?.addEventListener("click", createFeedDraft);
+createFeedFromPostButton?.addEventListener("click", createFeedDraft);
 createFeedInlineButton?.addEventListener("click", createFeedDraft);
 configureDailyTriviaButton?.addEventListener("click", configureDailyTrivia);
 configureDailyTriviaInlineButton?.addEventListener("click", configureDailyTrivia);
