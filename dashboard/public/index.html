@@ -50,13 +50,13 @@
           </div>
         </div>
         <div class="control-center-tabs command-bar-tabs" role="tablist" aria-label="Dashboard sections">
-          <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Dashboard</button>
+          <button type="button" class="control-tab is-active" data-tab-target="overview" aria-selected="true">Home</button>
+          <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
+          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Create &amp; Post</button>
           <button type="button" class="control-tab" data-tab-target="channels" aria-selected="false">Automation</button>
-          <button type="button" class="control-tab" data-tab-target="push" aria-selected="false">Content Studio</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="composer" aria-selected="false" hidden>Write a Message</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="trivia" aria-selected="false" hidden>Daily Trivia</button>
-          <button type="button" class="control-tab" data-tab-target="engagement" aria-selected="false">Engagement</button>
-          <button type="button" class="control-tab" data-tab-target="access" aria-selected="false">Community</button>
+          <button type="button" class="control-tab utility-tab" data-tab-target="engagement" aria-selected="false" hidden>Engagement</button>
           <button type="button" class="control-tab utility-tab" data-tab-target="followups" aria-selected="false" hidden>Role Follow-Up Messages</button>
           <button type="button" class="control-tab" data-tab-target="settings" aria-selected="false">Settings</button>
         </div>
@@ -78,8 +78,8 @@
       <section class="panel control-center">
         <section id="opportunity-context-banner" class="opportunity-context-banner" hidden>
           <div>
-            <span class="status-badge neutral">from opportunity</span>
-            <h3 id="opportunity-context-title">Opened from Opportunity</h3>
+            <span class="status-badge neutral">from recommendation</span>
+            <h3 id="opportunity-context-title">Opened from Recommended Next Step</h3>
             <p id="opportunity-context-detail">Review the related dashboard context.</p>
           </div>
           <button id="opportunity-context-dismiss" type="button" class="secondary">Dismiss</button>
@@ -88,8 +88,8 @@
           <section class="control-block mission-control" aria-label="Mission Control">
             <div class="subpanel-header">
               <div>
-                <h3>Mission Control</h3>
-                <p>CDawg briefing and the highest-priority items that need attention.</p>
+                <h3>Home</h3>
+                <p>Plain-English status, next steps, and recent bot activity.</p>
               </div>
               <button id="mission-refresh-dashboard" type="button">Refresh Dashboard</button>
             </div>
@@ -124,47 +124,48 @@
               </div>
             </section>
 
-            <section class="mission-briefing">
+            <section class="mission-briefing" aria-label="System Status">
               <div class="mission-briefing-copy">
                 <span id="mission-briefing-status" class="status-badge neutral">loading</span>
-                <h3 id="mission-briefing-title">Building CDawg briefing...</h3>
-                <p id="mission-briefing-summary">Checking system health, automation, opportunities, and recent problems.</p>
+                <h3>System Status</h3>
+                <p id="mission-briefing-title">Checking whether everything is working...</p>
+                <p id="mission-briefing-summary">Checking bot status, dashboard connection, automation, and problems.</p>
               </div>
               <div class="mission-briefing-grid">
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">System Health</span>
+                  <span class="ops-status-label">Dashboard/API connection</span>
                   <strong id="mission-system-health">Loading</strong>
+                </article>
+                <article class="ops-status-card neutral">
+                  <span class="ops-status-label">Bot status</span>
+                  <strong id="mission-opportunity-count">Loading</strong>
                 </article>
                 <article class="ops-status-card neutral">
                   <span class="ops-status-label">Automation</span>
                   <strong id="mission-automation-summary">Loading</strong>
                 </article>
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Opportunities</span>
-                  <strong id="mission-opportunity-count">0</strong>
-                </article>
-                <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Problems</span>
+                  <span class="ops-status-label">Needs Attention</span>
                   <strong id="mission-problem-count">0</strong>
                 </article>
               </div>
               <details class="mission-briefing-details">
-                <summary>Profile statistics</summary>
+                <summary>Channel setup statistics</summary>
                 <div class="mission-briefing-grid mission-briefing-grid-secondary">
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Channel Profiles</span>
+                  <span class="ops-status-label">Channel Setups</span>
                   <strong id="mission-profile-count">0</strong>
                 </article>
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Profiles Complete</span>
+                  <span class="ops-status-label">Setups Complete</span>
                   <strong id="mission-profile-complete-count">0</strong>
                 </article>
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Profiles Incomplete</span>
+                  <span class="ops-status-label">Setups Incomplete</span>
                   <strong id="mission-profile-incomplete-count">0</strong>
                 </article>
                 <article class="ops-status-card neutral">
-                  <span class="ops-status-label">Profiles Missing Role</span>
+                  <span class="ops-status-label">Setups Missing Role</span>
                   <strong id="mission-profile-missing-role-count">0</strong>
                 </article>
               </div>
@@ -230,31 +231,34 @@
 
             <section class="mission-action-panel">
               <div class="ops-snapshot-group-header">
-                <h3>Action Needed</h3>
+                <div>
+                  <h3>Needs Attention</h3>
+                  <p class="channel-operation-detail">Only items that need a decision or a fix are shown here.</p>
+                </div>
                 <span id="mission-action-count" class="status-badge neutral">0 items</span>
               </div>
               <div id="mission-action-list" class="mission-action-list">
-                <p class="channel-operation-empty">Checking action-needed items...</p>
+                <p class="channel-operation-empty">Checking what needs attention...</p>
               </div>
             </section>
 
             <section class="mission-opportunities-panel">
               <div class="ops-snapshot-group-header">
                 <div>
-                  <h3>Opportunities</h3>
-                  <p class="channel-operation-detail">Deterministic recommendations from operational, engagement, and outcome data.</p>
+                  <h3>Recommended Next Step</h3>
+                  <p class="channel-operation-detail">One useful next step from the currently loaded dashboard data.</p>
                 </div>
-                <span id="mission-backend-opportunity-count" class="status-badge neutral">0 opportunities</span>
+                <span id="mission-backend-opportunity-count" class="status-badge neutral">checking</span>
               </div>
               <div id="mission-opportunities-list" class="mission-opportunities-list">
-                <p class="channel-operation-empty">Loading opportunities...</p>
+                <p class="channel-operation-empty">Choosing the next useful step...</p>
               </div>
-              <aside id="opportunity-action-drawer" class="channel-action-drawer opportunity-action-drawer" hidden aria-label="Opportunity details">
+              <aside id="opportunity-action-drawer" class="channel-action-drawer opportunity-action-drawer" hidden aria-label="Recommended next step details">
                 <div class="channel-action-drawer-header">
                   <div>
                     <span id="opportunity-action-drawer-priority" class="status-badge neutral">priority</span>
-                    <h3 id="opportunity-action-drawer-title">Opportunity Details</h3>
-                    <p id="opportunity-action-drawer-summary" class="channel-operation-detail">Choose an opportunity to review why it was detected.</p>
+                    <h3 id="opportunity-action-drawer-title">Recommended Next Step Details</h3>
+                    <p id="opportunity-action-drawer-summary" class="channel-operation-detail">Review why this next step was shown.</p>
                   </div>
                   <button id="opportunity-action-drawer-close" type="button" class="secondary">Close</button>
                 </div>
@@ -272,9 +276,12 @@
               </div>
             </section>
 
-            <section class="mission-activity-panel">
+            <section id="home-recent-activity" class="mission-activity-panel">
               <div class="ops-snapshot-group-header">
-                <h3>Recent Activity</h3>
+                <div>
+                  <h3>Recent Activity</h3>
+                  <p class="channel-operation-detail">A short timeline of what the bot and community did recently.</p>
+                </div>
               </div>
               <div id="automation-activity-list" class="automation-activity-list">
                 <p class="channel-operation-empty">No recent activity yet.</p>
@@ -402,8 +409,8 @@
                   </details>
                   <p class="channel-setup-memory-note">This saves CDawg's memory for this channel only. It does not change Discord.</p>
                   <div class="channel-setup-profile-actions">
-                    <button id="channel-setup-save-profile" type="button">Save Channel Profile</button>
-                    <button id="channel-setup-delete-profile" type="button" class="secondary" hidden>Delete Channel Profile</button>
+                    <button id="channel-setup-save-profile" type="button">Save Channel Setup</button>
+                    <button id="channel-setup-delete-profile" type="button" class="secondary" hidden>Delete Channel Setup</button>
                   </div>
                 </form>
 
@@ -575,7 +582,7 @@
                   <article class="common-task-card">
                     <h3>Post Something Now</h3>
                     <p>Send generated content or write a custom bot message.</p>
-                    <button id="task-post-now" type="button" class="secondary">Open Content Studio</button>
+                    <button id="task-post-now" type="button" class="secondary">Open Create &amp; Post</button>
                   </article>
                   <article class="common-task-card">
                     <h3>Manage Role Buttons & Messages</h3>
@@ -913,11 +920,11 @@
         <section class="control-tab-panel" data-tab-panel="push" hidden>
           <div class="subpanel-header">
             <div>
-              <h3>Content Studio</h3>
+              <h3>Create &amp; Post</h3>
               <p>Choose what you want to prepare, then work in one focused panel.</p>
             </div>
           </div>
-          <div class="content-studio-choice-area" aria-label="Content Studio mode selector">
+          <div class="content-studio-choice-area" aria-label="Create and Post mode selector">
             <h3>What do you want to do?</h3>
             <div class="automation-section-grid content-studio-choice-grid">
               <button type="button" class="automation-section-card content-studio-choice" data-content-studio-mode-target="discovery" aria-pressed="false">
@@ -1214,8 +1221,8 @@
           <section class="control-block">
             <div class="subpanel-header">
               <div>
-                <h3>Write a Message moved to Content Studio</h3>
-                <p>Custom messages and saved messages now live in Content Studio.</p>
+                <h3>Write a Message moved to Create &amp; Post</h3>
+                <p>Custom messages and saved messages now live in Create &amp; Post.</p>
               </div>
             </div>
           </section>
@@ -1360,8 +1367,8 @@
                   <span>Review role automation warnings and configuration issues.</span>
                 </a>
                 <a href="#community-channel-summary" class="automation-section-card">
-                  <strong>Channel Intelligence</strong>
-                  <span>Review operational readiness and next actions by channel.</span>
+                  <strong>Channel Understanding</strong>
+                  <span>Review readiness and next actions by channel.</span>
                 </a>
                 <a href="#community-role-signup-buttons" class="automation-section-card">
                   <strong>Role Signup Buttons</strong>
@@ -1400,8 +1407,8 @@
               <section id="community-channel-summary" class="ops-snapshot-group ops-snapshot-group-wide community-builder-summary">
                 <div class="ops-snapshot-group-header">
                   <div>
-                    <h3>Channel Intelligence</h3>
-                    <p class="channel-operation-detail">Operational readiness by channel using existing setup, automation, and activity data.</p>
+                    <h3>Channel Understanding</h3>
+                    <p class="channel-operation-detail">Readiness by channel using existing setup, automation, and activity data.</p>
                   </div>
                   <div class="toolbar compact">
                     <label>

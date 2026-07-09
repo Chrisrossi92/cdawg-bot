@@ -1185,7 +1185,55 @@ small {
 }
 
 .mission-control {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-bottom: 18px;
+}
+
+.mission-control > .subpanel-header {
+  order: 0;
+  margin-bottom: 2px;
+}
+
+.mission-briefing {
+  order: 1;
+}
+
+.mission-action-panel {
+  order: 2;
+}
+
+.mission-opportunities-panel {
+  order: 3;
+}
+
+.mission-activity-panel {
+  order: 4;
+}
+
+.palworld-launch-panel {
+  order: 5;
+}
+
+.daily-briefing-panel {
+  order: 6;
+}
+
+.mission-found-panel {
+  order: 7;
+}
+
+.mission-setup-entry {
+  order: 8;
+}
+
+.mission-channel-setup {
+  order: 9;
+}
+
+.mission-profile-panel {
+  order: 10;
 }
 
 .daily-briefing-panel,
@@ -1203,6 +1251,7 @@ small {
 .mission-next-activity,
 .mission-action-panel,
 .mission-found-panel,
+.mission-opportunities-panel,
 .mission-activity-panel,
 .mission-profile-panel,
 .palworld-launch-panel,
@@ -1374,6 +1423,7 @@ small {
 
 .mission-action-panel,
 .mission-found-panel,
+.mission-opportunities-panel,
 .mission-activity-panel,
 .mission-profile-panel,
 .palworld-launch-panel,
@@ -1726,6 +1776,47 @@ small {
   border: 1px solid rgba(120, 185, 255, 0.2);
   border-radius: 12px;
   background: rgba(5, 12, 22, 0.42);
+}
+
+.recommended-next-step {
+  gap: 14px;
+}
+
+.recommended-next-step > button {
+  justify-self: start;
+}
+
+.explain-details {
+  padding-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.explain-details summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.explain-details-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.42);
+}
+
+.explain-details-list dt {
+  color: var(--text);
+  font-weight: 700;
+}
+
+.explain-details-list dd {
+  margin: 0 0 4px;
+  line-height: 1.45;
 }
 
 .mission-found-card {

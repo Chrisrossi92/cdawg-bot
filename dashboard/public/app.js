@@ -1827,7 +1827,7 @@ function renderPalworldLaunchControl() {
   if (contentOutcomesLoadError) {
     palworldOutcomes.append(createPalworldListItem("Outcomes unavailable", contentOutcomesLoadError, "blocked"));
   } else if (outcomes.length === 0) {
-    palworldOutcomes.append(createPalworldListItem("No tracked Palworld posts yet", "Post from this panel or Content Studio to start outcome tracking."));
+    palworldOutcomes.append(createPalworldListItem("No tracked Palworld posts yet", "Post from this panel or Create & Post to start outcome tracking."));
   } else {
     for (const outcome of outcomes.slice(0, 3)) {
       palworldOutcomes.append(createPalworldListItem(
@@ -2007,13 +2007,13 @@ function renderOpportunityContextBanner() {
   }
 
   opportunityContextBanner.hidden = false;
-  opportunityContextTitle.textContent = `Opened from Opportunity: ${activeOpportunityContext.title}`;
+  opportunityContextTitle.textContent = `Opened from Recommended Next Step: ${activeOpportunityContext.title}`;
   opportunityContextDetail.textContent = [
     activeOpportunityContext.reason,
     activeOpportunityContext.channelName
       ? `Affected channel: #${activeOpportunityContext.channelName}`
       : activeOpportunityContext.channelId
-        ? `Affected channel: ${activeOpportunityContext.channelId}`
+        ? "Affected channel: name not loaded"
         : null,
     `Target: ${activeOpportunityContext.targetSection}`,
   ].filter(Boolean).join(" • ");
@@ -2081,10 +2081,10 @@ function getOpportunityWhyDetected(opportunity) {
   }
 
   if (category === "Quick Wins") {
-    return "Channel Intelligence found a setup gap that can be reviewed in an existing dashboard workflow.";
+    return "Channel understanding found a setup gap that can be reviewed in an existing dashboard workflow.";
   }
 
-  return "The deterministic Opportunity Engine matched this item from available operational signals.";
+  return "The dashboard matched this item from available operational signals.";
 }
 
 function getOpportunityCheckNext(opportunity) {
@@ -2094,7 +2094,7 @@ function getOpportunityCheckNext(opportunity) {
     return [
       "Review recent posted content outcomes for the source.",
       "Compare channels and response counts before changing cadence or content type.",
-      "Use Engagement to confirm whether the channel was generally active at the time.",
+      "Use recent activity to confirm whether the channel was generally active at the time.",
     ];
   }
 
@@ -2108,17 +2108,119 @@ function getOpportunityCheckNext(opportunity) {
 
   if (category === "Dormant Channel" || category === "High Potential Channel") {
     return [
-      "Review Channel Intelligence for setup gaps.",
-      "Check Engagement for recent channel activity and active-user counts.",
+      "Review channel understanding for setup gaps.",
+      "Check recent activity for channel activity and active-user counts.",
       "Review Content Outcomes before deciding what content pattern to reuse.",
     ];
   }
 
   return [
-    "Review Channel Intelligence for the affected channel.",
+    "Review channel understanding for the affected channel.",
     "Check whether a profile, topic, feed, or role workflow already exists.",
     "Use existing setup controls only after confirming the recommendation still applies.",
   ];
+}
+
+function getOwnerFriendlyOpportunityTitle(opportunity) {
+  const category = opportunity?.category;
+  const title = String(opportunity?.title ?? "").trim();
+  const primaryChannel = getOpportunityPrimaryChannel(opportunity);
+  const channelName = primaryChannel?.channelName ? `#${primaryChannel.channelName}` : "this channel";
+
+  if (category === "Automation Failure Risk") {
+    return "Review recent posting problems";
+  }
+
+  if (category === "Dormant Channel") {
+    return `Check why ${channelName} has gone quiet`;
+  }
+
+  if (category === "Untended Channel" || category === "Quick Wins") {
+    return `Tell the bot what ${channelName} is used for`;
+  }
+
+  if (category === "High Potential Channel") {
+    return `Help the bot support ${channelName}`;
+  }
+
+  if (category === "Successful Content Pattern") {
+    return "Reuse a post type that worked";
+  }
+
+  if (category === "Failed Content Pattern") {
+    return "Review a post type that is not working";
+  }
+
+  return title
+    .replace(/\bOpportunity\b/gi, "Suggested improvement")
+    .replace(/\bQuick Win\b/gi, "Takes about 30 seconds")
+    .replace(/\bChannel Profile\b/gi, "Channel setup")
+    .replace(/\bChannel Intelligence\b/gi, "Channel understanding")
+    .replace(/\bEngagement Score\b/gi, "Conversation activity")
+    || "Review the recommended next step";
+}
+
+function getOwnerFriendlyOpportunityDescription(opportunity) {
+  const description = String(opportunity?.description ?? opportunity?.suggestedAction ?? "").trim();
+
+  if (!description) {
+    return "The dashboard found a useful next step from the information it already has.";
+  }
+
+  return description
+    .replace(/\bopportunity engine\b/gi, "dashboard")
+    .replace(/\bOpportunity\b/gi, "suggested improvement")
+    .replace(/\bQuick Win\b/gi, "short task")
+    .replace(/\bChannel Profile\b/gi, "channel setup")
+    .replace(/\bChannel Intelligence\b/gi, "channel understanding")
+    .replace(/\bEngagement Score\b/gi, "conversation activity");
+}
+
+function getOwnerFriendlyOpportunityCategory(category) {
+  const categoryLabels = {
+    "Dormant Channel": "Quiet channel",
+    "Untended Channel": "Channel setup gap",
+    "High Potential Channel": "Active channel support",
+    "Successful Content Pattern": "Post type that worked",
+    "Failed Content Pattern": "Post type to review",
+    "Automation Failure Risk": "Posting problem",
+    "Quick Wins": "Takes about 30 seconds",
+  };
+
+  return categoryLabels[category] ?? "Suggested improvement";
+}
+
+function getRecommendationEffort(opportunity) {
+  if (opportunity?.category === "Quick Wins" || opportunity?.category === "Untended Channel") {
+    return "Takes about 30 seconds";
+  }
+
+  if (opportunity?.category === "Automation Failure Risk") {
+    return "Takes about 1 minute";
+  }
+
+  return "Takes a few minutes";
+}
+
+function createExplainDetails(items) {
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const list = document.createElement("dl");
+
+  details.className = "explain-details";
+  summary.textContent = "Why?";
+  list.className = "explain-details-list";
+
+  for (const item of items) {
+    const term = document.createElement("dt");
+    const description = document.createElement("dd");
+    term.textContent = item.term;
+    description.textContent = item.description;
+    list.append(term, description);
+  }
+
+  details.append(summary, list);
+  return details;
 }
 
 function navigateOpportunityToSection(section, opportunity) {
@@ -2242,8 +2344,8 @@ function createOpportunityNavigationActions(opportunity) {
   };
 
   actions.className = "channel-action-buttons";
-  addButton("Channel Intelligence", "channel-intelligence");
-  addButton("Engagement", "engagement", "Engagement cannot currently preselect this exact opportunity.");
+  addButton("Channel Understanding", "channel-intelligence");
+  addButton("Recent Activity", "engagement", "Recent activity cannot currently preselect this exact recommendation.");
 
   if (category === "Successful Content Pattern" || category === "Failed Content Pattern") {
     addButton("Content Outcomes", "content-outcomes", "Source filtering remains manual in the Content Outcomes panel.");
@@ -2254,8 +2356,8 @@ function createOpportunityNavigationActions(opportunity) {
   }
 
   if (category === "Untended Channel" || category === "Quick Wins" || category === "High Potential Channel") {
-    addButton("Channel Profiles", "profiles");
-    addButton("Feeds", "feeds");
+    addButton("Channel Setup", "profiles");
+    addButton("Scheduled Posts", "feeds");
   }
 
   if (category === "Dormant Channel" || category === "High Potential Channel") {
@@ -2278,20 +2380,20 @@ function openOpportunityActionDrawer(opportunityId, options = {}) {
   opportunityActionDrawer.hidden = false;
   opportunityActionDrawerPriority.textContent = opportunity.priority ?? "low";
   opportunityActionDrawerPriority.className = `status-badge ${getOpportunityTone(opportunity.priority)}`;
-  opportunityActionDrawerTitle.textContent = opportunity.title ?? "Opportunity Details";
-  opportunityActionDrawerSummary.textContent = opportunity.category ?? "Opportunity";
+  opportunityActionDrawerTitle.textContent = getOwnerFriendlyOpportunityTitle(opportunity);
+  opportunityActionDrawerSummary.textContent = "Recommended next step";
   opportunityActionDrawerBody.replaceChildren();
 
-  const affectedChannels = Array.isArray(opportunity.affectedChannels) && opportunity.affectedChannels.length > 0
-    ? opportunity.affectedChannels.map((channel) => channel.name ? `#${channel.name} (${channel.id})` : channel.id)
-    : ["No specific channel was attached to this opportunity."];
+  const ownerFriendlyAffectedChannels = Array.isArray(opportunity.affectedChannels) && opportunity.affectedChannels.length > 0
+    ? opportunity.affectedChannels.map((channel) => channel.name ? `#${channel.name}` : "A channel without a loaded name")
+    : ["No specific channel was attached to this recommendation."];
   const summary = document.createElement("dl");
   summary.className = "channel-action-summary-grid";
   for (const [term, value] of [
-    ["Category", opportunity.category ?? "unknown"],
-    ["Priority", opportunity.priority ?? "low"],
+    ["Type", getOwnerFriendlyOpportunityCategory(opportunity.category)],
+    ["Urgency", opportunity.priority ?? "low"],
     ["Confidence", opportunity.confidence ?? "low"],
-    ["Affected Channels", affectedChannels.join(", ")],
+    ["Affected Channels", ownerFriendlyAffectedChannels.join(", ")],
   ]) {
     const dt = document.createElement("dt");
     const dd = document.createElement("dd");
@@ -2302,11 +2404,11 @@ function openOpportunityActionDrawer(opportunityId, options = {}) {
 
   const description = document.createElement("p");
   description.className = "channel-operation-detail";
-  description.textContent = opportunity.description ?? "No description was provided.";
+  description.textContent = getOwnerFriendlyOpportunityDescription(opportunity);
 
   const suggestedAction = document.createElement("p");
   suggestedAction.className = "channel-action-recommendation";
-  suggestedAction.textContent = opportunity.suggestedAction ?? "Review this opportunity.";
+  suggestedAction.textContent = opportunity.suggestedAction ?? "Review this suggested improvement.";
 
   const helperCopy = document.createElement("p");
   helperCopy.className = "channel-action-fallback";
@@ -2315,9 +2417,9 @@ function openOpportunityActionDrawer(opportunityId, options = {}) {
     : "This opportunity does not include a preselectable channel or source. Navigation buttons open the relevant dashboard section for manual review.";
 
   opportunityActionDrawerBody.append(
-    createDrawerSection("Opportunity Summary", summary),
+    createDrawerSection("Recommended Next Step Summary", summary),
     createDrawerSection("Description", description),
-    createDrawerSection("Suggested Action", suggestedAction),
+    createDrawerSection("Suggested Improvement", suggestedAction),
     createDrawerSection("Supporting Signals", createDrawerList(Array.isArray(opportunity.supportingSignals) ? opportunity.supportingSignals : [], "No supporting signals were provided.")),
     createDrawerSection("Why This Was Detected", createDrawerList([getOpportunityWhyDetected(opportunity)], "No detection rationale is available.")),
     createDrawerSection("What To Check Next", createDrawerList(getOpportunityCheckNext(opportunity), "No next checks are available.")),
@@ -2359,6 +2461,33 @@ function handleDashboardHashChange() {
   const channelId = getDrawerChannelIdFromHash();
   if (channelId && getChannelIntelligenceById(channelId)) {
     openChannelActionDrawer(channelId, { skipHash: true });
+    return;
+  }
+
+  applyLegacyTabHash();
+}
+
+function applyLegacyTabHash() {
+  const hash = window.location.hash.slice(1).toLowerCase();
+  const tabByHash = {
+    dashboard: "overview",
+    home: "overview",
+    overview: "overview",
+    community: "access",
+    access: "access",
+    "content-studio": "push",
+    "create-post": "push",
+    "create-and-post": "push",
+    push: "push",
+    automation: "channels",
+    channels: "channels",
+    engagement: "engagement",
+    settings: "settings",
+  };
+  const tab = tabByHash[hash];
+
+  if (tab) {
+    setActiveControlTab(tab);
   }
 }
 
@@ -2420,6 +2549,54 @@ function createBackendOpportunityCard(opportunity) {
   return card;
 }
 
+function createRecommendedNextStepCard(opportunity) {
+  const card = document.createElement("article");
+  const header = document.createElement("div");
+  const copy = document.createElement("div");
+  const title = document.createElement("h3");
+  const description = document.createElement("p");
+  const badges = document.createElement("div");
+  const action = document.createElement("button");
+
+  card.className = `mission-opportunity-card recommended-next-step priority-${String(opportunity.priority).replace(/\s+/g, "-")}`;
+  header.className = "mission-opportunity-card-header";
+  copy.className = "mission-opportunity-title";
+  badges.className = "channel-operation-badges";
+  title.textContent = getOwnerFriendlyOpportunityTitle(opportunity);
+  description.textContent = getOwnerFriendlyOpportunityDescription(opportunity);
+  action.type = "button";
+  action.textContent = "Review Next Step";
+  action.addEventListener("click", () => openOpportunityActionDrawer(opportunity.id));
+
+  badges.append(
+    createStatusBadge(getRecommendationEffort(opportunity), "active"),
+    createStatusBadge(opportunity.priority === "critical" || opportunity.priority === "high" ? "needs attention" : "suggested improvement", getOpportunityTone(opportunity.priority)),
+  );
+
+  copy.append(title, description);
+  header.append(copy, badges);
+  card.append(
+    header,
+    action,
+    createExplainDetails([
+      {
+        term: "Why am I seeing this?",
+        description: getOpportunityWhyDetected(opportunity),
+      },
+      {
+        term: "Why does it matter?",
+        description: opportunity.suggestedAction ?? "This is a practical way to improve the current setup.",
+      },
+      {
+        term: "What happens when I click the action?",
+        description: "You will see the supporting details and links into existing dashboard screens. Nothing posts automatically.",
+      },
+    ]),
+  );
+
+  return card;
+}
+
 function renderBackendOpportunities() {
   if (!missionOpportunitiesList) {
     return;
@@ -2430,7 +2607,7 @@ function renderBackendOpportunities() {
   if (backendOpportunitiesLoadError) {
     const empty = document.createElement("p");
     empty.className = "channel-operation-empty";
-    empty.textContent = `Opportunities are unavailable. ${backendOpportunitiesLoadError}`;
+    empty.textContent = `Recommended next step is unavailable. ${backendOpportunitiesLoadError}`;
     missionOpportunitiesList.append(empty);
     if (missionBackendOpportunityCount) {
       missionBackendOpportunityCount.textContent = "unavailable";
@@ -2442,22 +2619,19 @@ function renderBackendOpportunities() {
   const items = Array.isArray(backendOpportunities) ? backendOpportunities : [];
 
   if (missionBackendOpportunityCount) {
-    missionBackendOpportunityCount.textContent = `${items.length} opportunit${items.length === 1 ? "y" : "ies"}`;
+    missionBackendOpportunityCount.textContent = items.length > 0 ? "1 recommendation" : "none";
     missionBackendOpportunityCount.className = `status-badge ${items.length > 0 ? "active" : "neutral"}`;
   }
 
   if (items.length === 0) {
     const empty = document.createElement("p");
     empty.className = "channel-operation-empty";
-    empty.textContent = "No backend opportunities generated from the currently available data.";
+    empty.textContent = "No recommended next step is available from the currently loaded data.";
     missionOpportunitiesList.append(empty);
     return;
   }
 
-  appendCompressedCardList(missionOpportunitiesList, items, createBackendOpportunityCard, {
-    visibleLimit: 5,
-    summaryLabel: (count) => `View all ${count} opportunities`,
-  });
+  missionOpportunitiesList.append(createRecommendedNextStepCard(items[0]));
 
   if (activeOpportunityId) {
     openOpportunityActionDrawer(activeOpportunityId, { skipHash: true });
@@ -3096,7 +3270,7 @@ function runDrawerAction(channel, action) {
 
   if (target === "activity") {
     closeChannelActionDrawer();
-    navigateMissionAction(createMissionNavigation("overview", "dashboard-recent-problems"));
+    navigateMissionAction(createMissionNavigation("overview", "home-recent-activity"));
     return;
   }
 
@@ -3842,7 +4016,7 @@ function buildMissionOpportunities() {
       severity: "action needed",
       source: "/api/automation-activity",
       actionLabel: "View Problems",
-      navigation: createMissionNavigation("overview", "dashboard-recent-problems"),
+      navigation: createMissionNavigation("overview", "home-recent-activity"),
     });
   }
 
@@ -4162,16 +4336,90 @@ function createMissionActionCard(opportunity) {
 
   card.className = `mission-action-card mission-severity-${opportunity.severity.replace(/\s+/g, "-")}`;
   header.className = "mission-action-card-header";
-  title.textContent = opportunity.name;
-  detail.textContent = opportunity.detail;
+  title.textContent = getOwnerFriendlyActionTitle(opportunity);
+  detail.textContent = getOwnerFriendlyActionDetail(opportunity);
   action.type = "button";
   action.className = "secondary";
   action.textContent = opportunity.actionLabel;
   action.addEventListener("click", () => navigateMissionAction(opportunity.navigation));
 
   header.append(title, badge);
-  card.append(header, detail, trustMeta, action);
+  card.append(
+    header,
+    detail,
+    trustMeta,
+    action,
+    createExplainDetails([
+      {
+        term: "Why am I seeing this?",
+        description: getOwnerFriendlyActionWhy(opportunity),
+      },
+      {
+        term: "Why does it matter?",
+        description: "Fixing it helps the bot post in the right places, avoid broken setup, and keep member workflows understandable.",
+      },
+      {
+        term: "What happens when I click the action?",
+        description: "The dashboard opens the existing screen for review. Nothing is posted automatically from this card.",
+      },
+    ]),
+  );
   return card;
+}
+
+function getOwnerFriendlyActionTitle(opportunity) {
+  const name = String(opportunity?.name ?? "");
+
+  if (name === "Channel setup incomplete") {
+    return "Tell the bot what this channel is used for";
+  }
+
+  if (name.includes("automation") || name.includes("Automation") || name.includes("paused") || name.includes("disabled")) {
+    return name
+      .replace("Channel automation disabled", "Automation is turned off for some channels")
+      .replace("Profile channels have automation paused", "Automation is paused for a channel setup")
+      .replace("Automatic posting is off", "Automation is paused");
+  }
+
+  return name
+    .replace(/\bChannel profiles\b/gi, "Channel setups")
+    .replace(/\bprofiles\b/gi, "channel setups")
+    .replace(/\bProfile\b/g, "Channel setup")
+    .replace(/\bDiscord metadata\b/g, "Role and channel list")
+    .replace(/\bFeed\b/g, "Scheduled post")
+    .replace(/\bfeed\b/g, "scheduled post")
+    .replace(/\bProvider failures recorded\b/g, "A content provider had trouble");
+}
+
+function getOwnerFriendlyActionDetail(opportunity) {
+  return String(opportunity?.detail ?? "")
+    .replace(/\bDiscord metadata\b/gi, "the role and channel list")
+    .replace(/\bprofile\b/gi, "channel setup")
+    .replace(/\bprofiles\b/gi, "channel setups")
+    .replace(/\bfeed\b/gi, "scheduled post")
+    .replace(/\bfeeds\b/gi, "scheduled posts")
+    .replace(/\bprovider API\b/gi, "content provider")
+    .replace(/\bautomation\b/gi, "automation");
+}
+
+function getOwnerFriendlyActionWhy(opportunity) {
+  if (opportunity?.name === "Channel setup incomplete") {
+    return "The bot has a saved channel setup, but it is missing details that help it choose the right content and workflows.";
+  }
+
+  if (String(opportunity?.name ?? "").toLowerCase().includes("role")) {
+    return "A member access workflow references a role that needs review before members can rely on it.";
+  }
+
+  if (String(opportunity?.name ?? "").toLowerCase().includes("channel")) {
+    return "A saved workflow references a channel or channel setup that needs review before the bot can use it confidently.";
+  }
+
+  if (String(opportunity?.name ?? "").toLowerCase().includes("automation")) {
+    return "The bot can see automation that is paused, blocked, or recently failed.";
+  }
+
+  return "The dashboard found this from the currently loaded settings, activity, and setup data.";
 }
 
 function appendCompressedCardList(container, items, createCard, options) {
@@ -4810,7 +5058,7 @@ function buildContentDiscoveryCards() {
       sourceName: "Saved Messages",
       isMock: false,
       suggestedChannel: createSuggestedChannel(firstTemplateWithChannel?.channelId ?? null, firstTemplateWithChannel?.channelId ? undefined : "Choose when reviewing"),
-      suggestedReason: "Saved messages are reusable approved copy and can be reviewed in Content Studio before any post action.",
+      suggestedReason: "Saved messages are reusable approved copy and can be reviewed in Create & Post before any post action.",
       suggestedContentType: "saved-message",
       actions: [createDiscoveryReviewAction("Review", createDiscoveryCardNavigation())],
     });
@@ -6417,7 +6665,7 @@ function prefillManualPushFromChannelSetup() {
   const preset = findPresetForChannel(state.channelId);
 
   if (!preset) {
-    setChannelSetupAssistantStatus("Generate Content can only prefill saved channel presets. Open Content Studio and choose the channel manually.", "blocked");
+    setChannelSetupAssistantStatus("Generate Content can only prefill saved channel presets. Open Create & Post and choose the channel manually.", "blocked");
     navigateMissionAction(createMissionNavigation("push", "post-now-generated-content"));
     return;
   }
@@ -6955,16 +7203,21 @@ function renderMissionControl() {
   missionBriefingTitle.textContent = getMissionBriefingTitle(actionNeeded, recentProblems);
   missionBriefingSummary.textContent = getMissionBriefingSummary(actionNeeded, recentProblems, nextAutomation);
   missionSystemHealth.textContent =
-    lastHealthSnapshot?.ok === true && lastHealthSnapshot?.botReady === true
+    lastHealthSnapshot?.ok === true
       ? "Online"
       : lastHealthSnapshot
         ? "Needs Check"
         : "Loading";
+  missionOpportunityCount.textContent =
+    lastHealthSnapshot?.botReady === true
+      ? "Ready"
+      : lastHealthSnapshot
+        ? "Needs Check"
+        : "Loading";
   missionAutomationSummary.textContent = automationMaster.globalAutomationEnabled === false
-    ? "Master OFF"
+    ? "Paused"
     : `${activeCount} active / ${blockedCount} blocked`;
-  missionOpportunityCount.textContent = String(actionNeeded.length);
-  missionProblemCount.textContent = String(recentProblems.length);
+  missionProblemCount.textContent = actionNeeded.length > 0 ? `${actionNeeded.length} item${actionNeeded.length === 1 ? "" : "s"}` : "None";
   if (missionProfileCount) {
     missionProfileCount.textContent = String(channelProfiles.length);
   }
@@ -7001,12 +7254,13 @@ function renderMissionControl() {
   renderMissionFoundItems();
   renderMissionChannelProfiles();
   renderBackendOpportunities();
+  renderHomeRecentActivity();
 
   missionActionList.replaceChildren();
   if (actionNeeded.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No action-needed or warning-level opportunities found.";
+    emptyState.textContent = "Nothing needs your attention right now.";
     missionActionList.append(emptyState);
     return;
   }
@@ -7354,6 +7608,113 @@ function createAutomationActivityItem(item) {
   main.append(badges, message);
   row.append(main, meta);
   return row;
+}
+
+function createHomeActivityItem(entry) {
+  const row = document.createElement("article");
+  const main = document.createElement("div");
+  const meta = document.createElement("div");
+  const message = document.createElement("p");
+  const badges = document.createElement("div");
+
+  row.className = `automation-activity-item status-${entry.tone === "blocked" ? "failure" : "success"}`;
+  main.className = "automation-activity-main";
+  meta.className = "automation-activity-meta";
+  message.className = "automation-activity-message";
+  badges.className = "channel-operation-badges";
+  message.textContent = entry.message;
+  badges.append(createStatusBadge(entry.label, entry.tone));
+  meta.append(
+    createAutomationDetailLine("When", entry.timestamp ? formatTimestamp(entry.timestamp) : "Recently"),
+    createAutomationDetailLine("Freshness", entry.timestamp ? formatRelativeTime(entry.timestamp) : "loaded data"),
+    createAutomationDetailLine("Where", entry.channelLabel ?? "Dashboard"),
+  );
+  main.append(badges, message);
+  row.append(main, meta);
+  return row;
+}
+
+function getAutomationActivityStory(item) {
+  const channelLabel = getActivityChannelLabel(item);
+
+  if (item.status === "failure") {
+    return `A scheduled post failed${channelLabel ? ` in ${channelLabel}` : ""}.`;
+  }
+
+  if (item.status === "blocked") {
+    return `A scheduled post was blocked${channelLabel ? ` in ${channelLabel}` : ""}.`;
+  }
+
+  if (item.status === "success") {
+    return `The bot posted${channelLabel ? ` in ${channelLabel}` : ""}.`;
+  }
+
+  return item.message || "The bot recorded activity.";
+}
+
+function buildHomeActivityEntries() {
+  const entries = [];
+
+  for (const item of automationActivityItems.slice(0, 8)) {
+    entries.push({
+      timestamp: item.timestamp,
+      tone: getActivityTone(item),
+      label: item.status === "success" ? "posted" : item.status ?? "activity",
+      channelLabel: getActivityChannelLabel(item),
+      message: getAutomationActivityStory(item),
+    });
+  }
+
+  for (const outcome of contentOutcomes.slice(0, 5)) {
+    entries.push({
+      timestamp: outcome.postedAt,
+      tone: getContentOutcomeTone(outcome.activity?.outcomeLabel),
+      label: "posted content",
+      channelLabel: outcome.channelName ? `#${outcome.channelName}` : undefined,
+      message: `A bot post was tracked${outcome.activity?.outcomeLabel ? ` with ${outcome.activity.outcomeLabel} response` : ""}.`,
+    });
+  }
+
+  const activeEngagementRows = getEngagementRows("last24h")
+    .filter((row) => Number(row.messageCount) >= 10 || Number(row.approxActiveUsers) >= 3)
+    .slice(0, 3);
+
+  for (const row of activeEngagementRows) {
+    entries.push({
+      timestamp: row.lastKnownActivityAt,
+      tone: "active",
+      label: "conversation",
+      channelLabel: `#${getEngagementChannelName(row.channelId, row.channelName)}`,
+      message: `Conversation activity increased in #${getEngagementChannelName(row.channelId, row.channelName)}.`,
+    });
+  }
+
+  return entries
+    .filter((entry) => entry.message)
+    .sort((left, right) => (Number(right.timestamp) || 0) - (Number(left.timestamp) || 0));
+}
+
+function renderHomeRecentActivity() {
+  if (!automationActivityList) {
+    return;
+  }
+
+  const entries = buildHomeActivityEntries();
+  automationActivityList.replaceChildren();
+
+  if (entries.length === 0) {
+    const emptyState = document.createElement("p");
+    emptyState.className = "channel-operation-empty";
+    emptyState.textContent = "No recent activity has loaded yet.";
+    automationActivityList.append(emptyState);
+    return;
+  }
+
+  appendCompressedCardList(automationActivityList, entries, createHomeActivityItem, {
+    visibleLimit: 4,
+    summaryLabel: () => "View more recent activity",
+    listClassName: "mission-overflow-list automation-activity-overflow-list",
+  });
 }
 
 function renderAutomationActivity() {
@@ -9032,11 +9393,13 @@ async function loadEngagementSummary() {
     engagementSummaryLoadError = null;
     renderEngagementDashboard();
     renderPalworldLaunchControl();
+    renderMissionControl();
   } catch (error) {
     engagementSummary = null;
     engagementSummaryLoadError = error.message;
     renderEngagementDashboard();
     renderPalworldLaunchControl();
+    renderMissionControl();
   }
 }
 
@@ -9047,11 +9410,13 @@ async function loadContentOutcomes() {
     contentOutcomesLoadError = null;
     renderContentOutcomes();
     renderPalworldLaunchControl();
+    renderMissionControl();
   } catch (error) {
     contentOutcomes = [];
     contentOutcomesLoadError = error.message;
     renderContentOutcomes();
     renderPalworldLaunchControl();
+    renderMissionControl();
   }
 }
 
@@ -9777,7 +10142,7 @@ function configureAutoRefresh() {
 
 function jumpToRecentProblems() {
   setActiveControlTab("overview");
-  document.querySelector("#dashboard-recent-problems")?.scrollIntoView({
+  document.querySelector("#home-recent-activity")?.scrollIntoView({
     behavior: "smooth",
     block: "start",
   });
@@ -10010,6 +10375,7 @@ window.addEventListener("hashchange", handleDashboardHashChange);
 configureAutoRefresh();
 setActiveContentStudioMode(activeContentStudioMode);
 setActiveControlTab(activeControlTab);
+applyLegacyTabHash();
 renderAutomationMaster();
 renderDailyBriefing();
 renderOpsSnapshot();
