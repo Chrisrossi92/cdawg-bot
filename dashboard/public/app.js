@@ -111,6 +111,7 @@ const taskCommunityButton = document.querySelector("#task-community");
 const taskRecentProblemsButton = document.querySelector("#task-recent-problems");
 const taskSettingsButton = document.querySelector("#task-settings");
 const communityOpenChannelSetupButton = document.querySelector("#community-open-channel-setup");
+const settingsOpenChannelSetupButton = document.querySelector("#settings-open-channel-setup");
 const missionRefreshDashboardButton = document.querySelector("#mission-refresh-dashboard");
 const dailyBriefingHealth = document.querySelector("#daily-briefing-health");
 const dailyBriefingGreeting = document.querySelector("#daily-briefing-greeting");
@@ -187,6 +188,8 @@ const roleFollowupsOutput = document.querySelector("#role-followups-output");
 const metricsOutput = document.querySelector("#metrics-output");
 const automationActivityOutput = document.querySelector("#automation-activity-output");
 const settingsForm = document.querySelector("#settings-form");
+const settingsPanel = document.querySelector("[data-tab-panel='settings']");
+const settingsSummaryGrid = document.querySelector(".settings-summary-grid");
 const settingsStatus = document.querySelector("#settings-status");
 const settingsSummaryAutomation = document.querySelector("#settings-summary-automation");
 const settingsSummaryPassive = document.querySelector("#settings-summary-passive");
@@ -2454,6 +2457,8 @@ function handleDashboardHashChange() {
   if (opportunityId) {
     if (getOpportunityById(opportunityId)) {
       openOpportunityActionDrawer(opportunityId, { skipHash: true });
+    } else {
+      setActiveControlTab("overview");
     }
     return;
   }
@@ -2461,6 +2466,11 @@ function handleDashboardHashChange() {
   const channelId = getDrawerChannelIdFromHash();
   if (channelId && getChannelIntelligenceById(channelId)) {
     openChannelActionDrawer(channelId, { skipHash: true });
+    return;
+  }
+
+  if (channelId) {
+    setActiveControlTab("access");
     return;
   }
 
@@ -4174,7 +4184,7 @@ function getMissionBriefingTitle(opportunities, recentProblems) {
     return "CDawg has a few recommendations ready.";
   }
 
-  return "CDawg is standing by.";
+  return "Everything is running normally.";
 }
 
 function getMissionBriefingSummary(opportunities, recentProblems, nextAutomation) {
@@ -7001,8 +7011,9 @@ function openChannelSetupAssistant() {
     return;
   }
 
+  moveChannelSetupAssistantToSettings();
   channelSetupAssistant.hidden = false;
-  setActiveControlTab("overview");
+  setActiveControlTab("settings");
   renderChannelSetupMetadataOptions();
   window.requestAnimationFrame(() => {
     channelSetupAssistant.scrollIntoView({
@@ -7010,6 +7021,23 @@ function openChannelSetupAssistant() {
       block: "start",
     });
   });
+}
+
+function moveChannelSetupAssistantToSettings() {
+  if (!channelSetupAssistant || !settingsPanel) {
+    return;
+  }
+
+  if (channelSetupAssistant.closest("[data-tab-panel='settings']")) {
+    return;
+  }
+
+  if (settingsSummaryGrid) {
+    settingsSummaryGrid.insertAdjacentElement("afterend", channelSetupAssistant);
+    return;
+  }
+
+  settingsPanel.prepend(channelSetupAssistant);
 }
 
 function resetChannelSetupAssistant(options = {}) {
@@ -7705,7 +7733,7 @@ function renderHomeRecentActivity() {
   if (entries.length === 0) {
     const emptyState = document.createElement("p");
     emptyState.className = "channel-operation-empty";
-    emptyState.textContent = "No recent activity has loaded yet.";
+    emptyState.textContent = "Recent Discord activity will appear here as it happens.";
     automationActivityList.append(emptyState);
     return;
   }
@@ -10307,6 +10335,7 @@ taskCommunityButton.addEventListener("click", () => setActiveControlTab("access"
 taskRecentProblemsButton.addEventListener("click", jumpToRecentProblems);
 taskSettingsButton.addEventListener("click", () => setActiveControlTab("settings"));
 communityOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
+settingsOpenChannelSetupButton?.addEventListener("click", openChannelSetupAssistant);
 channelActionDrawerClose?.addEventListener("click", () => closeChannelActionDrawer());
 opportunityActionDrawerClose?.addEventListener("click", () => closeOpportunityActionDrawer());
 opportunityContextDismiss?.addEventListener("click", dismissOpportunityContext);

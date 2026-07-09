@@ -45,6 +45,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -1216,24 +1220,28 @@ small {
   order: 5;
 }
 
-.daily-briefing-panel {
+.home-explore-panel {
   order: 6;
 }
 
-.mission-found-panel {
+.daily-briefing-panel {
   order: 7;
 }
 
-.mission-setup-entry {
+.mission-found-panel {
   order: 8;
 }
 
-.mission-channel-setup {
+.mission-setup-entry {
   order: 9;
 }
 
-.mission-profile-panel {
+.mission-channel-setup {
   order: 10;
+}
+
+.mission-profile-panel {
+  order: 11;
 }
 
 .daily-briefing-panel,
@@ -1255,6 +1263,7 @@ small {
 .mission-activity-panel,
 .mission-profile-panel,
 .palworld-launch-panel,
+.home-explore-panel,
 .daily-briefing-panel,
 .mission-setup-entry,
 .mission-channel-setup {
@@ -1427,9 +1436,57 @@ small {
 .mission-activity-panel,
 .mission-profile-panel,
 .palworld-launch-panel,
+.home-explore-panel,
 .mission-channel-setup {
   display: grid;
   gap: 12px;
+}
+
+.home-explore-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-explore-link {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid rgba(120, 185, 255, 0.18);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.36);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.home-explore-link:hover {
+  border-color: rgba(45, 212, 255, 0.34);
+  background: rgba(21, 38, 63, 0.66);
+}
+
+.home-explore-link strong,
+.home-explore-link span {
+  overflow-wrap: anywhere;
+}
+
+.home-explore-link span {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.settings-channel-setup-entry {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.settings-channel-setup-entry > div {
+  display: grid;
+  gap: 5px;
 }
 
 .palworld-launch-panel {
@@ -4263,6 +4320,10 @@ pre {
     justify-items: stretch;
   }
 
+  .home-explore-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .api-debug-panel {
     justify-self: stretch;
   }
@@ -4366,6 +4427,15 @@ pre {
   .channel-operations-grid,
   .channel-operations-list {
     grid-template-columns: 1fr;
+  }
+
+  .home-explore-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-channel-setup-entry {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .form-grid,

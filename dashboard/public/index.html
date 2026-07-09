@@ -94,7 +94,7 @@
               <button id="mission-refresh-dashboard" type="button">Refresh Dashboard</button>
             </div>
 
-            <section class="daily-briefing-panel">
+            <section class="daily-briefing-panel" hidden>
               <div class="daily-briefing-header">
                 <div>
                   <span id="daily-briefing-health" class="status-badge neutral">loading</span>
@@ -149,7 +149,7 @@
                   <strong id="mission-problem-count">0</strong>
                 </article>
               </div>
-              <details class="mission-briefing-details">
+              <details class="mission-briefing-details" hidden>
                 <summary>Channel setup statistics</summary>
                 <div class="mission-briefing-grid mission-briefing-grid-secondary">
                 <article class="ops-status-card neutral">
@@ -170,7 +170,7 @@
                 </article>
               </div>
               </details>
-              <div id="mission-next-activity" class="mission-next-activity">
+              <div id="mission-next-activity" class="mission-next-activity" hidden>
                 <p class="channel-operation-empty">Loading next scheduled activity...</p>
               </div>
             </section>
@@ -229,6 +229,33 @@
               <p id="palworld-action-status" class="form-status" role="status" aria-live="polite"></p>
             </section>
 
+            <section class="home-explore-panel" aria-label="Explore more">
+              <div class="ops-snapshot-group-header">
+                <div>
+                  <h3>Explore More</h3>
+                  <p class="channel-operation-detail">Use these pages when you want to go deeper than today&apos;s status and next step.</p>
+                </div>
+              </div>
+              <div class="home-explore-grid">
+                <a href="#community" class="home-explore-link">
+                  <strong>Community</strong>
+                  <span>People, access, roles, and recognition.</span>
+                </a>
+                <a href="#content-studio" class="home-explore-link">
+                  <strong>Create &amp; Post</strong>
+                  <span>Announcements, prompts, saved messages, and content review.</span>
+                </a>
+                <a href="#automation" class="home-explore-link">
+                  <strong>Automation</strong>
+                  <span>What the bot runs automatically and when it should pause.</span>
+                </a>
+                <a href="#settings" class="home-explore-link">
+                  <strong>Settings</strong>
+                  <span>Channel setup, bot behavior, and advanced configuration.</span>
+                </a>
+              </div>
+            </section>
+
             <section class="mission-action-panel">
               <div class="ops-snapshot-group-header">
                 <div>
@@ -266,7 +293,7 @@
               </aside>
             </section>
 
-            <section class="mission-found-panel">
+            <section class="mission-found-panel" hidden>
               <div class="ops-snapshot-group-header">
                 <h3>Things I Found For You</h3>
                 <span id="mission-found-count" class="status-badge neutral">0 finds</span>
@@ -288,7 +315,7 @@
               </div>
             </section>
 
-            <section class="mission-setup-entry">
+            <section class="mission-setup-entry" hidden>
               <div>
                 <span class="status-badge active">guided setup</span>
                 <h3>Set Up a Channel</h3>
@@ -432,7 +459,7 @@
             </section>
           </section>
 
-          <details class="control-block disclosure-block ops-snapshot" aria-label="Operational Details">
+          <details class="control-block disclosure-block ops-snapshot" aria-label="Operational Details" hidden>
             <summary>
               <div>
                 <h3>Operational Details</h3>
@@ -604,7 +631,7 @@
             </div>
           </details>
 
-          <details class="control-block disclosure-block overview-layout">
+          <details class="control-block disclosure-block overview-layout" hidden>
             <summary>
               <div>
                 <h3>Statistics</h3>
@@ -1740,6 +1767,14 @@
                 </div>
               </dl>
             </section>
+          </section>
+
+          <section class="metric-card settings-channel-setup-entry">
+            <div>
+              <h3>Channel Setup</h3>
+              <p class="channel-operation-detail">Tell the bot what a channel is for so recommendations, roles, follow-ups, and scheduled content make sense.</p>
+            </div>
+            <button id="settings-open-channel-setup" type="button" class="secondary">Open Channel Setup</button>
           </section>
 
           <form id="settings-form" class="settings-form settings-command-form">
