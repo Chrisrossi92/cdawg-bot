@@ -40,7 +40,9 @@ function loadXpData(): Record<string, number> {
 function saveXpData(xpData: Record<string, number>) {
   try {
     fs.mkdirSync(XP_DATA_DIR, { recursive: true });
-    fs.writeFileSync(XP_DATA_FILE, JSON.stringify(xpData, null, 2));
+    const temporaryFilePath = `${XP_DATA_FILE}.tmp`;
+    fs.writeFileSync(temporaryFilePath, JSON.stringify(xpData, null, 2));
+    fs.renameSync(temporaryFilePath, XP_DATA_FILE);
   } catch (error) {
     console.warn("Could not save XP data.", error);
   }

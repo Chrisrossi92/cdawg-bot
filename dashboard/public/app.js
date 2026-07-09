@@ -1,5 +1,6 @@
 const apiConfigForm = document.querySelector("#api-config-form");
 const apiBaseUrlInput = document.querySelector("#api-base-url");
+const apiTokenInput = document.querySelector("#api-token");
 const resetApiUrlButton = document.querySelector("#reset-api-url");
 const autoRefreshEnabledInput = document.querySelector("#auto-refresh-enabled");
 const refreshAllButton = document.querySelector("#refresh-all");
@@ -272,6 +273,7 @@ const undoComposerRewriteButton = document.querySelector("#undo-composer-rewrite
 const saveComposerTemplateButton = document.querySelector("#save-composer-template");
 
 const apiBaseUrlStorageKey = "cdawg-dashboard-api-base-url";
+const apiTokenStorageKey = "cdawg-dashboard-api-token";
 const autoRefreshStorageKey = "cdawg-dashboard-auto-refresh-enabled";
 const composerDraftStorageKey = "cdawg-dashboard-composer-draft";
 const mockDiscoveryStorageKey = "cdawg-dashboard-show-mock-discovery";
@@ -493,9 +495,11 @@ const contentSourceCategoryRecommendationsByPurpose = {
 };
 
 const savedApiBaseUrl = window.localStorage.getItem(apiBaseUrlStorageKey);
+const savedApiToken = window.localStorage.getItem(apiTokenStorageKey);
 const savedAutoRefresh = window.localStorage.getItem(autoRefreshStorageKey);
 
 apiBaseUrlInput.value = savedApiBaseUrl || getDefaultApiBaseUrl();
+apiTokenInput.value = savedApiToken || "";
 
 if (savedAutoRefresh === "true") {
   autoRefreshEnabledInput.checked = true;
@@ -530,9 +534,15 @@ function getApiBaseUrl() {
   return normalizeApiBaseUrl(apiBaseUrlInput.value);
 }
 
+function getApiToken() {
+  return apiTokenInput.value.trim();
+}
+
 function resetApiBaseUrl() {
   window.localStorage.removeItem(apiBaseUrlStorageKey);
+  window.localStorage.removeItem(apiTokenStorageKey);
   apiBaseUrlInput.value = getDefaultApiBaseUrl();
+  apiTokenInput.value = "";
 }
 
 function setPrettyJson(target, value) {
@@ -8444,7 +8454,17 @@ function sortCounterEntries(counterMap) {
 }
 
 async function fetchJson(path, init) {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, init);
+  const headers = new Headers(init?.headers || {});
+  const apiToken = getApiToken();
+
+  if (apiToken) {
+    headers.set("X-Cdawg-Api-Token", apiToken);
+  }
+
+  const response = await fetch(`${getApiBaseUrl()}${path}`, {
+    ...init,
+    headers,
+  });
   const data = await response.json();
 
   if (!response.ok) {
@@ -9552,6 +9572,12 @@ apiConfigForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   apiBaseUrlInput.value = getApiBaseUrl();
   window.localStorage.setItem(apiBaseUrlStorageKey, apiBaseUrlInput.value);
+  const apiToken = getApiToken();
+  if (apiToken) {
+    window.localStorage.setItem(apiTokenStorageKey, apiToken);
+  } else {
+    window.localStorage.removeItem(apiTokenStorageKey);
+  }
   renderSettingsSummary();
   setStatusMessage("Reconnected to API.");
   await reloadAll();

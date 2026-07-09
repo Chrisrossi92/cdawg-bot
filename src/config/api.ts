@@ -21,4 +21,5 @@ export const apiConfig = {
   host: process.env.BOT_API_HOST || "127.0.0.1",
   port: parsePortEnv(process.env.BOT_API_PORT, 8787),
   maxRequestBodyBytes: 64 * 1024,
+  dashboardApiToken: process.env.BOT_DASHBOARD_API_TOKEN?.trim() || null,
 } as const;

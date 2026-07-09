@@ -299,9 +299,52 @@ function sendJson(response: ServerResponse, statusCode: number, payload: unknown
     "Content-Type": "application/json; charset=utf-8",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Cdawg-Api-Token",
   });
   response.end(JSON.stringify(payload));
+}
+
+function isLocalApiHost(host: string) {
+  const normalizedHost = host.trim().toLowerCase();
+  return normalizedHost === "localhost" || normalizedHost === "::1" || normalizedHost.startsWith("127.");
+}
+
+function isPublicApiHost(host: string) {
+  return !isLocalApiHost(host);
+}
+
+function getRequestAuthToken(request: IncomingMessage) {
+  const headerToken = request.headers["x-cdawg-api-token"];
+  const authorization = request.headers.authorization;
+
+  if (typeof headerToken === "string" && headerToken.trim()) {
+    return headerToken.trim();
+  }
+
+  if (Array.isArray(headerToken)) {
+    const token = headerToken.find((value) => value.trim());
+    return token?.trim() ?? null;
+  }
+
+  if (authorization?.startsWith("Bearer ")) {
+    return authorization.slice("Bearer ".length).trim();
+  }
+
+  return null;
+}
+
+function requiresApiToken(method: string) {
+  return method !== "GET" && method !== "HEAD" && method !== "OPTIONS";
+}
+
+function hasValidApiToken(request: IncomingMessage) {
+  return !apiConfig.dashboardApiToken || getRequestAuthToken(request) === apiConfig.dashboardApiToken;
+}
+
+function sendUnauthorized(response: ServerResponse) {
+  sendJson(response, 401, {
+    error: "Missing or invalid dashboard API token.",
+  });
 }
 
 function sendMethodNotAllowed(response: ServerResponse) {
@@ -1487,9 +1530,14 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         response.writeHead(204, {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Cdawg-Api-Token",
         });
         response.end();
+        return;
+      }
+
+      if (requiresApiToken(method) && !hasValidApiToken(request)) {
+        sendUnauthorized(response);
         return;
       }
 
@@ -2944,6 +2992,11 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
   server.listen(apiConfig.port, apiConfig.host, () => {
     console.log(`[api] listening on http://${apiConfig.host}:${apiConfig.port}`);
+    if (isPublicApiHost(apiConfig.host)) {
+      console.warn(
+        `[api] WARNING: BOT_API_HOST is ${apiConfig.host}. The dashboard API may be reachable off-machine. Keep it behind a firewall/reverse proxy and set BOT_DASHBOARD_API_TOKEN for write protection.`,
+      );
+    }
   });
 
   return server;
