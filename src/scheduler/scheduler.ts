@@ -12,6 +12,10 @@ import {
   shouldRunDailyTriviaChallengeNow,
 } from "../systems/daily-trivia-challenge.js";
 import {
+  recordDailyHistoryPosted,
+  wasDailyHistoryPostedForDate,
+} from "../systems/daily-history.js";
+import {
   getFeedConfigs,
   getFeedNextEligibleAt,
   isWithinFeedAllowedWindow,
@@ -23,6 +27,28 @@ import { recordAutomationActivity } from "../systems/automation-activity.js";
 const lastPostedMinuteBySchedule = new Map<string, string>();
 const recentBlockedActivityByKey = new Map<string, number>();
 const BLOCKED_ACTIVITY_DEDUPE_MS = 60 * 60 * 1000;
+
+export type SchedulerRegistration =
+  | {
+      source: "scheduler";
+      channelId: string;
+      contentType: Schedule["contentType"];
+      cadence: "daily";
+      hour: number;
+      minute: number;
+    }
+  | {
+      source: "scheduler";
+      channelId: string;
+      contentType: Schedule["contentType"];
+      cadence: "interval";
+      intervalMinutes: number;
+    }
+  | {
+      source: "managed-loop";
+      cadence: "interval";
+      intervalSeconds: number;
+    };
 
 function getScheduleKey(schedule: Schedule): string {
   return `${schedule.channelId}:${schedule.contentType}`;
@@ -40,6 +66,44 @@ function getMinuteWindowKey(date: Date): string {
 
 function hasDailyTime(schedule: Schedule): schedule is Schedule & { hour: number; minute: number } {
   return typeof schedule.hour === "number" && typeof schedule.minute === "number";
+}
+
+export function getSchedulerRegistrations(): SchedulerRegistration[] {
+  const scheduleRegistrations = schedules
+    .map((schedule): SchedulerRegistration | null => {
+      if (hasDailyTime(schedule)) {
+        return {
+          source: "scheduler",
+          channelId: schedule.channelId,
+          contentType: schedule.contentType,
+          cadence: "daily",
+          hour: schedule.hour,
+          minute: schedule.minute,
+        };
+      }
+
+      if (typeof schedule.intervalMinutes === "number") {
+        return {
+          source: "scheduler",
+          channelId: schedule.channelId,
+          contentType: schedule.contentType,
+          cadence: "interval",
+          intervalMinutes: schedule.intervalMinutes,
+        };
+      }
+
+      return null;
+    })
+    .filter((registration): registration is SchedulerRegistration => Boolean(registration));
+
+  return [
+    ...scheduleRegistrations,
+    {
+      source: "managed-loop",
+      cadence: "interval",
+      intervalSeconds: 30,
+    },
+  ];
 }
 
 function shouldRecordBlockedActivity(key: string, now: number) {
@@ -72,6 +136,10 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
     return;
   }
 
+  if (schedule.contentType === "history" && wasDailyHistoryPostedForDate(schedule, now)) {
+    return;
+  }
+
   const automationBlock = getAutomatedContentBlock(schedule.channelId, "scheduler", now.getTime());
 
   if (automationBlock.blocked) {
@@ -98,6 +166,10 @@ async function postScheduledContent(client: Client, schedule: Schedule, now: Dat
 
   if (!result.ok) {
     return;
+  }
+
+  if (schedule.contentType === "history") {
+    recordDailyHistoryPosted(schedule, now);
   }
 
   recordAutomatedContentSend(schedule.channelId, "scheduler", now.getTime());
@@ -298,4 +370,6 @@ export function startScheduler(client: Client) {
       console.error("Error evaluating passive chat automation:", error);
     }
   }, 30 * 1000);
+
+  return getSchedulerRegistrations();
 }

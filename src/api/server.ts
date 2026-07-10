@@ -58,6 +58,7 @@ import {
   updateDailyTriviaChallengeConfig,
   upsertDailyTriviaChallengeConfig,
 } from "../systems/daily-trivia-challenge.js";
+import { getDailyHistoryStatus } from "../systems/daily-history.js";
 import { getDogStatusSummary } from "../systems/cdawg-dog.js";
 import {
   deletePanel,
@@ -1559,6 +1560,19 @@ function buildHistoryReviewResponse(channelId?: string, options?: { reroll?: boo
   };
 }
 
+function buildDailyHistoryResponse() {
+  const status = getDailyHistoryStatus();
+  const preset = status.destinationChannelId
+    ? dashboardChannelPresets.find((entry) => entry.channelId === status.destinationChannelId)
+    : null;
+
+  return {
+    ...status,
+    destinationLabel: preset?.label ?? status.destinationChannelId,
+    presetTopic: preset?.defaultTopic ?? null,
+  };
+}
+
 async function readJsonBody(request: IncomingMessage) {
   const chunks: Buffer[] = [];
   let totalBytes = 0;
@@ -1860,6 +1874,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           automationMaster: buildAutomationMasterResponse(),
+          dailyHistory: buildDailyHistoryResponse(),
           historyReview,
         });
         return;
@@ -1894,6 +1909,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           automationMaster: buildAutomationMasterResponse(),
+          dailyHistory: buildDailyHistoryResponse(),
           historyReview,
         });
         return;
@@ -1948,6 +1964,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         sendJson(response, 200, {
           result,
           automationMaster: buildAutomationMasterResponse(),
+          dailyHistory: buildDailyHistoryResponse(),
           historyReview: buildHistoryReviewResponse(validation.value.channelId),
         });
         return;
@@ -2691,6 +2708,7 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
 
         sendJson(response, 200, {
           automationMaster: buildAutomationMasterResponse(),
+          dailyHistory: buildDailyHistoryResponse(),
           channelAutomationStatuses,
         });
         return;

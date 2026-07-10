@@ -375,6 +375,10 @@ export function formatFactMessage(fact: string): string {
   return `**Cdawg Bot Fact Drop**\n${fact}`;
 }
 
+export function formatHistoryFactMessage(fact: string): string {
+  return `📅 **Daily History**\n${fact}`;
+}
+
 export function getJokeText(topic: Topic, channelId?: string): Promise<string | undefined> {
   return getContentItem("joke", topic, channelId);
 }
@@ -451,7 +455,12 @@ export async function getContentMessage(
     }
     case "history": {
       const historyEvent = await getContentItem(contentType, topic, channelId);
-      return historyEvent ? formatThisDayInHistoryMessage(historyEvent) : undefined;
+      if (historyEvent) {
+        return formatThisDayInHistoryMessage(historyEvent);
+      }
+
+      const fallbackFact = await getContentItem("fact", "history", channelId);
+      return fallbackFact ? formatHistoryFactMessage(fallbackFact) : undefined;
     }
     case "wyr": {
       const prompt = await getContentItem(contentType, topic, channelId);

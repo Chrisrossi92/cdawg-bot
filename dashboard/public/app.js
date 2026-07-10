@@ -333,6 +333,7 @@ let automationMaster = { globalAutomationEnabled: true, status: "on" };
 let dogState = null;
 let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
+let dailyHistory = null;
 let historyReview = null;
 let feeds = [];
 let roleAccessPanels = [];
@@ -9448,6 +9449,74 @@ function renderHistoryEventSection(titleText, event, isRecentlyUsed, emptyCopy) 
   return section;
 }
 
+function getDailyHistoryStateLabel(state) {
+  if (state === "running") {
+    return "Running";
+  }
+
+  if (state === "paused") {
+    return "Paused";
+  }
+
+  return "Needs setup";
+}
+
+function getDailyHistoryStateTone(state) {
+  if (state === "running") {
+    return "active";
+  }
+
+  if (state === "paused") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function renderDailyHistoryStatusSection() {
+  const section = document.createElement("section");
+  const title = document.createElement("h4");
+  const badges = document.createElement("div");
+  const destination = document.createElement("p");
+  const nextPost = document.createElement("p");
+  const lastResult = document.createElement("p");
+  const source = document.createElement("p");
+
+  section.className = "history-review-event-block";
+  title.textContent = "Daily History";
+  badges.className = "channel-operation-badges";
+
+  if (!dailyHistory) {
+    badges.append(createStatusBadge("Needs setup", "neutral"));
+    destination.className = "channel-operation-detail";
+    destination.textContent = "Destination: not loaded";
+    section.append(title, badges, destination);
+    return section;
+  }
+
+  badges.append(
+    createStatusBadge(getDailyHistoryStateLabel(dailyHistory.state), getDailyHistoryStateTone(dailyHistory.state)),
+    createStatusBadge(dailyHistory.contentSource === "this-day-in-history" ? "event source" : "fact fallback", "neutral"),
+  );
+  if (dailyHistory.blockedReason) {
+    badges.append(createStatusBadge(getBlockedReasonLabel(dailyHistory.blockedReason), "blocked"));
+  }
+
+  destination.className = "channel-operation-detail";
+  destination.textContent = `Destination: ${dailyHistory.destinationLabel ?? dailyHistory.destinationChannelId ?? "not configured"}`;
+  nextPost.className = "channel-operation-detail channel-operation-detail-strong";
+  nextPost.textContent = `Next scheduled post: ${formatTimestamp(dailyHistory.nextScheduledPostAt)} (${formatRelativeTime(dailyHistory.nextScheduledPostAt)})`;
+  lastResult.className = "channel-operation-detail";
+  lastResult.textContent = dailyHistory.lastResult
+    ? `Last ${dailyHistory.lastResult.status}: ${dailyHistory.lastResult.message} • ${formatTimestamp(dailyHistory.lastResult.timestamp)} (${formatRelativeTime(dailyHistory.lastResult.timestamp)})`
+    : "Last success or failure: none recorded";
+  source.className = "channel-operation-meta";
+  source.textContent = `Daily time: ${dailyHistory.dailyTime ?? "not configured"} • Today events: ${dailyHistory.todayEventCount ?? 0} • Fallback: ${dailyHistory.fallback ?? "none"}${dailyHistory.alreadyPostedToday ? " • Posted today" : ""}`;
+
+  section.append(title, badges, destination, nextPost, lastResult, source);
+  return section;
+}
+
 function renderHistoryReview() {
   historyReviewCard.replaceChildren();
 
@@ -9483,6 +9552,7 @@ function renderHistoryReview() {
   header.append(title, badges, meta);
   card.append(
     header,
+    renderDailyHistoryStatusSection(),
     renderHistoryEventSection(
       "Previewed Event",
       historyReview.previewEvent,
@@ -9892,11 +9962,13 @@ async function loadHistoryReview() {
   try {
     const data = await fetchJson("/api/history-review");
     applyAutomationMasterState(data.automationMaster);
+    dailyHistory = data.dailyHistory ?? null;
     historyReview = data.historyReview ?? null;
     renderAutomationMaster();
     renderHistoryReview();
     setPrettyJson(historyReviewOutput, data);
   } catch (error) {
+    dailyHistory = null;
     historyReview = null;
     renderHistoryReview();
     historyReviewOutput.textContent = `Failed to load history review.\n${error.message}`;
@@ -9925,9 +9997,11 @@ async function loadChannelOperations() {
   try {
     const data = await fetchJson("/api/channel-automation-status");
     applyAutomationMasterState(data.automationMaster);
+    dailyHistory = data.dailyHistory ?? dailyHistory;
     channelAutomationStatuses = Array.isArray(data.channelAutomationStatuses) ? data.channelAutomationStatuses : [];
     renderAutomationMaster();
     renderChannelOperations();
+    renderHistoryReview();
     renderChannelSetupAssistant();
     renderPalworldLaunchControl();
     renderOpsSnapshot();
@@ -10104,6 +10178,7 @@ async function rerollHistoryReview() {
     });
 
     applyAutomationMasterState(data.automationMaster);
+    dailyHistory = data.dailyHistory ?? null;
     historyReview = data.historyReview ?? null;
     renderAutomationMaster();
     renderHistoryReview();
@@ -10143,6 +10218,7 @@ async function pushHistoryReviewPreview() {
     });
 
     applyAutomationMasterState(data.automationMaster);
+    dailyHistory = data.dailyHistory ?? null;
     historyReview = data.historyReview ?? null;
     renderAutomationMaster();
     renderHistoryReview();
