@@ -77,6 +77,14 @@ const communityActivityWindow = document.querySelector("#community-activity-wind
 const communityActivitySummary = document.querySelector("#community-activity-summary");
 const communityActiveChannels = document.querySelector("#community-active-channels");
 const communityRecognitionSummary = document.querySelector("#community-recognition-summary");
+const welcomeSummaryStatus = document.querySelector("#welcome-summary-status");
+const welcomeSummaryChannel = document.querySelector("#welcome-summary-channel");
+const editWelcomeMessageButton = document.querySelector("#edit-welcome-message");
+const welcomeForm = document.querySelector("#welcome-form");
+const welcomePreview = document.querySelector("#welcome-preview");
+const welcomeStatus = document.querySelector("#welcome-status");
+const welcomeCharacterCount = document.querySelector("#welcome-character-count");
+const cancelWelcomeEditButton = document.querySelector("#cancel-welcome-edit");
 const channelIntelligenceFilter = document.querySelector("#channel-intelligence-filter");
 const channelIntelligenceSummary = document.querySelector("#channel-intelligence-summary");
 const channelIntelligenceList = document.querySelector("#channel-intelligence-list");
@@ -329,6 +337,9 @@ let historyReview = null;
 let feeds = [];
 let roleAccessPanels = [];
 let roleFollowups = [];
+let welcomeSettings = null;
+let welcomePreviewMessage = "";
+let welcomeLoadError = null;
 let composerTemplates = [];
 let channelProfiles = [];
 let channelIntelligence = null;
@@ -600,6 +611,16 @@ function setComposerStatus(message, kind = "neutral") {
     kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
 }
 
+function setWelcomeStatus(message, kind = "neutral") {
+  if (!welcomeStatus) {
+    return;
+  }
+
+  welcomeStatus.textContent = message;
+  welcomeStatus.style.color =
+    kind === "error" ? "#b42318" : kind === "success" ? "#137333" : "#5b6b7d";
+}
+
 function setActivePreparedDiscoveryItem(itemId) {
   activePreparedDiscoveryItemId = itemId || null;
   if (composerDiscoveryNote) {
@@ -815,6 +836,7 @@ function renderDiscordMetadataOptions() {
 
   syncDiscordMetadataSelections();
   renderComposerPreview();
+  renderWelcomePreview();
 }
 
 function syncDiscordMetadataSelections() {
@@ -880,6 +902,13 @@ function updateDiscordMetadataSelection(select) {
     syncDiscordMetadataSelections();
     renderComposerPreview();
     console.debug("[discord-metadata] composer preview rendered");
+    return;
+  }
+
+  if (select.form === welcomeForm) {
+    syncDiscordMetadataSelections();
+    renderWelcomePreview();
+    console.debug("[discord-metadata] welcome preview rendered");
   }
 }
 
@@ -998,6 +1027,146 @@ function renderComposerPreview() {
   composerPreview.append(header, previewMessage, context);
   updateComposerCharacterCount();
   updateComposerQuickInsertState();
+}
+
+function getWelcomeFormValue() {
+  const manualChannelId = welcomeForm.elements.manualWelcomeChannelId.value.trim();
+  return {
+    enabled: welcomeForm.elements.enabled.value === "true",
+    welcomeChannelId: manualChannelId || welcomeForm.elements.welcomeChannelId.value.trim(),
+    messageTemplate: welcomeForm.elements.messageTemplate.value,
+  };
+}
+
+function renderWelcomeTemplate(template, settings = welcomeSettings) {
+  const nextSettings = settings || {};
+  const replyChannelMention = nextSettings.replyChannelMention || "#rules";
+  const replyChannelLabel = String(replyChannelMention).replace(/<#(\d{17,20})>/g, (_match, channelId) => getChannelLabel(channelId));
+  return String(template || "")
+    .replace(/\{member\}/g, "@NewMember")
+    .replace(/\{server\}/g, nextSettings.serverLabel || "this Discord")
+    .replace(/\{games\}/g, Array.isArray(nextSettings.availableGames) ? nextSettings.availableGames.join(" and ") : "the current games")
+    .replace(/\{replyChannel\}/g, replyChannelLabel);
+}
+
+function updateWelcomeCharacterCount() {
+  if (!welcomeCharacterCount || !welcomeForm) {
+    return;
+  }
+
+  const messageLength = welcomeForm.elements.messageTemplate.value.length;
+  welcomeCharacterCount.textContent = `${messageLength} / 2000 characters`;
+  welcomeCharacterCount.style.color = messageLength > 2000 ? "#b42318" : "#74859a";
+}
+
+function renderWelcomePreview() {
+  if (!welcomePreview || !welcomeForm) {
+    return;
+  }
+
+  const formValue = getWelcomeFormValue();
+  const message = renderWelcomeTemplate(formValue.messageTemplate || "Your welcome preview will appear here.");
+  const destination = getDetailedChannelLabel(formValue.welcomeChannelId, "choose a destination channel");
+  const header = document.createElement("div");
+  const previewMessage = document.createElement("div");
+  const author = document.createElement("div");
+  const body = document.createElement("p");
+  const context = document.createElement("div");
+  const destinationContext = document.createElement("p");
+  const statusContext = document.createElement("p");
+
+  welcomePreview.replaceChildren();
+  header.className = "discord-panel-preview-header";
+  header.textContent = "Preview";
+  previewMessage.className = "composer-preview-message";
+  author.className = "composer-preview-author";
+  author.textContent = "Cdawg Bot";
+  body.className = "composer-preview-body";
+  body.textContent = message;
+  context.className = "discord-panel-preview-context";
+  destinationContext.textContent = `Destination channel: ${destination}`;
+  statusContext.textContent = `Status: ${formValue.enabled ? "On" : "Off"}`;
+  previewMessage.append(author, body);
+  context.append(destinationContext, statusContext);
+  welcomePreview.append(header, previewMessage, context);
+  updateWelcomeCharacterCount();
+}
+
+function applyWelcomeSettingsToForm() {
+  if (!welcomeForm || !welcomeSettings) {
+    return;
+  }
+
+  welcomeForm.elements.enabled.value = String(welcomeSettings.enabled);
+  welcomeForm.elements.welcomeChannelId.value = welcomeSettings.welcomeChannelId || "";
+  welcomeForm.elements.manualWelcomeChannelId.value = "";
+  welcomeForm.elements.messageTemplate.value = welcomeSettings.messageTemplate || "";
+  syncDiscordMetadataSelections();
+  renderWelcomePreview();
+}
+
+function renderWelcomeSummary() {
+  if (!welcomeSummaryStatus || !welcomeSummaryChannel) {
+    return;
+  }
+
+  if (welcomeLoadError) {
+    welcomeSummaryStatus.textContent = "Unavailable";
+    welcomeSummaryStatus.className = "status-badge blocked";
+    welcomeSummaryChannel.textContent = welcomeLoadError;
+    return;
+  }
+
+  if (!welcomeSettings) {
+    welcomeSummaryStatus.textContent = "Loading";
+    welcomeSummaryStatus.className = "status-badge neutral";
+    welcomeSummaryChannel.textContent = "Checking destination...";
+    return;
+  }
+
+  welcomeSummaryStatus.textContent = welcomeSettings.enabled ? "On" : "Off";
+  welcomeSummaryStatus.className = `status-badge ${welcomeSettings.enabled ? "active" : "neutral"}`;
+  welcomeSummaryChannel.textContent = `Destination channel: ${getDetailedChannelLabel(welcomeSettings.welcomeChannelId, "not set")}`;
+}
+
+function openWelcomeEditor() {
+  if (!welcomeForm) {
+    return;
+  }
+
+  applyWelcomeSettingsToForm();
+  welcomeForm.hidden = false;
+  setWelcomeStatus("Review changes before saving.");
+  window.requestAnimationFrame(() => {
+    welcomeForm.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+}
+
+function closeWelcomeEditor() {
+  if (!welcomeForm) {
+    return;
+  }
+
+  applyWelcomeSettingsToForm();
+  welcomeForm.hidden = true;
+  setWelcomeStatus("");
+}
+
+function insertIntoWelcomeMessage(text) {
+  const textarea = welcomeForm.elements.messageTemplate;
+  const currentValue = textarea.value;
+  const selectionStart = typeof textarea.selectionStart === "number" ? textarea.selectionStart : currentValue.length;
+  const selectionEnd = typeof textarea.selectionEnd === "number" ? textarea.selectionEnd : currentValue.length;
+  const nextValue = `${currentValue.slice(0, selectionStart)}${text}${currentValue.slice(selectionEnd)}`;
+  const nextCursor = selectionStart + text.length;
+
+  textarea.value = nextValue.slice(0, 2000);
+  textarea.focus();
+  textarea.setSelectionRange(Math.min(nextCursor, textarea.value.length), Math.min(nextCursor, textarea.value.length));
+  renderWelcomePreview();
 }
 
 function updateComposerQuickInsertState() {
@@ -9464,6 +9633,25 @@ async function loadSettings() {
   }
 }
 
+async function loadWelcomeSettings() {
+  try {
+    const data = await fetchJson("/api/welcome");
+    welcomeSettings = data.settings;
+    welcomePreviewMessage = data.preview || "";
+    welcomeLoadError = null;
+    renderWelcomeSummary();
+    if (welcomeForm && !welcomeForm.hidden) {
+      applyWelcomeSettingsToForm();
+    }
+  } catch (error) {
+    welcomeSettings = null;
+    welcomePreviewMessage = "";
+    welcomeLoadError = `Welcome setup could not load. ${error.message}`;
+    renderWelcomeSummary();
+    setWelcomeStatus(`Welcome setup load failed: ${error.message}`, "error");
+  }
+}
+
 async function loadMetrics() {
   try {
     const data = await fetchJson("/api/metrics");
@@ -9546,6 +9734,8 @@ async function loadGuildMetadata() {
     renderRoleFollowupPreview();
     renderRoleFollowups();
     renderComposerTemplates();
+    renderWelcomeSummary();
+    renderWelcomePreview();
     renderDiscoverySourceChannelOptions(rssDiscoverySourceForm?.hidden === false ? Array.from(rssDiscoverySourceForm.elements.preferredChannelIds.selectedOptions).map((option) => option.value) : []);
     renderOpsSnapshot();
   } catch (error) {
@@ -9555,6 +9745,8 @@ async function loadGuildMetadata() {
     discordMetadataWarning.hidden = false;
     renderDiscordMetadataOptions();
     renderChannelSetupMetadataOptions();
+    renderWelcomeSummary();
+    renderWelcomePreview();
     renderDiscoverySourceChannelOptions();
     renderOpsSnapshot();
   }
@@ -10109,6 +10301,48 @@ async function submitComposer(event) {
   }
 }
 
+async function submitWelcomeSettings(event) {
+  event.preventDefault();
+
+  const payload = getWelcomeFormValue();
+
+  if (!payload.welcomeChannelId) {
+    setWelcomeStatus("Choose a destination channel.", "error");
+    return;
+  }
+
+  if (!payload.messageTemplate.trim()) {
+    setWelcomeStatus("Write a welcome message before saving.", "error");
+    return;
+  }
+
+  setWelcomeStatus("Saving...");
+
+  try {
+    const data = await fetchJson("/api/welcome", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        enabled: payload.enabled,
+        welcomeChannelId: payload.welcomeChannelId,
+        messageTemplate: payload.messageTemplate,
+      }),
+    });
+
+    welcomeSettings = data.settings;
+    welcomePreviewMessage = data.preview || "";
+    welcomeLoadError = null;
+    renderWelcomeSummary();
+    applyWelcomeSettingsToForm();
+    welcomeForm.hidden = true;
+    setWelcomeStatus("Welcome message saved.", "success");
+  } catch (error) {
+    setWelcomeStatus(`Save failed: ${error.message}`, "error");
+  }
+}
+
 function buildDailyTriviaPayload() {
   const topicOverride = dailyTriviaForm.elements.topicOverride.value.trim();
   const allowedStartTime = dailyTriviaForm.elements.allowedStartTime.value;
@@ -10516,6 +10750,7 @@ async function toggleAutomationMaster() {
 async function reloadAll() {
   await Promise.all([
     loadHealth(),
+    loadWelcomeSettings(),
     loadSettings(),
     loadMetrics(),
     loadAutomationActivity(),
@@ -10654,6 +10889,20 @@ resetApiUrlButton.addEventListener("click", async () => {
 
 settingsForm.addEventListener("submit", saveSettings);
 composerForm.addEventListener("submit", submitComposer);
+welcomeForm?.addEventListener("submit", submitWelcomeSettings);
+welcomeForm?.addEventListener("input", (event) => {
+  if (event.target?.matches?.("[data-discord-channel-select]")) {
+    updateDiscordMetadataSelection(event.target);
+    return;
+  }
+
+  if (event.target === welcomeForm.elements.manualWelcomeChannelId && event.target.value.trim()) {
+    welcomeForm.elements.welcomeChannelId.value = event.target.value.trim();
+    syncDiscordMetadataSelections();
+  }
+
+  renderWelcomePreview();
+});
 composerForm.addEventListener("input", (event) => {
   if (event.target?.matches?.("[data-discord-role-select], [data-discord-channel-select]")) {
     updateDiscordMetadataSelection(event.target);
@@ -10699,10 +10948,15 @@ for (const button of document.querySelectorAll("[data-composer-insert], [data-co
 for (const button of document.querySelectorAll("[data-composer-assist]")) {
   button.addEventListener("click", () => void assistComposer(button.dataset.composerAssist));
 }
+for (const button of document.querySelectorAll("[data-welcome-insert]")) {
+  button.addEventListener("click", () => insertIntoWelcomeMessage(button.dataset.welcomeInsert || ""));
+}
 for (const select of document.querySelectorAll("[data-discord-role-select], [data-discord-channel-select]")) {
   select.addEventListener("change", () => updateDiscordMetadataSelection(select));
 }
 manualPushForm.elements.channelPreset.addEventListener("change", () => syncManualPushPresetSelection(true));
+editWelcomeMessageButton?.addEventListener("click", openWelcomeEditor);
+cancelWelcomeEditButton?.addEventListener("click", closeWelcomeEditor);
 saveComposerDraftButton.addEventListener("click", saveComposerDraft);
 clearComposerButton.addEventListener("click", clearComposer);
 undoComposerRewriteButton.addEventListener("click", undoComposerRewrite);
@@ -10817,6 +11071,7 @@ setActiveControlTab(activeControlTab);
 applyLegacyTabHash();
 renderAutomationMaster();
 renderDailyBriefing();
+renderWelcomeSummary();
 renderOpsSnapshot();
 renderAutomationActivity();
 renderChannelSetupMetadataOptions();

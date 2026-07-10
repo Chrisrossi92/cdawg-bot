@@ -12,7 +12,6 @@ import {
 } from "./config/chat-xp.js";
 import * as announce from "./commands/announce.js";
 import * as botHelp from "./commands/bot-help.js";
-import { welcomeConfig } from "./config/welcome.js";
 import * as ping from "./commands/ping.js";
 import * as ranks from "./commands/ranks.js";
 import * as settings from "./commands/settings.js";
@@ -47,6 +46,7 @@ import {
 } from "./systems/role-access-panels.js";
 import { addXp } from "./systems/xp.js";
 import { buildWelcomeMessage } from "./lib/welcome.js";
+import { getWelcomeSettings } from "./systems/welcome-settings.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
 import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
@@ -364,15 +364,16 @@ client.once(Events.ClientReady, (readyClient) => {
 
 client.on(Events.GuildMemberAdd, async (member) => {
   const memberLabel = member.user.tag ?? member.user.id;
+  const welcomeSettings = getWelcomeSettings();
   console.log(`[welcome] GuildMemberAdd fired for ${memberLabel}`);
-  console.log(`[welcome] enabled=${welcomeConfig.enabled} channelId=${welcomeConfig.welcomeChannelId || "unset"}`);
+  console.log(`[welcome] enabled=${welcomeSettings.enabled} channelId=${welcomeSettings.welcomeChannelId || "unset"}`);
 
-  if (!welcomeConfig.enabled || !welcomeConfig.welcomeChannelId) {
+  if (!welcomeSettings.enabled || !welcomeSettings.welcomeChannelId) {
     return;
   }
 
   try {
-    const channel = await member.guild.channels.fetch(welcomeConfig.welcomeChannelId);
+    const channel = await member.guild.channels.fetch(welcomeSettings.welcomeChannelId);
     const channelFound = Boolean(channel);
     const channelSendable = Boolean(channel?.isTextBased() && "send" in channel);
 

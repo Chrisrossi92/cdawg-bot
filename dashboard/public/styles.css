@@ -3679,6 +3679,47 @@ small {
   white-space: nowrap;
 }
 
+.community-welcome-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.community-welcome-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px;
+  border: 1px solid rgba(120, 185, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.32);
+}
+
+.community-welcome-summary h3,
+.community-welcome-summary p {
+  margin: 0;
+}
+
+.community-welcome-summary-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.community-welcome-form {
+  grid-template-columns: minmax(260px, 0.85fr) minmax(360px, 1.15fr) minmax(300px, 0.9fr);
+}
+
+.community-welcome-form[hidden] {
+  display: none;
+}
+
+.community-welcome-form > .settings-actions {
+  grid-column: 1 / -1;
+}
+
 .community-owner-actions {
   display: flex;
   flex-wrap: wrap;
@@ -4522,6 +4563,15 @@ pre {
 
   .community-owner-item {
     grid-template-columns: 1fr;
+  }
+
+  .community-welcome-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .community-welcome-summary-meta {
+    justify-content: flex-start;
   }
 
   .community-owner-item .status-badge,

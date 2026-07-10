@@ -103,6 +103,13 @@ import { getEngagementSummary } from "../systems/engagement-activity.js";
 import { getContentOutcomeSummary, type ContentOutcomeSource } from "../systems/content-outcomes.js";
 import { getOpportunities } from "../systems/opportunity-engine.js";
 import { getDailyBriefing } from "../systems/daily-briefing.js";
+import {
+  getWelcomeSettings,
+  renderWelcomeMessageTemplate,
+  updateWelcomeSettings,
+  validateWelcomeMessageTemplate,
+  type WelcomeSettingsPatch,
+} from "../systems/welcome-settings.js";
 
 type ApiHealthSnapshot = {
   botReady: boolean;
@@ -216,6 +223,12 @@ type ComposerTemplateRequestBody = {
   channelId: string | null;
   roleId: string | null;
   message: string;
+};
+
+type WelcomeSettingsRequestBody = {
+  enabled: boolean;
+  welcomeChannelId: string;
+  messageTemplate: string;
 };
 
 type FeedRequestBody = {
@@ -452,6 +465,69 @@ function buildAutomationMasterResponse() {
   return {
     globalAutomationEnabled: settings.globalAutomationEnabled,
     status: settings.globalAutomationEnabled ? "on" : "off",
+  };
+}
+
+function buildWelcomeResponse() {
+  const settings = getWelcomeSettings();
+
+  return {
+    settings,
+    preview: renderWelcomeMessageTemplate(settings, {
+      member: "@NewMember",
+    }),
+    supportedTokens: ["{member}", "{server}", "{games}", "{replyChannel}"],
+  };
+}
+
+function sanitizeWelcomeSettingsRequest(value: unknown) {
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      error: "Welcome settings payload must be a JSON object.",
+    };
+  }
+
+  if (typeof value.enabled !== "boolean") {
+    return {
+      ok: false as const,
+      error: "Invalid enabled flag.",
+    };
+  }
+
+  const welcomeChannelId = typeof value.welcomeChannelId === "string" ? value.welcomeChannelId.trim() : "";
+
+  if (!discordSnowflakePattern.test(welcomeChannelId)) {
+    return {
+      ok: false as const,
+      error: "Choose a valid destination channel.",
+    };
+  }
+
+  if (typeof value.messageTemplate !== "string") {
+    return {
+      ok: false as const,
+      error: "Welcome message must be text.",
+    };
+  }
+
+  const messageTemplate = value.messageTemplate.trim();
+  const templateError = validateWelcomeMessageTemplate(messageTemplate);
+
+  if (templateError) {
+    return {
+      ok: false as const,
+      error: templateError,
+    };
+  }
+
+  return {
+    ok: true as const,
+    value: {
+      enabled: value.enabled,
+      welcomeChannelId,
+      messageTemplate,
+    } satisfies WelcomeSettingsRequestBody,
   };
 }
 
@@ -1580,6 +1656,32 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
             settings,
             automationMaster: buildAutomationMasterResponse(),
           });
+          return;
+        }
+
+        sendMethodNotAllowed(response);
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/welcome") {
+        if (method === "GET") {
+          sendJson(response, 200, buildWelcomeResponse());
+          return;
+        }
+
+        if (method === "POST") {
+          const nextBody = await readJsonBody(request);
+          const welcomeRequest = sanitizeWelcomeSettingsRequest(nextBody);
+
+          if (!welcomeRequest.ok) {
+            sendJson(response, 400, {
+              error: welcomeRequest.error,
+            });
+            return;
+          }
+
+          updateWelcomeSettings(welcomeRequest.value);
+          sendJson(response, 200, buildWelcomeResponse());
           return;
         }
 

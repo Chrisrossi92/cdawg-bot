@@ -1441,6 +1441,79 @@
                     <p class="channel-operation-detail">Recent joins appear here only when that history is available.</p>
                   </div>
                 </div>
+                <section id="new-member-welcome" class="community-welcome-panel">
+                  <div class="community-welcome-summary">
+                    <div>
+                      <h3>New Member Welcome</h3>
+                      <p class="channel-operation-detail">Sent automatically when someone joins the Discord.</p>
+                    </div>
+                    <div class="community-welcome-summary-meta">
+                      <span id="welcome-summary-status" class="status-badge neutral">Loading</span>
+                      <span id="welcome-summary-channel" class="channel-operation-detail">Checking destination...</span>
+                      <button id="edit-welcome-message" type="button" class="secondary">Edit Welcome Message</button>
+                    </div>
+                  </div>
+                  <form id="welcome-form" class="settings-form community-welcome-form" hidden>
+                    <section class="form-group community-welcome-settings">
+                      <h3>New Member Welcome</h3>
+                      <p class="channel-operation-detail">Sent automatically when someone joins the Discord.</p>
+                      <div class="form-grid form-grid-2">
+                        <label>
+                          Status
+                          <select name="enabled">
+                            <option value="true">On</option>
+                            <option value="false">Off</option>
+                          </select>
+                        </label>
+                        <label>
+                          Destination channel
+                          <select name="welcomeChannelIdSelect" data-discord-channel-select data-target-input="welcomeChannelId">
+                            <option value="">Loading channels...</option>
+                          </select>
+                          <input name="welcomeChannelId" type="hidden" required />
+                          <small>Choose where CDawg should welcome new members.</small>
+                        </label>
+                      </div>
+                      <details class="details-block">
+                        <summary>Quick inserts</summary>
+                        <div class="message-builder-actions">
+                          <button type="button" class="pill-button" data-welcome-insert="{member}">Member name/mention</button>
+                          <button type="button" class="pill-button" data-welcome-insert="{replyChannel}">Rules channel</button>
+                          <button type="button" class="pill-button" data-welcome-insert="Palworld players can check the pinned server settings before joining.">Palworld settings</button>
+                          <button type="button" class="pill-button" data-welcome-insert="Tell us which server or game you want access to.">Ask for server choice</button>
+                        </div>
+                      </details>
+                      <details class="details-block">
+                        <summary>Advanced</summary>
+                        <label>
+                          Manual destination channel ID
+                          <input name="manualWelcomeChannelId" type="text" inputmode="numeric" placeholder="Optional channel ID" />
+                          <small>Use only if the channel list did not load.</small>
+                        </label>
+                      </details>
+                    </section>
+
+                    <section class="form-group community-welcome-message">
+                      <h3>Welcome message</h3>
+                      <label>
+                        Welcome message
+                        <textarea name="messageTemplate" rows="9" maxlength="2000" required></textarea>
+                        <small id="welcome-character-count">0 / 2000 characters</small>
+                      </label>
+                    </section>
+
+                    <section class="form-group role-access-preview-panel preview-panel">
+                      <h3>Preview</h3>
+                      <div id="welcome-preview" class="discord-panel-preview composer-preview"></div>
+                    </section>
+
+                    <div class="settings-actions form-actions-row">
+                      <button type="submit">Save Changes</button>
+                      <button id="cancel-welcome-edit" type="button" class="secondary">Cancel</button>
+                      <span id="welcome-status"></span>
+                    </div>
+                  </form>
+                </section>
                 <div id="community-new-members-list" class="community-owner-list">
                   <p class="channel-operation-empty">Join history is not available in the current dashboard data. New member details will appear here after that signal exists.</p>
                 </div>
