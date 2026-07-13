@@ -50,6 +50,7 @@ import { getWelcomeSettings } from "./systems/welcome-settings.js";
 import { isLikelyCommandMessage, normalizeChatMessage, passesMessageQualityThresholds } from "./lib/chat-messages.js";
 import { incrementSlashCommandUsage } from "./systems/bot-metrics.js";
 import { handlePassiveChatMessage } from "./systems/passive-chat.js";
+import { handleConversationParticipationMessage } from "./systems/conversation-participation.js";
 import { startApiServer } from "./api/server.js";
 import { pushManualContentToChannel, pushHistoryEventToChannel, triggerAutomatedContentNow } from "./lib/manual-content-push.js";
 import { getHistoryEventById } from "./lib/history-content.js";
@@ -411,6 +412,15 @@ client.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) {
     return;
   }
+
+  handleConversationParticipationMessage({
+    channelId: message.channelId,
+    channelName: "name" in message.channel && typeof message.channel.name === "string" ? message.channel.name : null,
+    authorId: message.author.id,
+    isBot: message.author.bot,
+    content: message.content,
+    isDirectMention: client.user ? message.mentions.users.has(client.user.id) : false,
+  });
 
   if (chatXpEligibleChannelIds.has(message.channelId) && !isLikelyCommandMessage(message.content)) {
     const normalizedContent = normalizeChatMessage(message.content);

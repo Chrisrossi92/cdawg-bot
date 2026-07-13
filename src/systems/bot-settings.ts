@@ -25,6 +25,33 @@ export type PassiveChatSettings = {
   conversationNudgeContentTypes: ContentType[];
 };
 
+export type ConversationParticipationSettings = {
+  enabled: boolean;
+  previewMode: boolean;
+  debugLogging: boolean;
+  eligibleChannelIds: string[];
+  channelModes: Record<string, "allowed" | "preview-only" | "off">;
+  directMentionsEnabled: boolean;
+  inlineRepliesEnabled: boolean;
+  lullPromptsEnabled: boolean;
+  lullTriviaEnabled: boolean;
+  activeConversationWindowMs: number;
+  minHumanMessages: number;
+  minDistinctHumans: number;
+  inlineReplyCooldownMs: number;
+  lullPromptCooldownMs: number;
+  lullTriviaCooldownMs: number;
+  promptLullMs: number;
+  triviaLullMs: number;
+  deadChannelCutoffMs: number;
+  dailyChannelCap: number;
+  dailyTriviaCap: number;
+  botRatioHumanMessages: number;
+  noResponseWindowMs: number;
+  suppressionRecoveryHumanMessages: number;
+  relevanceThreshold: number;
+};
+
 export type ContentProviderSettings = {
   debugLogging: boolean;
 };
@@ -32,6 +59,7 @@ export type ContentProviderSettings = {
 export type BotSettings = {
   globalAutomationEnabled: boolean;
   passiveChat: PassiveChatSettings;
+  conversationParticipation: ConversationParticipationSettings;
   contentProviders: ContentProviderSettings;
 };
 
@@ -61,6 +89,37 @@ export const defaultBotSettings: BotSettings = {
     conversationNudgeMessageThreshold: 6,
     topicBiasMinimumMatches: 2,
     conversationNudgeContentTypes: ["prompt", "trivia", "joke"],
+  },
+  conversationParticipation: {
+    enabled: false,
+    previewMode: true,
+    debugLogging: true,
+    eligibleChannelIds: [
+      "1480388771001139302",
+      "1463685992782237890",
+      "1463686052509388894",
+      "1482887724871712788",
+    ],
+    channelModes: {},
+    directMentionsEnabled: true,
+    inlineRepliesEnabled: true,
+    lullPromptsEnabled: true,
+    lullTriviaEnabled: false,
+    activeConversationWindowMs: 10 * 60 * 1000,
+    minHumanMessages: 4,
+    minDistinctHumans: 2,
+    inlineReplyCooldownMs: 20 * 60 * 1000,
+    lullPromptCooldownMs: 60 * 60 * 1000,
+    lullTriviaCooldownMs: 3 * 60 * 60 * 1000,
+    promptLullMs: 4 * 60 * 1000,
+    triviaLullMs: 8 * 60 * 1000,
+    deadChannelCutoffMs: 30 * 60 * 1000,
+    dailyChannelCap: 3,
+    dailyTriviaCap: 1,
+    botRatioHumanMessages: 4,
+    noResponseWindowMs: 15 * 60 * 1000,
+    suppressionRecoveryHumanMessages: 3,
+    relevanceThreshold: 2,
   },
   contentProviders: {
     debugLogging: true,
@@ -93,6 +152,24 @@ function sanitizeContentTypes(value: unknown, fallback: readonly ContentType[]) 
   return validEntries.length > 0 ? validEntries : [...fallback];
 }
 
+function sanitizeChannelModes(value: unknown, fallback: Record<string, "allowed" | "preview-only" | "off">) {
+  if (!isRecord(value)) {
+    return { ...fallback };
+  }
+
+  const modes: Record<string, "allowed" | "preview-only" | "off"> = {};
+
+  for (const [channelId, mode] of Object.entries(value)) {
+    if (typeof channelId !== "string" || !channelId || (mode !== "allowed" && mode !== "preview-only" && mode !== "off")) {
+      continue;
+    }
+
+    modes[channelId] = mode;
+  }
+
+  return modes;
+}
+
 function sanitizeBoolean(value: unknown, fallback: boolean) {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -108,6 +185,7 @@ function sanitizeNumber(value: unknown, fallback: number, minimum = 0, maximum =
 function mergeBotSettings(partialSettings: unknown): BotSettings {
   const settings = isRecord(partialSettings) ? partialSettings : {};
   const passiveChat = isRecord(settings.passiveChat) ? settings.passiveChat : {};
+  const conversationParticipation = isRecord(settings.conversationParticipation) ? settings.conversationParticipation : {};
   const contentProviders = isRecord(settings.contentProviders) ? settings.contentProviders : {};
 
   return {
@@ -169,6 +247,113 @@ function mergeBotSettings(partialSettings: unknown): BotSettings {
         defaultBotSettings.passiveChat.conversationNudgeContentTypes,
       ),
     },
+    conversationParticipation: {
+      enabled: sanitizeBoolean(conversationParticipation.enabled, defaultBotSettings.conversationParticipation.enabled),
+      previewMode: sanitizeBoolean(conversationParticipation.previewMode, defaultBotSettings.conversationParticipation.previewMode),
+      debugLogging: sanitizeBoolean(
+        conversationParticipation.debugLogging,
+        defaultBotSettings.conversationParticipation.debugLogging,
+      ),
+      eligibleChannelIds: sanitizeStringArray(
+        conversationParticipation.eligibleChannelIds,
+        defaultBotSettings.conversationParticipation.eligibleChannelIds,
+      ),
+      channelModes: sanitizeChannelModes(
+        conversationParticipation.channelModes,
+        defaultBotSettings.conversationParticipation.channelModes,
+      ),
+      directMentionsEnabled: sanitizeBoolean(
+        conversationParticipation.directMentionsEnabled,
+        defaultBotSettings.conversationParticipation.directMentionsEnabled,
+      ),
+      inlineRepliesEnabled: sanitizeBoolean(
+        conversationParticipation.inlineRepliesEnabled,
+        defaultBotSettings.conversationParticipation.inlineRepliesEnabled,
+      ),
+      lullPromptsEnabled: sanitizeBoolean(
+        conversationParticipation.lullPromptsEnabled,
+        defaultBotSettings.conversationParticipation.lullPromptsEnabled,
+      ),
+      lullTriviaEnabled: sanitizeBoolean(
+        conversationParticipation.lullTriviaEnabled,
+        defaultBotSettings.conversationParticipation.lullTriviaEnabled,
+      ),
+      activeConversationWindowMs: sanitizeNumber(
+        conversationParticipation.activeConversationWindowMs,
+        defaultBotSettings.conversationParticipation.activeConversationWindowMs,
+        60 * 1000,
+      ),
+      minHumanMessages: sanitizeNumber(
+        conversationParticipation.minHumanMessages,
+        defaultBotSettings.conversationParticipation.minHumanMessages,
+        1,
+      ),
+      minDistinctHumans: sanitizeNumber(
+        conversationParticipation.minDistinctHumans,
+        defaultBotSettings.conversationParticipation.minDistinctHumans,
+        1,
+      ),
+      inlineReplyCooldownMs: sanitizeNumber(
+        conversationParticipation.inlineReplyCooldownMs,
+        defaultBotSettings.conversationParticipation.inlineReplyCooldownMs,
+        1000,
+      ),
+      lullPromptCooldownMs: sanitizeNumber(
+        conversationParticipation.lullPromptCooldownMs,
+        defaultBotSettings.conversationParticipation.lullPromptCooldownMs,
+        1000,
+      ),
+      lullTriviaCooldownMs: sanitizeNumber(
+        conversationParticipation.lullTriviaCooldownMs,
+        defaultBotSettings.conversationParticipation.lullTriviaCooldownMs,
+        1000,
+      ),
+      promptLullMs: sanitizeNumber(
+        conversationParticipation.promptLullMs,
+        defaultBotSettings.conversationParticipation.promptLullMs,
+        1000,
+      ),
+      triviaLullMs: sanitizeNumber(
+        conversationParticipation.triviaLullMs,
+        defaultBotSettings.conversationParticipation.triviaLullMs,
+        1000,
+      ),
+      deadChannelCutoffMs: sanitizeNumber(
+        conversationParticipation.deadChannelCutoffMs,
+        defaultBotSettings.conversationParticipation.deadChannelCutoffMs,
+        1000,
+      ),
+      dailyChannelCap: sanitizeNumber(
+        conversationParticipation.dailyChannelCap,
+        defaultBotSettings.conversationParticipation.dailyChannelCap,
+        0,
+      ),
+      dailyTriviaCap: sanitizeNumber(
+        conversationParticipation.dailyTriviaCap,
+        defaultBotSettings.conversationParticipation.dailyTriviaCap,
+        0,
+      ),
+      botRatioHumanMessages: sanitizeNumber(
+        conversationParticipation.botRatioHumanMessages,
+        defaultBotSettings.conversationParticipation.botRatioHumanMessages,
+        1,
+      ),
+      noResponseWindowMs: sanitizeNumber(
+        conversationParticipation.noResponseWindowMs,
+        defaultBotSettings.conversationParticipation.noResponseWindowMs,
+        1000,
+      ),
+      suppressionRecoveryHumanMessages: sanitizeNumber(
+        conversationParticipation.suppressionRecoveryHumanMessages,
+        defaultBotSettings.conversationParticipation.suppressionRecoveryHumanMessages,
+        1,
+      ),
+      relevanceThreshold: sanitizeNumber(
+        conversationParticipation.relevanceThreshold,
+        defaultBotSettings.conversationParticipation.relevanceThreshold,
+        1,
+      ),
+    },
     contentProviders: {
       debugLogging: sanitizeBoolean(contentProviders.debugLogging, defaultBotSettings.contentProviders.debugLogging),
     },
@@ -217,6 +402,14 @@ export function updateBotSettings(
       ...activeBotSettings.passiveChat,
       ...resolvedPatch.passiveChat,
     },
+    conversationParticipation: {
+      ...activeBotSettings.conversationParticipation,
+      ...resolvedPatch.conversationParticipation,
+      channelModes: {
+        ...activeBotSettings.conversationParticipation.channelModes,
+        ...resolvedPatch.conversationParticipation?.channelModes,
+      },
+    },
     contentProviders: {
       ...activeBotSettings.contentProviders,
       ...resolvedPatch.contentProviders,
@@ -228,4 +421,31 @@ export function updateBotSettings(
 
 export function saveBotSettings() {
   saveBotSettingsToDisk(activeBotSettings);
+}
+
+export function updateBotSettingsInMemoryForTests(
+  nextSettings: DeepPartial<BotSettings> | ((current: BotSettings) => DeepPartial<BotSettings>),
+) {
+  const resolvedPatch = typeof nextSettings === "function" ? nextSettings(activeBotSettings) : nextSettings;
+  activeBotSettings = mergeBotSettings({
+    ...activeBotSettings,
+    ...resolvedPatch,
+    passiveChat: {
+      ...activeBotSettings.passiveChat,
+      ...resolvedPatch.passiveChat,
+    },
+    conversationParticipation: {
+      ...activeBotSettings.conversationParticipation,
+      ...resolvedPatch.conversationParticipation,
+      channelModes: {
+        ...activeBotSettings.conversationParticipation.channelModes,
+        ...resolvedPatch.conversationParticipation?.channelModes,
+      },
+    },
+    contentProviders: {
+      ...activeBotSettings.contentProviders,
+      ...resolvedPatch.contentProviders,
+    },
+  });
+  return activeBotSettings;
 }

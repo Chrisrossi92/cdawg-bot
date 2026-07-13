@@ -426,3 +426,13 @@ export async function postInteractiveTriviaSession(options: {
 export function getLatestTriviaSessionSnapshot(source: TriviaSessionSource, channelId: string) {
   return latestTriviaSessionBySourceChannel.get(getTriviaSessionKey(source, channelId)) ?? null;
 }
+
+export function getActiveTriviaSessionSnapshotForChannel(channelId: string) {
+  for (const question of activeTriviaQuestions.values()) {
+    if (question.channelId === channelId) {
+      return buildTriviaSessionSnapshot(question, null);
+    }
+  }
+
+  return null;
+}

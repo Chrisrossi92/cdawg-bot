@@ -137,6 +137,13 @@ const dailyBriefingHighlights = document.querySelector("#daily-briefing-highligh
 const dailyBriefingConcerns = document.querySelector("#daily-briefing-concerns");
 const dailyBriefingRecommendations = document.querySelector("#daily-briefing-recommendations");
 const dailyBriefingMetrics = document.querySelector("#daily-briefing-metrics");
+const communityIntelligenceStatus = document.querySelector("#community-intelligence-status");
+const communityIntelligenceSummary = document.querySelector("#community-intelligence-summary");
+const communityIntelligenceGeneratedAt = document.querySelector("#community-intelligence-generated-at");
+const communityIntelligenceGenerateButton = document.querySelector("#community-intelligence-generate");
+const communityIntelligenceEmpty = document.querySelector("#community-intelligence-empty");
+const communityIntelligenceList = document.querySelector("#community-intelligence-list");
+const communityIntelligenceActionStatus = document.querySelector("#community-intelligence-action-status");
 const missionBriefingStatus = document.querySelector("#mission-briefing-status");
 const missionBriefingTitle = document.querySelector("#mission-briefing-title");
 const missionBriefingSummary = document.querySelector("#mission-briefing-summary");
@@ -195,6 +202,7 @@ const manualPushOutput = document.querySelector("#manual-push-output");
 const channelOperationsOutput = document.querySelector("#channel-operations-output");
 const dogOutput = document.querySelector("#dog-output");
 const dailyTriviaOutput = document.querySelector("#daily-trivia-output");
+const conversationParticipationOutput = document.querySelector("#conversation-participation-output");
 const historyReviewOutput = document.querySelector("#history-review-output");
 const feedsOutput = document.querySelector("#feeds-output");
 const roleAccessPanelsOutput = document.querySelector("#role-access-panels-output");
@@ -227,6 +235,12 @@ const createPostScheduledPostsList = document.querySelector("#create-post-schedu
 const dailyTriviaForm = document.querySelector("#daily-trivia-form");
 const dailyTriviaStatus = document.querySelector("#daily-trivia-status");
 const dailyTriviaSummary = document.querySelector("#daily-trivia-summary");
+const conversationParticipationForm = document.querySelector("#conversation-participation-form");
+const conversationParticipationStatus = document.querySelector("#conversation-participation-status");
+const conversationParticipationSummary = document.querySelector("#conversation-participation-summary");
+const conversationDecisionList = document.querySelector("#conversation-decision-list");
+const conversationChannelControls = document.querySelector("#conversation-channel-controls");
+const conversationPreviewBadge = document.querySelector("#conversation-preview-badge");
 const dogSummary = document.querySelector("#dog-summary");
 const feedForm = document.querySelector("#feed-form");
 const feedStatus = document.querySelector("#feed-status");
@@ -287,6 +301,7 @@ const refreshRoleAccessPanelsButton = document.querySelector("#refresh-role-acce
 const refreshRoleFollowupsButton = document.querySelector("#refresh-role-followups");
 const refreshEngagementButton = document.querySelector("#refresh-engagement");
 const refreshHistoryReviewButton = document.querySelector("#refresh-history-review");
+const refreshConversationParticipationButton = document.querySelector("#refresh-conversation-participation");
 const rerollHistoryReviewButton = document.querySelector("#reroll-history-review");
 const pushHistoryPreviewButton = document.querySelector("#push-history-preview");
 const createFeedButton = document.querySelector("#create-feed");
@@ -334,6 +349,7 @@ let dogState = null;
 let dogSystemEnabled = false;
 let dailyTriviaChallenge = null;
 let dailyHistory = null;
+let conversationParticipation = null;
 let historyReview = null;
 let feeds = [];
 let roleAccessPanels = [];
@@ -353,6 +369,9 @@ let backendOpportunities = [];
 let backendOpportunitiesLoadError = null;
 let dailyBriefing = null;
 let dailyBriefingLoadError = null;
+let communityIntelligenceBrief = null;
+let communityIntelligenceLoadError = null;
+let communityIntelligenceActionInFlight = false;
 let activeChannelActionChannelId = null;
 let activeOpportunityId = null;
 let activeOpportunityContext = null;
@@ -7649,6 +7668,202 @@ function renderDailyBriefing() {
   renderDailyBriefingMetrics(dailyBriefing.supportingMetrics);
 }
 
+function getCommunityIntelligenceBriefItems(brief) {
+  const sections = brief?.sections ?? {};
+  return [
+    ...(Array.isArray(sections.recommendedNextStep) ? sections.recommendedNextStep : []),
+    ...(Array.isArray(sections.needsAttention) ? sections.needsAttention : []),
+    ...(Array.isArray(sections.conversationWatch) ? sections.conversationWatch : []),
+    ...(Array.isArray(sections.worthReviewing) ? sections.worthReviewing : []),
+    ...(Array.isArray(sections.communityPulse) ? sections.communityPulse : []),
+  ].filter((item) => item && item.recommendationId);
+}
+
+function getCommunityIntelligenceStatusTone(status) {
+  if (status === "urgent") {
+    return "blocked";
+  }
+
+  if (status === "attention_needed") {
+    return "active";
+  }
+
+  return "neutral";
+}
+
+function getCommunityIntelligenceSectionLabel(section) {
+  return {
+    community_pulse: "Community Pulse",
+    needs_attention: "Needs Attention",
+    worth_reviewing: "Worth Reviewing",
+    conversation_watch: "Conversation Watch",
+    recommended_next_step: "Recommended Next Step",
+  }[section] ?? "Recommendation";
+}
+
+function setCommunityIntelligenceActionStatus(message, tone = "neutral") {
+  if (!communityIntelligenceActionStatus) {
+    return;
+  }
+
+  communityIntelligenceActionStatus.textContent = message;
+  communityIntelligenceActionStatus.className = `channel-operation-detail ${tone === "error" ? "error-text" : ""}`;
+}
+
+function removeCommunityIntelligenceRecommendation(recommendationId) {
+  if (!communityIntelligenceBrief?.sections) {
+    return;
+  }
+
+  for (const sectionItems of Object.values(communityIntelligenceBrief.sections)) {
+    if (!Array.isArray(sectionItems)) {
+      continue;
+    }
+
+    const index = sectionItems.findIndex((item) => item.recommendationId === recommendationId);
+    if (index >= 0) {
+      sectionItems.splice(index, 1);
+    }
+  }
+}
+
+function createCommunityIntelligenceItem(item) {
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  const body = document.createElement("div");
+  const title = document.createElement("strong");
+  const copy = document.createElement("span");
+  const meta = document.createElement("div");
+  const explanation = document.createElement("div");
+  const actions = document.createElement("div");
+  const evidenceList = document.createElement("ul");
+
+  details.className = `community-intelligence-item ${item.priority ?? "medium"}`;
+  summary.className = "community-intelligence-item-summary";
+  body.className = "community-intelligence-item-body";
+  title.textContent = item.title ?? "Community recommendation";
+  copy.textContent = item.summary ?? "Review this recommendation.";
+  meta.className = "community-intelligence-meta";
+  meta.append(
+    createStatusBadge(getCommunityIntelligenceSectionLabel(item.section), "neutral"),
+    createStatusBadge(item.priority ?? "medium", item.priority === "critical" || item.priority === "high" ? "blocked" : "neutral"),
+    createStatusBadge(`${Math.round((item.confidence ?? 0) * 100)}% confidence`, "neutral"),
+  );
+
+  summary.append(title, copy, meta);
+  details.append(summary);
+
+  explanation.className = "community-intelligence-evidence";
+  const reason = document.createElement("p");
+  reason.textContent = item.reason ?? "This recommendation was derived from the shared evidence backbone.";
+  const context = document.createElement("p");
+  context.textContent = [
+    item.serverContext ? `Server context: ${item.serverContext}` : null,
+    item.channelId ? `Channel: ${getChannelLabel(item.channelId)}` : null,
+    item.suggestedAction ? `Suggested action: ${item.suggestedAction.replaceAll("_", " ")}` : null,
+  ].filter(Boolean).join(" • ") || "No additional routing context is attached.";
+  const evidenceTitle = document.createElement("strong");
+  evidenceTitle.textContent = "Evidence";
+
+  const evidenceIds = Array.isArray(item.evidenceIds) ? item.evidenceIds : [];
+  if (evidenceIds.length === 0) {
+    const evidenceItem = document.createElement("li");
+    evidenceItem.textContent = "No evidence ids are attached to this brief item.";
+    evidenceList.append(evidenceItem);
+  } else {
+    for (const evidenceId of evidenceIds) {
+      const evidenceItem = document.createElement("li");
+      evidenceItem.textContent = evidenceId;
+      evidenceList.append(evidenceItem);
+    }
+  }
+
+  explanation.append(reason, context, evidenceTitle, evidenceList);
+
+  actions.className = "community-intelligence-disposition-actions";
+  for (const [action, label] of [
+    ["acknowledge", "Acknowledge"],
+    ["acted", "Acted"],
+    ["postpone", "Postpone"],
+    ["dismiss", "Dismiss"],
+  ]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = action === "dismiss" ? "secondary danger" : "secondary";
+    button.textContent = label;
+    button.disabled = communityIntelligenceActionInFlight;
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      void applyCommunityIntelligenceDisposition(item, action);
+    });
+    actions.append(button);
+  }
+
+  details.addEventListener("toggle", () => {
+    if (details.open && item.recommendationId) {
+      void applyCommunityIntelligenceDisposition(item, "seen", { keepVisible: true, quiet: true });
+    }
+  }, { once: true });
+
+  body.append(explanation, actions);
+  details.append(body);
+  return details;
+}
+
+function renderCommunityIntelligenceBrief() {
+  if (!communityIntelligenceStatus || !communityIntelligenceSummary || !communityIntelligenceEmpty || !communityIntelligenceList) {
+    return;
+  }
+
+  if (communityIntelligenceLoadError) {
+    communityIntelligenceStatus.textContent = "unavailable";
+    communityIntelligenceStatus.className = "status-badge blocked";
+    communityIntelligenceSummary.textContent = "Community Intelligence Brief could not load.";
+    communityIntelligenceEmpty.hidden = false;
+    communityIntelligenceEmpty.textContent = `Community Intelligence unavailable. ${communityIntelligenceLoadError}`;
+    communityIntelligenceList.hidden = true;
+    if (communityIntelligenceGeneratedAt) {
+      communityIntelligenceGeneratedAt.textContent = "not loaded";
+    }
+    return;
+  }
+
+  if (!communityIntelligenceBrief) {
+    communityIntelligenceStatus.textContent = "not generated";
+    communityIntelligenceStatus.className = "status-badge neutral";
+    communityIntelligenceSummary.textContent = "Generate a Community Intelligence Brief when you want fresh owner-review recommendations.";
+    communityIntelligenceEmpty.hidden = false;
+    communityIntelligenceEmpty.textContent = "No Community Intelligence Brief has been generated yet.";
+    communityIntelligenceList.hidden = true;
+    if (communityIntelligenceGeneratedAt) {
+      communityIntelligenceGeneratedAt.textContent = "not generated";
+    }
+    return;
+  }
+
+  const items = getCommunityIntelligenceBriefItems(communityIntelligenceBrief).slice(0, 6);
+  communityIntelligenceStatus.textContent = communityIntelligenceBrief.status?.replaceAll("_", " ") ?? "ready";
+  communityIntelligenceStatus.className = `status-badge ${getCommunityIntelligenceStatusTone(communityIntelligenceBrief.status)}`;
+  communityIntelligenceSummary.textContent = communityIntelligenceBrief.summary ?? communityIntelligenceBrief.headline ?? "Community Intelligence Brief is ready.";
+  if (communityIntelligenceGeneratedAt) {
+    communityIntelligenceGeneratedAt.textContent = `generated ${formatRelativeTime(communityIntelligenceBrief.generatedAt)}`;
+  }
+
+  communityIntelligenceList.replaceChildren();
+  if (items.length === 0) {
+    communityIntelligenceEmpty.hidden = false;
+    communityIntelligenceEmpty.textContent = "No active owner-review recommendations are in the latest Community Intelligence Brief.";
+    communityIntelligenceList.hidden = true;
+    return;
+  }
+
+  communityIntelligenceEmpty.hidden = true;
+  communityIntelligenceList.hidden = false;
+  for (const item of items) {
+    communityIntelligenceList.append(createCommunityIntelligenceItem(item));
+  }
+}
+
 function renderMissionControl() {
   if (!missionActionList) {
     return;
@@ -9403,6 +9618,252 @@ function renderDailyTriviaChallenge() {
   applyDailyTriviaToForm(dailyTriviaChallenge);
 }
 
+function formatConversationDuration(ms) {
+  if (!Number.isFinite(ms)) {
+    return "not set";
+  }
+
+  const minutes = Math.round(ms / 60000);
+  return `${minutes} min`;
+}
+
+function getConversationChannelLabel(channelId, channelName) {
+  if (channelName) {
+    return `#${channelName}`;
+  }
+
+  const detailed = getDetailedChannelLabel(channelId, "");
+  return detailed && detailed !== "Channel not found" ? detailed : "Saved channel";
+}
+
+function getConversationDecisionCopy(decision) {
+  const channelLabel = getConversationChannelLabel(decision.channelId, decision.channelName);
+
+  if (decision.decision === "would-send") {
+    if (decision.mode === "lull-trivia") {
+      return `Would offer trivia in ${channelLabel}`;
+    }
+
+    if (decision.mode === "lull-prompt") {
+      return `Would prompt ${channelLabel}`;
+    }
+
+    return `Would reply in ${channelLabel}`;
+  }
+
+  if (decision.reason.includes("more people")) {
+    return "Would wait for more people";
+  }
+
+  if (decision.reason.includes("too old")) {
+    return "Skipped because the conversation is too old";
+  }
+
+  if (decision.reason.includes("no response")) {
+    return "Suppressed because the last bot post received no response";
+  }
+
+  if (decision.reason.includes("unclear")) {
+    return "Skipped because the topic was unclear";
+  }
+
+  return `Skipped: ${decision.reason}`;
+}
+
+function getConversationDecisionTone(decision) {
+  if (decision.decision === "would-send") {
+    return "active";
+  }
+
+  if (decision.suppressionActive || decision.capReached || decision.state === "DISABLED") {
+    return "blocked";
+  }
+
+  return "neutral";
+}
+
+function applyConversationParticipationToForm() {
+  const settings = conversationParticipation?.settings;
+  const modes = conversationParticipation?.modes;
+
+  if (!conversationParticipationForm || !conversationParticipation || !settings || !modes) {
+    return;
+  }
+
+  conversationParticipationForm.elements.enabled.value = String(conversationParticipation.masterEnabled === true);
+  conversationParticipationForm.elements.previewMode.value = "true";
+  conversationParticipationForm.elements.debugLogging.value = String(lastSettingsSnapshot?.conversationParticipation?.debugLogging !== false);
+  conversationParticipationForm.elements.directMentionsEnabled.value = String(modes.directMentions === true);
+  conversationParticipationForm.elements.inlineRepliesEnabled.value = String(modes.inlineReplies === true);
+  conversationParticipationForm.elements.lullPromptsEnabled.value = String(modes.lullPrompts === true);
+  conversationParticipationForm.elements.lullTriviaEnabled.value = String(modes.lullTrivia === true);
+  conversationParticipationForm.elements.activeConversationWindowMinutes.value = String(Math.round(settings.activeConversationWindowMs / 60000));
+  conversationParticipationForm.elements.promptLullMinutes.value = String(Math.round(settings.promptLullMs / 60000));
+  conversationParticipationForm.elements.triviaLullMinutes.value = String(Math.round(settings.triviaLullMs / 60000));
+  conversationParticipationForm.elements.deadChannelCutoffMinutes.value = String(Math.round(settings.deadChannelCutoffMs / 60000));
+  conversationParticipationForm.elements.minHumanMessages.value = String(settings.minHumanMessages);
+  conversationParticipationForm.elements.minDistinctHumans.value = String(settings.minDistinctHumans);
+  conversationParticipationForm.elements.dailyChannelCap.value = String(settings.dailyChannelCap);
+  conversationParticipationForm.elements.dailyTriviaCap.value = String(settings.dailyTriviaCap);
+  conversationParticipationForm.elements.botRatioHumanMessages.value = String(settings.botRatioHumanMessages);
+  conversationParticipationForm.elements.noResponseWindowMinutes.value = String(Math.round(settings.noResponseWindowMs / 60000));
+  conversationParticipationForm.elements.suppressionRecoveryHumanMessages.value = String(settings.suppressionRecoveryHumanMessages);
+  conversationParticipationForm.elements.relevanceThreshold.value = String(settings.relevanceThreshold);
+}
+
+function createConversationDecisionItem(decision) {
+  const row = document.createElement("details");
+  const summary = document.createElement("summary");
+  const title = document.createElement("span");
+  const badges = document.createElement("div");
+  const details = document.createElement("div");
+
+  row.className = `automation-activity-item status-${decision.decision === "would-send" ? "success" : "info"}`;
+  title.textContent = getConversationDecisionCopy(decision);
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(decision.decision === "would-send" ? "would send" : "skipped", getConversationDecisionTone(decision)),
+    createStatusBadge(decision.mode, "neutral"),
+    createStatusBadge(decision.state, "neutral"),
+  );
+  summary.append(title, badges);
+  details.className = "automation-detail-list";
+  details.append(
+    createAutomationDetailLine("Reason", decision.reason),
+    createAutomationDetailLine("When", `${formatTimestamp(decision.timestamp)} (${formatRelativeTime(decision.timestamp)})`),
+    createAutomationDetailLine("Humans", `${decision.humanMessageCount} messages / ${decision.distinctHumanCount} people`),
+    createAutomationDetailLine("Relevance", `${decision.relevanceScore} (${decision.matchedTopics?.join(", ") || "no match"})`),
+    createAutomationDetailLine("Bot ratio", Number(decision.botHumanRatio || 0).toFixed(2)),
+    createAutomationDetailLine("Would use", decision.proposedContentType ?? "none"),
+  );
+  row.append(summary, details);
+  return row;
+}
+
+function renderConversationChannelControls() {
+  conversationChannelControls.replaceChildren();
+
+  const settings = lastSettingsSnapshot?.conversationParticipation;
+  const modes = conversationParticipation?.channelModes ?? {};
+  const channelIds = [
+    ...new Set([
+      ...(settings?.eligibleChannelIds ?? []),
+      ...Object.keys(modes),
+      ...(conversationParticipation?.channelStates ?? []).map((state) => state.channelId),
+    ]),
+  ];
+
+  if (channelIds.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "No channels are configured for conversational preview yet.";
+    conversationChannelControls.append(empty);
+    return;
+  }
+
+  for (const channelId of channelIds) {
+    const row = document.createElement("section");
+    const main = document.createElement("div");
+    const actions = document.createElement("div");
+    const title = document.createElement("h3");
+    const detail = document.createElement("p");
+    const badges = document.createElement("div");
+    const modeSelect = document.createElement("select");
+    const state = conversationParticipation?.channelStates?.find((entry) => entry.channelId === channelId);
+    const mode = modes[channelId] ?? (settings?.eligibleChannelIds?.includes(channelId) ? "preview-only" : "off");
+
+    row.className = "channel-operation-card compact";
+    main.className = "channel-operation-main";
+    title.textContent = getConversationChannelLabel(channelId, state?.channelName);
+    detail.className = "channel-operation-detail";
+    detail.textContent = state
+      ? `${state.humanMessageCount} recent human message${state.humanMessageCount === 1 ? "" : "s"} from ${state.distinctHumanCount} people. Last human activity: ${formatRelativeTime(state.lastHumanMessageAt)}.`
+      : "No recent qualifying conversation has been observed.";
+    badges.className = "channel-operation-badges";
+    badges.append(
+      createStatusBadge(mode === "off" ? "Off" : mode === "allowed" ? "Allowed" : "Preview only", mode === "off" ? "blocked" : "active"),
+      createStatusBadge("no live posting", "neutral"),
+    );
+    actions.className = "channel-row-summary-actions";
+    modeSelect.dataset.conversationChannelMode = channelId;
+    for (const [value, label] of [
+      ["preview-only", "Preview only"],
+      ["allowed", "Allowed"],
+      ["off", "Off"],
+    ]) {
+      const option = document.createElement("option");
+      option.value = value;
+      option.textContent = label;
+      modeSelect.append(option);
+    }
+    modeSelect.value = mode;
+    actions.append(modeSelect);
+    main.append(title, badges, detail);
+    row.append(main, actions);
+    conversationChannelControls.append(row);
+  }
+}
+
+function renderConversationParticipation() {
+  if (!conversationParticipationSummary || !conversationDecisionList || !conversationChannelControls) {
+    return;
+  }
+
+  conversationParticipationSummary.replaceChildren();
+  conversationDecisionList.replaceChildren();
+
+  if (!conversationParticipation) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "Conversational participation preview has not loaded.";
+    conversationParticipationSummary.append(empty);
+    return;
+  }
+
+  conversationPreviewBadge.textContent = conversationParticipation.previewOnly ? "Preview Only" : "Preview unavailable";
+  conversationPreviewBadge.className = `status-badge ${conversationParticipation.previewOnly ? "active" : "blocked"}`;
+
+  const card = document.createElement("section");
+  const main = document.createElement("div");
+  const title = document.createElement("h3");
+  const badges = document.createElement("div");
+  const detail = document.createElement("p");
+  const meta = document.createElement("p");
+
+  card.className = "channel-operation-card compact";
+  main.className = "channel-operation-main";
+  title.textContent = "Conversation Preview Engine";
+  badges.className = "channel-operation-badges";
+  badges.append(
+    createStatusBadge(conversationParticipation.masterEnabled ? "Master on" : "Master off", conversationParticipation.masterEnabled ? "active" : "blocked"),
+    createStatusBadge("Preview only", "active"),
+    createStatusBadge(conversationParticipation.modes.lullTrivia ? "Trivia preview on" : "Trivia preview off", conversationParticipation.modes.lullTrivia ? "neutral" : "blocked"),
+  );
+  detail.className = "channel-operation-detail";
+  detail.textContent = "Preview mode records decisions only. It cannot send conversational messages.";
+  meta.className = "channel-operation-meta";
+  meta.textContent = `Active window ${formatConversationDuration(conversationParticipation.settings.activeConversationWindowMs)} • Prompt lull ${formatConversationDuration(conversationParticipation.settings.promptLullMs)} • Dead cutoff ${formatConversationDuration(conversationParticipation.settings.deadChannelCutoffMs)} • ${conversationParticipation.settings.minHumanMessages} messages / ${conversationParticipation.settings.minDistinctHumans} people required.`;
+  main.append(title, badges, detail, meta);
+  card.append(main);
+  conversationParticipationSummary.append(card);
+
+  renderConversationChannelControls();
+
+  const decisions = conversationParticipation.recentDecisions ?? [];
+  if (decisions.length === 0) {
+    const empty = document.createElement("p");
+    empty.className = "channel-operation-empty";
+    empty.textContent = "No conversation preview decisions recorded yet.";
+    conversationDecisionList.append(empty);
+  } else {
+    for (const decision of decisions.slice(0, 12)) {
+      conversationDecisionList.append(createConversationDecisionItem(decision));
+    }
+  }
+
+  applyConversationParticipationToForm();
+}
+
 function renderHistoryEventSection(titleText, event, isRecentlyUsed, emptyCopy) {
   const section = document.createElement("section");
   section.className = "history-review-event-block";
@@ -9696,6 +10157,7 @@ async function loadSettings() {
     applyAutomationMasterState(data.automationMaster);
     applySettingsToForm(data.settings);
     renderAutomationMaster();
+    renderConversationParticipation();
     setPrettyJson(settingsOutput, data);
   } catch (error) {
     settingsOutput.textContent = `Failed to load settings.\n${error.message}`;
@@ -9958,6 +10420,20 @@ async function loadDailyTriviaChallenge() {
   }
 }
 
+async function loadConversationParticipation() {
+  try {
+    const data = await fetchJson("/api/conversation-participation");
+    applyAutomationMasterState(data.automationMaster);
+    conversationParticipation = data.conversationParticipation ?? null;
+    renderConversationParticipation();
+    setPrettyJson(conversationParticipationOutput, data);
+  } catch (error) {
+    conversationParticipation = null;
+    renderConversationParticipation();
+    conversationParticipationOutput.textContent = `Failed to load conversational participation preview.\n${error.message}`;
+  }
+}
+
 async function loadHistoryReview() {
   try {
     const data = await fetchJson("/api/history-review");
@@ -10163,6 +10639,104 @@ async function loadDailyBriefing() {
   }
 }
 
+async function loadCommunityIntelligenceBrief() {
+  try {
+    const data = await fetchJson("/api/community-intelligence/brief");
+    communityIntelligenceBrief = data.brief ?? null;
+    communityIntelligenceLoadError = null;
+    renderCommunityIntelligenceBrief();
+  } catch (error) {
+    communityIntelligenceBrief = null;
+    communityIntelligenceLoadError = error.message;
+    renderCommunityIntelligenceBrief();
+  }
+}
+
+async function generateCommunityIntelligenceBrief() {
+  if (communityIntelligenceGenerateButton) {
+    communityIntelligenceGenerateButton.disabled = true;
+    communityIntelligenceGenerateButton.textContent = "Generating...";
+  }
+  setCommunityIntelligenceActionStatus("Generating Community Intelligence Brief...");
+
+  try {
+    const data = await fetchJson("/api/community-intelligence/generate-brief", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({}),
+    });
+    communityIntelligenceBrief = data.brief ?? null;
+    communityIntelligenceLoadError = null;
+    setCommunityIntelligenceActionStatus("Community Intelligence Brief generated.");
+    renderCommunityIntelligenceBrief();
+  } catch (error) {
+    communityIntelligenceLoadError = error.message;
+    setCommunityIntelligenceActionStatus(`Generate failed: ${error.message}`, "error");
+    renderCommunityIntelligenceBrief();
+  } finally {
+    if (communityIntelligenceGenerateButton) {
+      communityIntelligenceGenerateButton.disabled = false;
+      communityIntelligenceGenerateButton.textContent = communityIntelligenceBrief ? "Refresh Intelligence" : "Generate Brief";
+    }
+  }
+}
+
+async function applyCommunityIntelligenceDisposition(item, action, options = {}) {
+  const recommendationId = item?.recommendationId;
+  if (!recommendationId || communityIntelligenceActionInFlight) {
+    return;
+  }
+
+  communityIntelligenceActionInFlight = true;
+  if (!options.quiet) {
+    setCommunityIntelligenceActionStatus("Updating recommendation...");
+    renderCommunityIntelligenceBrief();
+  }
+
+  const body = {
+    action,
+    reason: action === "seen" ? "Opened in dashboard Community Intelligence Brief." : "Owner disposition from dashboard Community Intelligence Brief.",
+  };
+
+  if (action === "postpone") {
+    body.postponedUntil = Date.now() + 24 * 60 * 60 * 1000;
+  }
+
+  try {
+    await fetchJson(`/api/community-intelligence/recommendations/${encodeURIComponent(recommendationId)}/disposition`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!options.keepVisible) {
+      removeCommunityIntelligenceRecommendation(recommendationId);
+    }
+
+    if (!options.quiet) {
+      const label = action === "acted"
+        ? "marked acted"
+        : action === "postpone"
+          ? "postponed for 24 hours"
+          : action === "acknowledge"
+            ? "acknowledged"
+            : "dismissed";
+      setCommunityIntelligenceActionStatus(`Recommendation ${label}.`);
+    }
+  } catch (error) {
+    setCommunityIntelligenceActionStatus(`Disposition failed: ${error.message}`, "error");
+  } finally {
+    communityIntelligenceActionInFlight = false;
+    if (!options.quiet) {
+      renderCommunityIntelligenceBrief();
+    }
+  }
+}
+
 async function rerollHistoryReview() {
   setHistoryReviewStatus("Picking another item...");
 
@@ -10244,6 +10818,66 @@ function buildSettingsPayload() {
       debugLogging: settingsForm.elements.providerLoggingEnabled.value === "true",
     },
   };
+}
+
+function minutesToMs(value) {
+  return Math.max(1, Number(value) || 1) * 60 * 1000;
+}
+
+function buildConversationParticipationPayload() {
+  return {
+    conversationParticipation: {
+      enabled: conversationParticipationForm.elements.enabled.value === "true",
+      previewMode: true,
+      debugLogging: conversationParticipationForm.elements.debugLogging.value === "true",
+      directMentionsEnabled: conversationParticipationForm.elements.directMentionsEnabled.value === "true",
+      inlineRepliesEnabled: conversationParticipationForm.elements.inlineRepliesEnabled.value === "true",
+      lullPromptsEnabled: conversationParticipationForm.elements.lullPromptsEnabled.value === "true",
+      lullTriviaEnabled: conversationParticipationForm.elements.lullTriviaEnabled.value === "true",
+      activeConversationWindowMs: minutesToMs(conversationParticipationForm.elements.activeConversationWindowMinutes.value),
+      promptLullMs: minutesToMs(conversationParticipationForm.elements.promptLullMinutes.value),
+      triviaLullMs: minutesToMs(conversationParticipationForm.elements.triviaLullMinutes.value),
+      deadChannelCutoffMs: minutesToMs(conversationParticipationForm.elements.deadChannelCutoffMinutes.value),
+      minHumanMessages: Number(conversationParticipationForm.elements.minHumanMessages.value),
+      minDistinctHumans: Number(conversationParticipationForm.elements.minDistinctHumans.value),
+      dailyChannelCap: Number(conversationParticipationForm.elements.dailyChannelCap.value),
+      dailyTriviaCap: Number(conversationParticipationForm.elements.dailyTriviaCap.value),
+      botRatioHumanMessages: Number(conversationParticipationForm.elements.botRatioHumanMessages.value),
+      noResponseWindowMs: minutesToMs(conversationParticipationForm.elements.noResponseWindowMinutes.value),
+      suppressionRecoveryHumanMessages: Number(conversationParticipationForm.elements.suppressionRecoveryHumanMessages.value),
+      relevanceThreshold: Number(conversationParticipationForm.elements.relevanceThreshold.value),
+      channelModes: Object.fromEntries(
+        Array.from(document.querySelectorAll("[data-conversation-channel-mode]")).map((select) => [
+          select.dataset.conversationChannelMode,
+          select.value,
+        ]),
+      ),
+    },
+  };
+}
+
+async function saveConversationParticipation(event) {
+  event.preventDefault();
+  conversationParticipationStatus.textContent = "Saving preview controls...";
+
+  try {
+    const data = await fetchJson("/api/settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(buildConversationParticipationPayload()),
+    });
+
+    lastSettingsSnapshot = data.settings;
+    applyAutomationMasterState(data.automationMaster);
+    await loadConversationParticipation();
+    conversationParticipationStatus.textContent = "Conversational preview controls saved.";
+    conversationParticipationStatus.style.color = "#218358";
+  } catch (error) {
+    conversationParticipationStatus.textContent = `Save failed: ${error.message}`;
+    conversationParticipationStatus.style.color = "#b42318";
+  }
 }
 
 async function saveSettings(event) {
@@ -10817,7 +11451,7 @@ async function toggleAutomationMaster() {
     applySettingsToForm(data.settings);
     renderAutomationMaster();
     setPrettyJson(settingsOutput, data);
-    await Promise.all([loadChannelOperations(), loadFeeds(), loadDailyTriviaChallenge(), loadChannelIntelligence()]);
+    await Promise.all([loadChannelOperations(), loadFeeds(), loadDailyTriviaChallenge(), loadConversationParticipation(), loadChannelIntelligence()]);
   } catch (error) {
     automationMasterDetail.textContent = `Automation master update failed: ${error.message}`;
   }
@@ -10836,6 +11470,7 @@ async function reloadAll() {
     loadHistoryReview(),
     loadDogState(),
     loadDailyTriviaChallenge(),
+    loadConversationParticipation(),
     loadFeeds(),
     loadRoleAccessPanels(),
     loadRoleFollowups(),
@@ -10845,6 +11480,7 @@ async function reloadAll() {
     loadContentOutcomes(),
     loadOpportunities(),
     loadDailyBriefing(),
+    loadCommunityIntelligenceBrief(),
     loadDiscoverySources(),
     loadDiscoveryItems(),
     loadComposerTemplates(),
@@ -10964,6 +11600,7 @@ resetApiUrlButton.addEventListener("click", async () => {
 });
 
 settingsForm.addEventListener("submit", saveSettings);
+conversationParticipationForm?.addEventListener("submit", saveConversationParticipation);
 composerForm.addEventListener("submit", submitComposer);
 welcomeForm?.addEventListener("submit", submitWelcomeSettings);
 welcomeForm?.addEventListener("input", (event) => {
@@ -11059,6 +11696,7 @@ resetRoleFollowupFormButton.addEventListener("click", () => {
 deleteRoleFollowupFormButton.addEventListener("click", () => void deleteCurrentRoleFollowup());
 refreshAllButton.addEventListener("click", () => void reloadAll());
 missionRefreshDashboardButton.addEventListener("click", () => void reloadAll());
+communityIntelligenceGenerateButton?.addEventListener("click", () => void generateCommunityIntelligenceBrief());
 automationMasterButton.addEventListener("click", () => void toggleAutomationMaster());
 opsRefreshDashboardButton.addEventListener("click", () => void reloadAll());
 opsJumpChannelsButton.addEventListener("click", () => setActiveControlTab("channels"));
@@ -11083,6 +11721,7 @@ refreshRoleAccessPanelsButton.addEventListener("click", loadRoleAccessPanels);
 refreshRoleFollowupsButton.addEventListener("click", loadRoleFollowups);
 refreshEngagementButton?.addEventListener("click", () => void Promise.all([loadEngagementSummary(), loadContentOutcomes()]));
 refreshHistoryReviewButton.addEventListener("click", () => void loadHistoryReview());
+refreshConversationParticipationButton?.addEventListener("click", () => void loadConversationParticipation());
 rerollHistoryReviewButton.addEventListener("click", () => void rerollHistoryReview());
 pushHistoryPreviewButton.addEventListener("click", () => void pushHistoryReviewPreview());
 createFeedButton?.addEventListener("click", createFeedDraft);

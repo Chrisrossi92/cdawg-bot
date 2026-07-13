@@ -78,6 +78,7 @@ import {
   upsertComposerTemplate,
 } from "../systems/composer-templates.js";
 import { getRecentAutomationActivity } from "../systems/automation-activity.js";
+import { getConversationParticipationStatus } from "../systems/conversation-participation.js";
 import {
   deleteDiscoveryItem,
   deleteDiscoverySource,
@@ -104,6 +105,17 @@ import { getEngagementSummary } from "../systems/engagement-activity.js";
 import { getContentOutcomeSummary, type ContentOutcomeSource } from "../systems/content-outcomes.js";
 import { getOpportunities } from "../systems/opportunity-engine.js";
 import { getDailyBriefing } from "../systems/daily-briefing.js";
+import {
+  generateCommunityDailyBrief,
+  getLatestCommunityDailyBrief,
+} from "../systems/community-daily-brief.js";
+import {
+  acknowledgeCommunityRecommendation,
+  dismissCommunityRecommendation,
+  markCommunityRecommendationActed,
+  markCommunityRecommendationSeen,
+  postponeCommunityRecommendation,
+} from "../systems/community-recommendations.js";
 import {
   getWelcomeSettings,
   renderWelcomeMessageTemplate,
@@ -160,6 +172,32 @@ type SettingsPatchBody = {
     conversationNudgeMessageThreshold?: number;
     topicBiasMinimumMatches?: number;
     conversationNudgeContentTypes?: ContentType[];
+  };
+  conversationParticipation?: {
+    enabled?: boolean;
+    previewMode?: boolean;
+    debugLogging?: boolean;
+    eligibleChannelIds?: string[];
+    channelModes?: Record<string, "allowed" | "preview-only" | "off">;
+    directMentionsEnabled?: boolean;
+    inlineRepliesEnabled?: boolean;
+    lullPromptsEnabled?: boolean;
+    lullTriviaEnabled?: boolean;
+    activeConversationWindowMs?: number;
+    minHumanMessages?: number;
+    minDistinctHumans?: number;
+    inlineReplyCooldownMs?: number;
+    lullPromptCooldownMs?: number;
+    lullTriviaCooldownMs?: number;
+    promptLullMs?: number;
+    triviaLullMs?: number;
+    deadChannelCutoffMs?: number;
+    dailyChannelCap?: number;
+    dailyTriviaCap?: number;
+    botRatioHumanMessages?: number;
+    noResponseWindowMs?: number;
+    suppressionRecoveryHumanMessages?: number;
+    relevanceThreshold?: number;
   };
   contentProviders?: {
     debugLogging?: boolean;
@@ -230,6 +268,19 @@ type WelcomeSettingsRequestBody = {
   enabled: boolean;
   welcomeChannelId: string;
   messageTemplate: string;
+};
+
+type CommunityDailyBriefGenerateRequestBody = {
+  periodStart?: number;
+  periodEnd?: number;
+};
+
+type CommunityRecommendationDispositionAction = "seen" | "acknowledge" | "dismiss" | "postpone" | "acted";
+
+type CommunityRecommendationDispositionRequestBody = {
+  action: CommunityRecommendationDispositionAction;
+  reason?: string;
+  postponedUntil?: number;
 };
 
 type FeedRequestBody = {
@@ -379,6 +430,87 @@ function sendUnsupportedRoute(response: ServerResponse) {
   });
 }
 
+function sanitizeCommunityDailyBriefGenerateRequest(value: unknown): CommunityDailyBriefGenerateRequestBody | null {
+  if (value === null || value === undefined) {
+    return {};
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const requestBody: CommunityDailyBriefGenerateRequestBody = {};
+
+  if ("periodStart" in value) {
+    if (typeof value.periodStart !== "number" || !Number.isFinite(value.periodStart) || value.periodStart <= 0) {
+      return null;
+    }
+
+    requestBody.periodStart = Math.floor(value.periodStart);
+  }
+
+  if ("periodEnd" in value) {
+    if (typeof value.periodEnd !== "number" || !Number.isFinite(value.periodEnd) || value.periodEnd <= 0) {
+      return null;
+    }
+
+    requestBody.periodEnd = Math.floor(value.periodEnd);
+  }
+
+  if (requestBody.periodStart && requestBody.periodEnd && requestBody.periodStart >= requestBody.periodEnd) {
+    return null;
+  }
+
+  return requestBody;
+}
+
+function sanitizeCommunityRecommendationDispositionRequest(value: unknown): CommunityRecommendationDispositionRequestBody | null {
+  if (!isRecord(value) || typeof value.action !== "string") {
+    return null;
+  }
+
+  if (
+    value.action !== "seen" &&
+    value.action !== "acknowledge" &&
+    value.action !== "dismiss" &&
+    value.action !== "postpone" &&
+    value.action !== "acted"
+  ) {
+    return null;
+  }
+
+  const requestBody: CommunityRecommendationDispositionRequestBody = {
+    action: value.action,
+  };
+
+  if ("reason" in value && value.reason !== null && value.reason !== undefined) {
+    if (typeof value.reason !== "string") {
+      return null;
+    }
+
+    const reason = value.reason.trim();
+    if (reason) {
+      requestBody.reason = reason.slice(0, 500);
+    }
+  }
+
+  if (requestBody.action === "postpone") {
+    const postponedUntil = typeof value.postponedUntil === "number"
+      ? value.postponedUntil
+      : typeof value.postponedUntil === "string"
+        ? Date.parse(value.postponedUntil)
+        : NaN;
+
+    if (!Number.isFinite(postponedUntil) || postponedUntil <= Date.now()) {
+      return null;
+    }
+
+    requestBody.postponedUntil = Math.floor(postponedUntil);
+  }
+
+  return requestBody;
+}
+
 function sanitizeSettingsPatch(value: unknown): SettingsPatchBody | null {
   if (!isRecord(value)) {
     return null;
@@ -442,6 +574,75 @@ function sanitizeSettingsPatch(value: unknown): SettingsPatchBody | null {
 
     if (Object.keys(passiveChatPatch).length > 0) {
       nextPatch.passiveChat = passiveChatPatch;
+    }
+  }
+
+  if (isRecord(value.conversationParticipation)) {
+    const conversationPatch: NonNullable<SettingsPatchBody["conversationParticipation"]> = {};
+    const booleanFields = [
+      "enabled",
+      "previewMode",
+      "debugLogging",
+      "directMentionsEnabled",
+      "inlineRepliesEnabled",
+      "lullPromptsEnabled",
+      "lullTriviaEnabled",
+    ] as const;
+
+    for (const field of booleanFields) {
+      if (field in value.conversationParticipation && typeof value.conversationParticipation[field] === "boolean") {
+        conversationPatch[field] = value.conversationParticipation[field];
+      }
+    }
+
+    if (
+      "eligibleChannelIds" in value.conversationParticipation &&
+      Array.isArray(value.conversationParticipation.eligibleChannelIds) &&
+      value.conversationParticipation.eligibleChannelIds.every((entry) => typeof entry === "string")
+    ) {
+      conversationPatch.eligibleChannelIds = value.conversationParticipation.eligibleChannelIds;
+    }
+
+    if ("channelModes" in value.conversationParticipation && isRecord(value.conversationParticipation.channelModes)) {
+      const channelModes: Record<string, "allowed" | "preview-only" | "off"> = {};
+
+      for (const [channelId, mode] of Object.entries(value.conversationParticipation.channelModes)) {
+        if (mode === "allowed" || mode === "preview-only" || mode === "off") {
+          channelModes[channelId] = mode;
+        }
+      }
+
+      conversationPatch.channelModes = channelModes;
+    }
+
+    const numericFields = [
+      "activeConversationWindowMs",
+      "minHumanMessages",
+      "minDistinctHumans",
+      "inlineReplyCooldownMs",
+      "lullPromptCooldownMs",
+      "lullTriviaCooldownMs",
+      "promptLullMs",
+      "triviaLullMs",
+      "deadChannelCutoffMs",
+      "dailyChannelCap",
+      "dailyTriviaCap",
+      "botRatioHumanMessages",
+      "noResponseWindowMs",
+      "suppressionRecoveryHumanMessages",
+      "relevanceThreshold",
+    ] as const;
+
+    for (const field of numericFields) {
+      const nextValue = value.conversationParticipation[field];
+
+      if (typeof nextValue === "number" && !Number.isNaN(nextValue)) {
+        conversationPatch[field] = nextValue;
+      }
+    }
+
+    if (Object.keys(conversationPatch).length > 0) {
+      nextPatch.conversationParticipation = conversationPatch;
     }
   }
 
@@ -1733,6 +1934,19 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         return;
       }
 
+      if (requestUrl.pathname === "/api/conversation-participation") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        sendJson(response, 200, {
+          automationMaster: buildAutomationMasterResponse(),
+          conversationParticipation: getConversationParticipationStatus(),
+        });
+        return;
+      }
+
       if (requestUrl.pathname === "/api/engagement-summary") {
         if (method !== "GET") {
           sendMethodNotAllowed(response);
@@ -1843,6 +2057,113 @@ export function startApiServer(dependencies?: ApiServerDependencies) {
         const metadata = await getChannelIntelligenceMetadata();
         const channelIntelligence = getChannelIntelligence(metadata.channels);
         sendJson(response, 200, getDailyBriefing(channelIntelligence));
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/community-intelligence/brief") {
+        if (method !== "GET") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const brief = getLatestCommunityDailyBrief();
+        sendJson(response, 200, {
+          brief,
+          empty: brief === null,
+          message: brief ? null : "No Community Intelligence Brief has been generated yet.",
+        });
+        return;
+      }
+
+      if (requestUrl.pathname === "/api/community-intelligence/generate-brief") {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        let requestBody: unknown = null;
+
+        try {
+          requestBody = await readJsonBody(request);
+        } catch (error) {
+          if ((error as Error).message !== "EMPTY_BODY") {
+            throw error;
+          }
+        }
+
+        const briefRequest = sanitizeCommunityDailyBriefGenerateRequest(requestBody);
+
+        if (!briefRequest) {
+          sendJson(response, 400, {
+            error: "Invalid Community Intelligence Brief generation payload.",
+          });
+          return;
+        }
+
+        const brief = generateCommunityDailyBrief({
+          ...(briefRequest.periodStart ? { periodStart: briefRequest.periodStart } : {}),
+          ...(briefRequest.periodEnd ? { periodEnd: briefRequest.periodEnd } : {}),
+        });
+
+        sendJson(response, 200, {
+          brief,
+        });
+        return;
+      }
+
+      const communityRecommendationDispositionMatch = requestUrl.pathname.match(
+        /^\/api\/community-intelligence\/recommendations\/([^/]+)\/disposition$/,
+      );
+
+      if (communityRecommendationDispositionMatch) {
+        if (method !== "POST") {
+          sendMethodNotAllowed(response);
+          return;
+        }
+
+        const recommendationId = decodeURIComponent(communityRecommendationDispositionMatch[1] ?? "").trim();
+
+        if (!recommendationId) {
+          sendJson(response, 400, {
+            error: "Missing Community Intelligence recommendation id.",
+          });
+          return;
+        }
+
+        const requestBody = await readJsonBody(request);
+        const dispositionRequest = sanitizeCommunityRecommendationDispositionRequest(requestBody);
+
+        if (!dispositionRequest) {
+          sendJson(response, 400, {
+            error: "Invalid Community Intelligence recommendation disposition payload.",
+          });
+          return;
+        }
+
+        const recommendation = dispositionRequest.action === "seen"
+          ? markCommunityRecommendationSeen(recommendationId)
+          : dispositionRequest.action === "acknowledge"
+            ? acknowledgeCommunityRecommendation(recommendationId, dispositionRequest.reason ?? null)
+            : dispositionRequest.action === "dismiss"
+              ? dismissCommunityRecommendation(recommendationId, dispositionRequest.reason ?? null)
+              : dispositionRequest.action === "postpone"
+                ? postponeCommunityRecommendation(
+                  recommendationId,
+                  dispositionRequest.postponedUntil!,
+                  dispositionRequest.reason ?? null,
+                )
+                : markCommunityRecommendationActed(recommendationId, dispositionRequest.reason ?? null);
+
+        if (!recommendation) {
+          sendJson(response, 404, {
+            error: "Community Intelligence recommendation was not found.",
+          });
+          return;
+        }
+
+        sendJson(response, 200, {
+          recommendation,
+        });
         return;
       }
 

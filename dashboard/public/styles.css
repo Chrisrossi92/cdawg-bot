@@ -273,6 +273,11 @@ button.secondary:hover {
   border-color: rgba(45, 212, 255, 0.42);
 }
 
+button.secondary.danger {
+  border-color: rgba(255, 107, 114, 0.34);
+  color: #ffd1d4;
+}
+
 button.ghost {
   background: transparent;
   color: var(--muted);
@@ -1204,44 +1209,48 @@ small {
   order: 1;
 }
 
-.mission-action-panel {
+.community-intelligence-panel {
   order: 2;
 }
 
-.mission-opportunities-panel {
+.mission-action-panel {
   order: 3;
 }
 
-.mission-activity-panel {
+.mission-opportunities-panel {
   order: 4;
 }
 
-.palworld-launch-panel {
+.mission-activity-panel {
   order: 5;
 }
 
-.home-explore-panel {
+.palworld-launch-panel {
   order: 6;
 }
 
-.daily-briefing-panel {
+.home-explore-panel {
   order: 7;
 }
 
-.mission-found-panel {
+.daily-briefing-panel {
   order: 8;
 }
 
-.mission-setup-entry {
+.mission-found-panel {
   order: 9;
 }
 
-.mission-channel-setup {
+.mission-setup-entry {
   order: 10;
 }
 
-.mission-profile-panel {
+.mission-channel-setup {
   order: 11;
+}
+
+.mission-profile-panel {
+  order: 12;
 }
 
 .daily-briefing-panel,
@@ -1258,6 +1267,7 @@ small {
 .mission-briefing-copy,
 .mission-next-activity,
 .mission-action-panel,
+.community-intelligence-panel,
 .mission-found-panel,
 .mission-opportunities-panel,
 .mission-activity-panel,
@@ -1281,6 +1291,115 @@ small {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
+}
+
+.community-intelligence-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.community-intelligence-header,
+.community-intelligence-item-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.community-intelligence-header h3,
+.community-intelligence-header p {
+  margin: 0;
+}
+
+.community-intelligence-header h3 {
+  margin-top: 7px;
+  font-size: 20px;
+  line-height: 1.15;
+}
+
+.community-intelligence-header p {
+  margin-top: 6px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.community-intelligence-actions,
+.community-intelligence-meta,
+.community-intelligence-disposition-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.community-intelligence-actions {
+  min-width: 190px;
+}
+
+.community-intelligence-list {
+  display: grid;
+  gap: 10px;
+}
+
+.community-intelligence-list[hidden] {
+  display: none;
+}
+
+.community-intelligence-item {
+  border: 1px solid rgba(120, 185, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(5, 12, 22, 0.3);
+}
+
+.community-intelligence-item.high,
+.community-intelligence-item.critical {
+  border-color: rgba(255, 107, 114, 0.24);
+}
+
+.community-intelligence-item-summary {
+  cursor: pointer;
+  padding: 12px;
+}
+
+.community-intelligence-item-summary strong,
+.community-intelligence-item-summary span {
+  display: block;
+  min-width: 0;
+}
+
+.community-intelligence-item-summary > span {
+  flex: 1;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.community-intelligence-item-body {
+  display: grid;
+  gap: 12px;
+  padding: 0 12px 12px;
+}
+
+.community-intelligence-evidence {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(120, 185, 255, 0.12);
+  border-radius: 8px;
+  background: rgba(12, 24, 40, 0.64);
+}
+
+.community-intelligence-evidence p,
+.community-intelligence-evidence ul {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.community-intelligence-evidence ul {
+  padding-left: 18px;
 }
 
 .daily-briefing-header h3,
@@ -4183,6 +4302,10 @@ small {
   line-height: 1.35;
 }
 
+.channel-operation-detail.error-text {
+  color: var(--danger);
+}
+
 .channel-operation-detail-strong {
   color: var(--text);
   font-weight: 700;
@@ -4555,6 +4678,18 @@ pre {
   .opportunity-context-banner {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .community-intelligence-header,
+  .community-intelligence-item-summary {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .community-intelligence-actions,
+  .community-intelligence-meta,
+  .community-intelligence-disposition-actions {
+    justify-content: flex-start;
   }
 
   #community-health .ops-card-grid {

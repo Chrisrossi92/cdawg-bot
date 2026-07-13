@@ -124,6 +124,23 @@
               </div>
             </section>
 
+            <section class="community-intelligence-panel" aria-label="Community Intelligence Brief">
+              <div class="community-intelligence-header">
+                <div>
+                  <span id="community-intelligence-status" class="status-badge neutral">not loaded</span>
+                  <h3>Community Intelligence Brief</h3>
+                  <p id="community-intelligence-summary">Loading owner-review recommendations.</p>
+                </div>
+                <div class="community-intelligence-actions">
+                  <button id="community-intelligence-generate" type="button" class="secondary">Generate Brief</button>
+                  <span id="community-intelligence-generated-at" class="mission-trust-meta">not generated</span>
+                </div>
+              </div>
+              <div id="community-intelligence-empty" class="channel-operation-empty">Loading Community Intelligence Brief...</div>
+              <div id="community-intelligence-list" class="community-intelligence-list" hidden></div>
+              <p id="community-intelligence-action-status" class="channel-operation-detail">Owner dispositions update recommendation state only. Nothing posts automatically.</p>
+            </section>
+
             <section class="mission-briefing" aria-label="System Status">
               <div class="mission-briefing-copy">
                 <span id="mission-briefing-status" class="status-badge neutral">loading</span>
@@ -723,6 +740,10 @@
                 <strong>Daily Trivia</strong>
                 <span>Manage the daily trivia challenge.</span>
               </a>
+              <a href="#automation-conversation-participation" class="automation-section-card">
+                <strong>Conversational Participation</strong>
+                <span>Preview when Cdawg would reply, prompt, or offer trivia.</span>
+              </a>
               <a href="#automation-community-game" class="automation-section-card">
                 <strong>Dog Game / Community Game</strong>
                 <span>Manage community game status.</span>
@@ -925,6 +946,114 @@
               <details class="details-block control-debug-details">
                 <summary>Technical Details</summary>
                 <pre id="daily-trivia-output">Loading...</pre>
+              </details>
+            </section>
+
+            <section id="automation-conversation-participation" class="control-block">
+              <div class="subpanel-header">
+                <div>
+                  <h3>Conversational Participation</h3>
+                  <p>Cdawg watches active conversations and decides when a relevant reply, prompt, or trivia question could fit. Preview mode records decisions but does not post.</p>
+                </div>
+                <div class="toolbar">
+                  <span id="conversation-preview-badge" class="status-badge neutral">Preview Only</span>
+                  <button id="refresh-conversation-participation" type="button" class="secondary">Refresh</button>
+                </div>
+              </div>
+
+              <div id="conversation-participation-summary" class="feed-list"></div>
+
+              <form id="conversation-participation-form" class="settings-form command-form">
+                <section class="form-group form-command-panel">
+                  <h3>Preview Controls</h3>
+                  <div class="form-grid form-grid-3">
+                    <label>
+                      Master
+                      <select name="enabled">
+                        <option value="false">Off</option>
+                        <option value="true">On</option>
+                      </select>
+                      <small>Controls evaluation only in Phase 1.</small>
+                    </label>
+                    <label>
+                      Preview Mode
+                      <select name="previewMode">
+                        <option value="true">Preview only</option>
+                      </select>
+                      <small>Live conversational posting is unavailable in this phase.</small>
+                    </label>
+                    <label>
+                      Debug Logging
+                      <select name="debugLogging">
+                        <option value="true">On</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="form-grid form-grid-4">
+                    <label>
+                      Direct Mentions
+                      <select name="directMentionsEnabled">
+                        <option value="true">Preview</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                    <label>
+                      Inline Quips / Facts
+                      <select name="inlineRepliesEnabled">
+                        <option value="true">Preview</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                    <label>
+                      Lull Prompts
+                      <select name="lullPromptsEnabled">
+                        <option value="true">Preview</option>
+                        <option value="false">Off</option>
+                      </select>
+                    </label>
+                    <label>
+                      Lull Trivia
+                      <select name="lullTriviaEnabled">
+                        <option value="false">Off</option>
+                        <option value="true">Preview</option>
+                      </select>
+                    </label>
+                  </div>
+                  <details class="automation-form-advanced">
+                    <summary>Advanced timing, caps, and ratios</summary>
+                    <div class="form-grid form-grid-4">
+                      <label>Active Window (min)<input name="activeConversationWindowMinutes" type="number" min="1" step="1" /></label>
+                      <label>Prompt Lull (min)<input name="promptLullMinutes" type="number" min="1" step="1" /></label>
+                      <label>Trivia Lull (min)<input name="triviaLullMinutes" type="number" min="1" step="1" /></label>
+                      <label>Dead Cutoff (min)<input name="deadChannelCutoffMinutes" type="number" min="1" step="1" /></label>
+                    </div>
+                    <div class="form-grid form-grid-4">
+                      <label>Human Messages<input name="minHumanMessages" type="number" min="1" step="1" /></label>
+                      <label>Distinct Humans<input name="minDistinctHumans" type="number" min="1" step="1" /></label>
+                      <label>Daily Channel Cap<input name="dailyChannelCap" type="number" min="0" step="1" /></label>
+                      <label>Daily Trivia Cap<input name="dailyTriviaCap" type="number" min="0" step="1" /></label>
+                    </div>
+                    <div class="form-grid form-grid-4">
+                      <label>Bot Ratio Human Messages<input name="botRatioHumanMessages" type="number" min="1" step="1" /></label>
+                      <label>No Response Window (min)<input name="noResponseWindowMinutes" type="number" min="1" step="1" /></label>
+                      <label>Suppression Recovery<input name="suppressionRecoveryHumanMessages" type="number" min="1" step="1" /></label>
+                      <label>Relevance Threshold<input name="relevanceThreshold" type="number" min="1" step="1" /></label>
+                    </div>
+                  </details>
+                </section>
+                <div class="settings-actions form-actions-row">
+                  <button type="submit">Save Preview Controls</button>
+                  <span id="conversation-participation-status"></span>
+                </div>
+              </form>
+
+              <div id="conversation-channel-controls" class="feed-list"></div>
+              <div id="conversation-decision-list" class="automation-activity-list"></div>
+
+              <details class="details-block control-debug-details">
+                <summary>Technical Details</summary>
+                <pre id="conversation-participation-output">Loading...</pre>
               </details>
             </section>
 

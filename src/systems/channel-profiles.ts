@@ -252,3 +252,10 @@ export function deleteChannelProfile(channelId: string) {
   saveChannelProfilesToDisk(activeChannelProfileStore);
   return true;
 }
+
+export function setChannelProfilesInMemoryForTests(channelProfiles: ChannelProfile[]) {
+  activeChannelProfileStore = {
+    channelProfiles: [...channelProfiles],
+  };
+  return activeChannelProfileStore.channelProfiles;
+}

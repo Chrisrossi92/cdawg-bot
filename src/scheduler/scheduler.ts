@@ -23,6 +23,10 @@ import {
   type FeedConfig,
 } from "../systems/feed-configs.js";
 import { recordAutomationActivity } from "../systems/automation-activity.js";
+import {
+  evaluateConversationParticipationChannels,
+  shouldSuppressLegacyPassiveChat,
+} from "../systems/conversation-participation.js";
 
 const lastPostedMinuteBySchedule = new Map<string, string>();
 const recentBlockedActivityByKey = new Map<string, number>();
@@ -365,7 +369,15 @@ export function startScheduler(client: Client) {
     }
 
     try {
-      await evaluatePassiveChatChannels(client, now.getTime());
+      evaluateConversationParticipationChannels(now.getTime());
+    } catch (error) {
+      console.error("Error evaluating conversation participation preview:", error);
+    }
+
+    try {
+      if (!shouldSuppressLegacyPassiveChat()) {
+        await evaluatePassiveChatChannels(client, now.getTime());
+      }
     } catch (error) {
       console.error("Error evaluating passive chat automation:", error);
     }
