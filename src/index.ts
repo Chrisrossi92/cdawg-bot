@@ -1,6 +1,6 @@
+import "dotenv/config";
 import { ChannelType, Client, Collection, Events, GatewayIntentBits, PermissionFlagsBits } from "discord.js";
 import type { ChatInputCommandInteraction } from "discord.js";
-import * as dotenv from "dotenv";
 import { apiConfig } from "./config/api.js";
 import { DOG_ENABLED } from "./config/dog.js";
 import {
@@ -57,7 +57,6 @@ import { getHistoryEventById } from "./lib/history-content.js";
 import { recordEngagementActivity } from "./systems/engagement-activity.js";
 import { recordContentOutcome } from "./systems/content-outcomes.js";
 
-dotenv.config();
 
 const token = process.env.DISCORD_TOKEN;
 const guildId = process.env.DISCORD_GUILD_ID;
