@@ -27,11 +27,18 @@ export type WelcomeSettingsPatch = {
 };
 
 export const defaultWelcomeMessageTemplate =
-  `Welcome to **{server}**, {member}! We currently have **{games}** here.\n\n` +
-  `Reply in {replyChannel} with:\n` +
-  `1. how you found the Discord\n` +
-  `2. which game you want to play\n\n` +
-  `Once you do that, we’ll give you the right role and open the correct channels for you.`;
+  `Welcome to **{server}**, {member}! 👋\n\n` +
+  `We currently host:\n\n` +
+  `• **Palworld Fantasy**\n` +
+  `• **Palworld Primal**\n` +
+  `• **Valheim**\n` +
+  `• **Windrose**\n\n` +
+  `If you're here for **Palworld**, start by checking <#1524552702300782724> to compare Fantasy and Primal.\n\n` +
+  `Then reply here in {replyChannel} with:\n\n` +
+  `1. How you found the Discord\n` +
+  `2. Which server you'd like to join\n\n` +
+  `Once you reply, we'll assign the appropriate role and unlock the correct channels for you.\n\n` +
+  `Welcome!`;
 
 export const defaultWelcomeSettings: WelcomeSettings = {
   enabled: welcomeConfig.enabled,

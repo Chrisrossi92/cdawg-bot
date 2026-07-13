@@ -1,10 +1,12 @@
 export const welcomeConfig = {
   enabled: true,
-  welcomeChannelId: "1463685003564027946",
+  welcomeChannelId: "1524555527894335508",
   serverLabel: "Cdawg's Fantasy World",
   availableGames: [
-    "Palworld",
+    "Palworld Fantasy",
+    "Palworld Primal",
     "Valheim",
+    "Windrose",
   ],
-  replyChannelMention: "<#1463685003564027946>",
+  replyChannelMention: "<#1524555527894335508>",
 } as const;
