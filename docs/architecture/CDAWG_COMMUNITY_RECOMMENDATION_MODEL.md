@@ -1,6 +1,6 @@
 # Cdawg Community Recommendation Model
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 ## Purpose
 
@@ -60,10 +60,11 @@ Source evidence: `automation_issue`
 Created for:
 
 - failed automation
-- repeated blocked automation
+- repeated unexpected blocked automation
+- repeated temporary content unavailability at proportionate severity
 - persistent automation problems
 
-One-time routine blocked events are suppressed to avoid noise.
+Intentional pauses, disabled workflows, allowed-window waits, cooldowns, expected skips, recovery, and one-time routine blocks are suppressed.
 
 ### `review_post_window_outcome`
 
@@ -94,9 +95,10 @@ Source evidence: `channel_activity_window`
 Created only for owner-relevant deterministic thresholds:
 
 - notable 24-hour message/user activity
-- attachment-heavy activity
+- at least 5 human-authored attachment/embed events from at least 3 distinct human participants in an explicitly eligible community channel
 
 It does not claim community health, quality, or momentum.
+Bot output, logs, alerts, automation, feeds, internal/admin, system-status, and announcement-only channels are not eligible for attachment-review recommendations.
 
 ### `review_channel_context`
 
@@ -167,21 +169,23 @@ Confidence is bounded from `0.0` to `1.0`.
 
 Priority reflects owner urgency:
 
-- `critical`: repeated operational failure or immediate operational concern.
-- `high`: meaningful issue needing timely review.
-- `medium`: useful opportunity worth reviewing.
+- `critical`: repeated severe authentication, permission, crash, or fatal operational failure.
+- `high`: repeated actual failure or sustained unexpected blocking needing timely review.
+- `medium`: useful opportunity, repeated content unavailability, or non-critical issue worth reviewing.
 - `low`: optional or informational review.
 
 Routine inactivity is not critical.
+
+Automation evidence uses deterministic issue classes: `failure`, `unexpected_block`, `intentional_block`, `expected_skip`, `temporary_unavailable`, `recovered`, and `unknown`. Raw technical reasons remain available after a plain-language explanation.
 
 ## Expiration
 
 Recommendations use explicit expiration windows:
 
-- automation issues: 7 days
+- automation failures: up to 7 days; temporary content availability: 3 days
 - post-window outcomes: 14 days
 - conversation opportunities: 1 day
-- channel activity reviews: 2 days
+- channel activity reviews: 1 day
 - channel context reviews: 30 days
 
 `expireCommunityRecommendations` marks active recommendations expired when their expiration time passes.
@@ -190,7 +194,7 @@ Recommendations use explicit expiration windows:
 
 `supersedeCommunityRecommendation` records that a recommendation was replaced by newer evidence, corrected context, or a better recommendation.
 
-Phase 1B provides the lifecycle operation. It does not yet automatically infer superseding relationships across recommendation families.
+Generation automatically supersedes older active `new` or `seen` records with the same recommendation type, subject, channel, and issue category. It also supersedes recommendations whose supporting evidence was superseded, expired, or recovered. History remains stored; disposed and actively postponed lifecycle states remain intact.
 
 ## Deduplication
 
@@ -203,6 +207,8 @@ Recommendation IDs are deterministic fingerprints of:
 - source evidence change indicators
 
 Repeated generation from identical evidence does not duplicate records.
+
+Successive activity windows and issue counts may create a new deterministic record, but older equivalent active recommendations are reconciled to `superseded` so the owner queue contains only the current version.
 
 ## Dismissal And Regeneration Rules
 

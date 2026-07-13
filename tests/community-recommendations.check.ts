@@ -172,7 +172,7 @@ result = generateCommunityRecommendations({
 assert.deepEqual(result.records.map((record) => record.id), firstIds, "repeated generation should dedupe stable IDs");
 
 const automationRecommendation = listCommunityRecommendations({ type: "investigate_automation_issue", status: "all" }, { storageFilePath })[0]!;
-assert.equal(automationRecommendation.priority, "high");
+assert.equal(automationRecommendation.priority, "medium");
 assert.equal(automationRecommendation.suggestedAction, "investigate");
 
 const seen = markCommunityRecommendationSeen(automationRecommendation.id, { storageFilePath, now: now + 1_000 });
@@ -362,6 +362,6 @@ const criticalFailure = generateCommunityRecommendations({
   ],
   storageFilePath: path.join(tempDir, "critical-failure.json"),
 });
-assert.equal(criticalFailure.records[0]?.priority, "critical", "repeated failures should be urgent");
+assert.equal(criticalFailure.records[0]?.priority, "high", "repeated ordinary failures should be high, not automatically critical");
 
 assert.equal(fs.existsSync(path.join(process.cwd(), "data/community-recommendations.json")), false, "tests should not create production recommendation data");

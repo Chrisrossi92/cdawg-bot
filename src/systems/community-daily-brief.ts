@@ -330,9 +330,9 @@ function sortRecommendationsForBrief(records: readonly CommunityRecommendationRe
   return [...records].sort(
     (left, right) =>
       priorityRank[left.priority] - priorityRank[right.priority] ||
+      contextRank[left.serverContext ?? "unknown"] - contextRank[right.serverContext ?? "unknown"] ||
       statusRank(left.status) - statusRank(right.status) ||
       right.confidence - left.confidence ||
-      contextRank[left.serverContext ?? "unknown"] - contextRank[right.serverContext ?? "unknown"] ||
       Date.parse(right.updatedAt) - Date.parse(left.updatedAt) ||
       left.id.localeCompare(right.id),
   );
@@ -421,7 +421,7 @@ function createPulseItem(evidence: CommunityEvidenceRecord): CommunityDailyBrief
     const windowKey = evidence.facts.windowKey;
     const humanMessages = evidence.facts.humanMessageCount;
     const participants = evidence.facts.approxActiveUsers;
-    const attachments = evidence.facts.attachmentOrEmbedCount;
+    const humanAttachments = evidence.facts.humanAttachmentOrEmbedCount;
 
     if (windowKey !== "last24h" || typeof humanMessages !== "number" || humanMessages < 10) {
       return null;
@@ -433,8 +433,8 @@ function createPulseItem(evidence: CommunityEvidenceRecord): CommunityDailyBrief
       evidenceIds: [evidence.id],
       title: "Recent channel activity",
       summary: evidence.summary,
-      reason: `${participants ?? "Some"} approximate participant${participants === 1 ? "" : "s"} and ${humanMessages} human message${humanMessages === 1 ? "" : "s"} were recorded. This is an activity signal only.`,
-      priority: attachments && typeof attachments === "number" && attachments >= 3 ? "medium" : "low",
+      reason: `${participants ?? "Some"} approximate participant${participants === 1 ? "" : "s"} and ${humanMessages} human message${humanMessages === 1 ? "" : "s"} were recorded in the latest 24-hour window. This shows activity volume, not sentiment or content quality.`,
+      priority: humanAttachments && typeof humanAttachments === "number" && humanAttachments >= 5 ? "medium" : "low",
       confidence: evidence.confidence,
       ...(evidence.serverContext ? { serverContext: evidence.serverContext } : {}),
       ...(evidence.channelId ? { channelId: evidence.channelId } : {}),
@@ -480,6 +480,36 @@ function dedupeItemsBySubject(items: readonly CommunityDailyBriefItem[]) {
   }
 
   return deduped;
+}
+
+function pulseGroupingKey(evidence: CommunityEvidenceRecord) {
+  if (evidence.type === "channel_activity_window") {
+    return [
+      evidence.serverContext ?? "unknown",
+      evidence.channelId ?? evidence.subjectId ?? "community",
+      evidence.facts.windowKey ?? "unknown",
+      evidence.facts.activityClassification ?? "unknown",
+    ].join(":");
+  }
+
+  return `${evidence.type}:${evidence.subjectId ?? evidence.id}`;
+}
+
+function consolidatePulseEvidence(records: readonly CommunityEvidenceRecord[]) {
+  const grouped = new Map<string, CommunityEvidenceRecord>();
+  for (const record of records) {
+    if (record.type !== "channel_activity_window" && record.type !== "post_window_outcome") continue;
+    const key = pulseGroupingKey(record);
+    const existing = grouped.get(key);
+    const completeness = Number(record.facts.humanMessageCount ?? record.facts.humanMessages60m ?? 0) + Number(record.facts.approxActiveUsers ?? 0);
+    const existingCompleteness = Number(existing?.facts.humanMessageCount ?? existing?.facts.humanMessages60m ?? 0) + Number(existing?.facts.approxActiveUsers ?? 0);
+    if (!existing || Date.parse(record.createdAt) > Date.parse(existing.createdAt) || (
+      Date.parse(record.createdAt) === Date.parse(existing.createdAt) && completeness > existingCompleteness
+    )) {
+      grouped.set(key, record);
+    }
+  }
+  return [...grouped.values()];
 }
 
 function getStatus(needsAttention: readonly CommunityDailyBriefItem[], otherItemsCount: number): CommunityDailyBriefStatus {
@@ -608,6 +638,7 @@ export function generateCommunityDailyBrief(options: CommunityDailyBriefGenerati
 
   const worthReviewing = dedupeItemsBySubject(validRecommendations
     .filter((recommendation) =>
+      (recommendation.type === "investigate_automation_issue" && recommendation.priority === "medium") ||
       recommendation.type === "review_post_window_outcome" ||
       recommendation.type === "review_channel_activity" ||
       recommendation.type === "review_channel_context")
@@ -625,7 +656,7 @@ export function generateCommunityDailyBrief(options: CommunityDailyBriefGenerati
     ...conversationWatch,
   ].map((item) => item.recommendationId).filter(Boolean));
 
-  const communityPulse = dedupeItemsBySubject(sortEvidenceForPulse(activeEvidence)
+  const communityPulse = dedupeItemsBySubject(sortEvidenceForPulse(consolidatePulseEvidence(activeEvidence))
     .map((evidence) => createPulseItem(evidence))
     .filter((item): item is CommunityDailyBriefItem => Boolean(item))
     .filter((item) => !item.evidenceIds.some((evidenceId) => validRecommendations.some((recommendation) => recommendationItemIds.has(recommendation.id) && recommendation.evidenceIds.includes(evidenceId)))))
@@ -633,11 +664,15 @@ export function generateCommunityDailyBrief(options: CommunityDailyBriefGenerati
 
   const nextStepSource = sortRecommendationsForBrief(validRecommendations)
     .find((recommendation) =>
-      recommendation.priority === "critical" ||
-      recommendation.priority === "high" ||
-      recommendation.type === "review_conversation_opportunity" ||
-      recommendation.type === "review_post_window_outcome" ||
-      recommendation.type === "review_channel_context");
+      recommendation.suggestedAction !== "no_action" && (
+        recommendation.priority === "critical" ||
+        recommendation.priority === "high" ||
+        (recommendation.priority === "medium" && (
+          recommendation.type === "investigate_automation_issue" ||
+          recommendation.type === "review_conversation_opportunity" ||
+          recommendation.type === "review_post_window_outcome"
+        ))
+      ));
   const recommendedNextStep = nextStepSource ? [createItemFromRecommendation("recommended_next_step", nextStepSource)] : [];
   const status = getStatus(needsAttention, communityPulse.length + worthReviewing.length + conversationWatch.length);
   const headline = getHeadline(status, {

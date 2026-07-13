@@ -7701,6 +7701,15 @@ function getCommunityIntelligenceSectionLabel(section) {
   }[section] ?? "Recommendation";
 }
 
+function getCommunityIntelligenceContextLabel(context) {
+  return {
+    fantasy: "Fantasy",
+    primal: "Primal",
+    general: "General",
+    unknown: "Unknown",
+  }[context] ?? "Unknown";
+}
+
 function setCommunityIntelligenceActionStatus(message, tone = "neutral") {
   if (!communityIntelligenceActionStatus) {
     return;
@@ -7758,12 +7767,12 @@ function createCommunityIntelligenceItem(item) {
   reason.textContent = item.reason ?? "This recommendation was derived from the shared evidence backbone.";
   const context = document.createElement("p");
   context.textContent = [
-    item.serverContext ? `Server context: ${item.serverContext}` : null,
+    item.serverContext ? `Server context: ${getCommunityIntelligenceContextLabel(item.serverContext)}` : null,
     item.channelId ? `Channel: ${getChannelLabel(item.channelId)}` : null,
     item.suggestedAction ? `Suggested action: ${item.suggestedAction.replaceAll("_", " ")}` : null,
   ].filter(Boolean).join(" • ") || "No additional routing context is attached.";
   const evidenceTitle = document.createElement("strong");
-  evidenceTitle.textContent = "Evidence";
+  evidenceTitle.textContent = "Evidence references";
 
   const evidenceIds = Array.isArray(item.evidenceIds) ? item.evidenceIds : [];
   if (evidenceIds.length === 0) {

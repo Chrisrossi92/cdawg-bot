@@ -7,6 +7,11 @@ import { getContentOutcomeSummary, type ContentOutcomeSummary } from "./content-
 import { getRecentAutomationActivity, type AutomationActivityItem } from "./automation-activity.js";
 import { listChannelProfiles, type ChannelProfile } from "./channel-profiles.js";
 import { getRecentConversationDecisions, type ConversationDecisionRecord } from "./conversation-participation.js";
+import {
+  isCommunityReviewEligible,
+  resolveCommunityChannelKind,
+  resolveCommunityServerContext,
+} from "./community-server-context.js";
 
 export type CommunityEvidenceType =
   | "channel_activity_window"
@@ -32,6 +37,14 @@ export type CommunityEvidenceSubjectType =
 
 export type CommunityEvidenceServerContext = "fantasy" | "primal" | "general" | "unknown";
 export type CommunityEvidenceStatus = "active" | "expired" | "superseded";
+export type AutomationIssueClass =
+  | "failure"
+  | "unexpected_block"
+  | "intentional_block"
+  | "expected_skip"
+  | "temporary_unavailable"
+  | "recovered"
+  | "unknown";
 export type CommunityEvidenceFactValue = string | number | boolean | null;
 
 export type CommunityEvidenceRecord = {
@@ -378,30 +391,19 @@ function createEvidenceRecord(input: {
   };
 }
 
-function getServerContextForChannel(channelId: string | null | undefined, profile?: Pick<ChannelProfile, "purpose" | "topicOverride" | "notes" | "channelName"> | null): CommunityEvidenceServerContext {
-  if (!channelId && !profile) {
-    return "unknown";
-  }
-
-  const explicitText = [
-    profile?.channelName,
-    profile?.topicOverride,
-    profile?.notes,
-  ].filter(Boolean).join(" ").toLowerCase();
-
-  if (/\bfantasy\b/.test(explicitText)) {
-    return "fantasy";
-  }
-
-  if (/\bprimal\b/.test(explicitText)) {
-    return "primal";
-  }
-
-  if (profile || channelId) {
-    return "general";
-  }
-
-  return "unknown";
+function getChannelResolution(
+  channelId: string | null | undefined,
+  channelName: string | null | undefined,
+  profiles: readonly ChannelProfile[],
+) {
+  const profile = channelId ? profiles.find((item) => item.channelId === channelId) ?? null : null;
+  const context = resolveCommunityServerContext({ channelId, channelName: channelName ?? profile?.channelName, profile });
+  const channelKind = resolveCommunityChannelKind({ channelId, channelName: channelName ?? profile?.channelName, profile });
+  return {
+    ...context,
+    channelKind,
+    communityReviewEligible: isCommunityReviewEligible(channelKind),
+  };
 }
 
 function getActivityClassification(humanMessages: number, approxActiveUsers: number) {
@@ -416,7 +418,7 @@ function getActivityClassification(humanMessages: number, approxActiveUsers: num
   return "no_recent_human_messages";
 }
 
-export function buildEngagementActivityEvidence(summary: EngagementSummary, now = Date.now()) {
+export function buildEngagementActivityEvidence(summary: EngagementSummary, now = Date.now(), profiles: readonly ChannelProfile[] = []) {
   const createdAt = toIso(now);
   const records: CommunityEvidenceRecord[] = [];
 
@@ -426,6 +428,7 @@ export function buildEngagementActivityEvidence(summary: EngagementSummary, now 
     const windowStartsAt = toIso(summary.generatedAt - windowDurationMs);
 
     for (const channel of channels) {
+      const resolution = getChannelResolution(channel.channelId, channel.channelName, profiles);
       const humanMessageCount = Math.max(0, channel.messageCount - channel.botMessageCount);
       const activityClassification = getActivityClassification(humanMessageCount, channel.approxActiveUsers);
       const sourceRecordId = `engagement:${windowKey}:${channel.channelId}:${summary.generatedAt}`;
@@ -439,7 +442,7 @@ export function buildEngagementActivityEvidence(summary: EngagementSummary, now 
         subjectType: "channel",
         subjectId: channel.channelId,
         channelId: channel.channelId,
-        serverContext: getServerContextForChannel(channel.channelId),
+        serverContext: resolution.context,
         summary: `${participantText} sent ${messageText} in ${channel.channelName ? `#${channel.channelName}` : "this channel"} during the ${windowKey} activity window.`,
         facts: {
           windowKey,
@@ -451,6 +454,12 @@ export function buildEngagementActivityEvidence(summary: EngagementSummary, now 
           botMessageCount: channel.botMessageCount,
           approxActiveUsers: channel.approxActiveUsers,
           attachmentOrEmbedCount: channel.attachmentOrEmbedCount,
+          humanAttachmentOrEmbedCount: channel.humanAttachmentOrEmbedCount ?? 0,
+          humanAttachmentParticipantCount: channel.humanAttachmentParticipantCount ?? 0,
+          serverContextSource: resolution.source,
+          serverContextConfidence: resolution.confidence,
+          channelKind: resolution.channelKind,
+          communityReviewEligible: resolution.communityReviewEligible,
           lastActivityAt: channel.lastActivityAt ? toIso(channel.lastActivityAt) : null,
           activityClassification,
         },
@@ -467,10 +476,11 @@ export function buildEngagementActivityEvidence(summary: EngagementSummary, now 
   return records;
 }
 
-export function buildContentOutcomeEvidence(outcomes: readonly ContentOutcomeSummary[], now = Date.now()) {
+export function buildContentOutcomeEvidence(outcomes: readonly ContentOutcomeSummary[], now = Date.now(), profiles: readonly ChannelProfile[] = []) {
   const createdAt = toIso(now);
 
   return outcomes.map((outcome) => {
+    const resolution = getChannelResolution(outcome.channelId, outcome.channelName, profiles);
     const sourceRecordId = outcome.messageId
       ? `content-outcome:${outcome.messageId}`
       : `content-outcome:${outcome.source}:${outcome.channelId}:${outcome.postedAt}`;
@@ -484,7 +494,7 @@ export function buildContentOutcomeEvidence(outcomes: readonly ContentOutcomeSum
       subjectType: "content",
       subjectId: outcome.messageId ?? `${outcome.source}:${outcome.channelId}:${outcome.postedAt}`,
       channelId: outcome.channelId,
-      serverContext: getServerContextForChannel(outcome.channelId),
+      serverContext: resolution.context,
       summary: `${channelLabel} recorded ${humanMessages60m} human message${humanMessages60m === 1 ? "" : "s"} within 60 minutes after this ${outcome.source} post.`,
       facts: {
         source: outcome.source,
@@ -499,6 +509,9 @@ export function buildContentOutcomeEvidence(outcomes: readonly ContentOutcomeSum
         humanMessages60m,
         deterministicOutcomeLabel: outcome.activity.outcomeLabel,
         measurementType: "post_window_channel_activity",
+        serverContextSource: resolution.source,
+        serverContextConfidence: resolution.confidence,
+        channelKind: resolution.channelKind,
       },
       confidence: 0.74,
       derivedBy: "community-evidence:content-outcomes-adapter",
@@ -510,65 +523,106 @@ export function buildContentOutcomeEvidence(outcomes: readonly ContentOutcomeSum
   });
 }
 
-export function buildAutomationIssueEvidence(items: readonly AutomationActivityItem[], now = Date.now()) {
-  const createdAt = toIso(now);
-  const problemItems = items.filter((item) => item.status === "failure" || item.status === "blocked");
-  const grouped = new Map<string, AutomationActivityItem[]>();
+function classifyAutomationIssue(status: string, reason: string): AutomationIssueClass {
+  const normalized = reason.trim().toLowerCase().replace(/_/g, "-");
+  if (status === "success") return "recovered";
+  if (normalized === "content-unavailable") return "temporary_unavailable";
+  if (["disabled", "silenced", "channel-silenced", "manual-pause", "paused"].includes(normalized)) return "intentional_block";
+  if (["allowed-window", "cooldown", "skip-next", "no-content", "expected-no-content"].includes(normalized)) return "expected_skip";
+  if (status === "failure") return "failure";
+  if (status === "blocked") return "unexpected_block";
+  return "unknown";
+}
 
-  for (const item of problemItems) {
-    const key = [
-      item.source,
-      item.channelId ?? "community",
-      item.status,
-      item.errorCode ?? item.blockedReason ?? "unspecified",
-      item.contentType ?? "any",
-    ].join(":");
-    grouped.set(key, [...(grouped.get(key) ?? []), item]);
+function describeAutomationIssue(issueClass: AutomationIssueClass, source: string, count: number, channelLabel: string) {
+  const eventText = `${count} recent event${count === 1 ? "" : "s"}`;
+  if (issueClass === "recovered") return `${source} automation recovered after an earlier issue in ${channelLabel}.`;
+  if (issueClass === "temporary_unavailable") return `${source} automation could not find eligible content in ${eventText} for ${channelLabel}; the automation remained available.`;
+  if (issueClass === "intentional_block") return `${source} automation was intentionally blocked in ${eventText} for ${channelLabel}.`;
+  if (issueClass === "expected_skip") return `${source} automation skipped ${eventText} as expected for ${channelLabel}.`;
+  if (issueClass === "failure") return `${source} automation recorded ${eventText} that failed for ${channelLabel}.`;
+  if (issueClass === "unexpected_block") return `${source} automation was unexpectedly blocked in ${eventText} for ${channelLabel}.`;
+  return `${source} automation recorded ${eventText} that could not be classified for ${channelLabel}.`;
+}
+
+export function buildAutomationIssueEvidence(items: readonly AutomationActivityItem[], now = Date.now(), profiles: readonly ChannelProfile[] = []) {
+  const createdAt = toIso(now);
+  const streams = new Map<string, AutomationActivityItem[]>();
+
+  for (const item of items) {
+    const automationKey = [item.source, item.channelId ?? "community", item.contentType ?? "any"].join(":");
+    streams.set(automationKey, [...(streams.get(automationKey) ?? []), item]);
   }
 
-  return [...grouped.entries()].map(([key, group]) => {
-    const sorted = [...group].sort((left, right) => left.timestamp - right.timestamp);
-    const first = sorted[0]!;
-    const last = sorted.at(-1)!;
-    const reason = last.errorCode ?? last.blockedReason ?? "unspecified";
-    const channelLabel = last.channelName ? `#${last.channelName}` : last.channelId ? "this channel" : "the community";
+  const records: CommunityEvidenceRecord[] = [];
+  for (const [automationKey, stream] of streams) {
+    const sortedStream = [...stream].sort((left, right) => left.timestamp - right.timestamp);
+    const problems = sortedStream.filter((item) => item.status === "failure" || item.status === "blocked");
+    if (problems.length === 0) continue;
 
-    return createEvidenceRecord({
-      type: "automation_issue",
-      sourceSystem: "automation_activity",
-      sourceRecordIds: sorted.map((item) => item.id),
-      subjectType: "automation",
-      subjectId: key,
-      ...(last.channelId ? { channelId: last.channelId } : {}),
-      serverContext: getServerContextForChannel(last.channelId),
-      summary: `${last.source} automation recorded ${sorted.length} ${last.status} event${sorted.length === 1 ? "" : "s"} for ${channelLabel}; latest reason: ${reason}.`,
-      facts: {
-        automationSource: last.source,
-        status: last.status,
-        contentType: last.contentType ?? null,
-        reason,
-        errorCode: last.errorCode ?? null,
-        blockedReason: last.blockedReason ?? null,
-        occurrenceCount: sorted.length,
-        firstSeenAt: toIso(first.timestamp),
-        lastSeenAt: toIso(last.timestamp),
-        latestMessage: last.message,
-      },
-      confidence: sorted.length > 1 ? 0.9 : 0.84,
-      derivedBy: "community-evidence:automation-activity-adapter",
-      observedAt: toIso(last.timestamp),
-      createdAt,
-      expiresAt: toIso(last.timestamp + 7 * DAY_MS),
-      idParts: ["automation_activity", key],
-    });
-  });
+    const latestProblem = problems.at(-1)!;
+    const recovery = sortedStream.find((item) => item.status === "success" && item.timestamp > latestProblem.timestamp);
+    const groups = recovery
+      ? [["recovered", [latestProblem, recovery]] as const]
+      : [...new Map(problems.map((item) => {
+          const reason = item.errorCode ?? item.blockedReason ?? "unspecified";
+          const key = `${item.status}:${reason}`;
+          return [key, problems.filter((candidate) => `${candidate.status}:${candidate.errorCode ?? candidate.blockedReason ?? "unspecified"}` === key)];
+        })).entries()];
+
+    for (const [groupKey, group] of groups) {
+      const first = group[0]!;
+      const last = group.at(-1)!;
+      const reason = recovery ? "successful execution" : last.errorCode ?? last.blockedReason ?? "unspecified";
+      const issueClass = recovery ? "recovered" : classifyAutomationIssue(last.status, reason);
+      const resolution = getChannelResolution(last.channelId, last.channelName, profiles);
+      const channelLabel = last.channelName ? `#${last.channelName}` : last.channelId ? "this channel" : "the community";
+
+      records.push(createEvidenceRecord({
+        type: "automation_issue",
+        sourceSystem: "automation_activity",
+        sourceRecordIds: group.map((item) => item.id),
+        subjectType: "automation",
+        subjectId: `${automationKey}:${groupKey}`,
+        ...(last.channelId ? { channelId: last.channelId } : {}),
+        serverContext: resolution.context,
+        summary: describeAutomationIssue(issueClass, last.source, recovery ? problems.length : group.length, channelLabel),
+        facts: {
+          automationKey,
+          automationSource: last.source,
+          status: recovery ? "success" : last.status,
+          issueClass,
+          contentType: last.contentType ?? null,
+          reason,
+          errorCode: recovery ? null : last.errorCode ?? null,
+          blockedReason: recovery ? null : last.blockedReason ?? null,
+          occurrenceCount: recovery ? problems.length : group.length,
+          firstSeenAt: toIso(first.timestamp),
+          lastSeenAt: toIso(last.timestamp),
+          recoveredAt: recovery ? toIso(recovery.timestamp) : null,
+          serverContextSource: resolution.source,
+          serverContextConfidence: resolution.confidence,
+          channelKind: resolution.channelKind,
+        },
+        confidence: group.length > 1 ? 0.9 : 0.84,
+        derivedBy: "community-evidence:automation-activity-adapter",
+        observedAt: toIso(last.timestamp),
+        createdAt,
+        expiresAt: toIso(last.timestamp + 7 * DAY_MS),
+        idParts: ["automation_activity", automationKey, groupKey, issueClass],
+      }));
+    }
+  }
+
+  return records;
 }
 
 export function buildChannelContextEvidence(profiles: readonly ChannelProfile[], now = Date.now()) {
   const createdAt = toIso(now);
 
   return profiles.map((profile) => {
-    const serverContext = getServerContextForChannel(profile.channelId, profile);
+    const resolution = getChannelResolution(profile.channelId, profile.channelName, profiles);
+    const serverContext = resolution.context;
     const sourceRecordId = `channel-profile:${profile.channelId}:${profile.updatedAt}`;
     const channelLabel = profile.channelName ? `#${profile.channelName}` : `channel ${profile.channelId}`;
 
@@ -594,6 +648,10 @@ export function buildChannelContextEvidence(profiles: readonly ChannelProfile[],
         followupId: profile.followupId,
         hasNotes: Boolean(profile.notes),
         serverContext,
+        serverContextSource: resolution.source,
+        serverContextConfidence: resolution.confidence,
+        channelKind: resolution.channelKind,
+        communityReviewEligible: resolution.communityReviewEligible,
         ownerAuthored: true,
       },
       confidence: 0.96,
@@ -605,10 +663,11 @@ export function buildChannelContextEvidence(profiles: readonly ChannelProfile[],
   });
 }
 
-export function buildConversationDecisionEvidence(decisions: readonly ConversationDecisionRecord[], now = Date.now()) {
+export function buildConversationDecisionEvidence(decisions: readonly ConversationDecisionRecord[], now = Date.now(), profiles: readonly ChannelProfile[] = []) {
   const createdAt = toIso(now);
 
   return decisions.map((decision) => {
+    const resolution = getChannelResolution(decision.channelId, decision.channelName, profiles);
     const wouldHaveSpoken = decision.decision === "would-send";
     const channelLabel = decision.channelName ? `#${decision.channelName}` : "this channel";
 
@@ -619,7 +678,7 @@ export function buildConversationDecisionEvidence(decisions: readonly Conversati
       subjectType: "conversation",
       subjectId: decision.id,
       channelId: decision.channelId,
-      serverContext: getServerContextForChannel(decision.channelId),
+      serverContext: resolution.context,
       summary: `Conversation preview ${wouldHaveSpoken ? "would have suggested speaking" : "stayed silent"} in ${channelLabel}: ${decision.reason}.`,
       facts: {
         mode: decision.mode,
@@ -637,6 +696,9 @@ export function buildConversationDecisionEvidence(decisions: readonly Conversati
         proposedContentType: decision.proposedContentType,
         previewOnly: decision.previewOnly,
         wouldHaveSpoken,
+        serverContextSource: resolution.source,
+        serverContextConfidence: resolution.confidence,
+        channelKind: resolution.channelKind,
       },
       confidence: decision.previewOnly ? 0.78 : 0.7,
       derivedBy: "community-evidence:conversation-participation-adapter",
@@ -660,12 +722,31 @@ function getDefaultSources(now: number): Required<CommunityEvidenceSources> {
 
 function buildEvidenceFromSources(sources: Required<CommunityEvidenceSources>, now: number) {
   return [
-    ...buildEngagementActivityEvidence(sources.engagementSummary, now),
-    ...buildContentOutcomeEvidence(sources.contentOutcomes, now),
-    ...buildAutomationIssueEvidence(sources.automationActivity, now),
+    ...buildEngagementActivityEvidence(sources.engagementSummary, now, sources.channelProfiles),
+    ...buildContentOutcomeEvidence(sources.contentOutcomes, now, sources.channelProfiles),
+    ...buildAutomationIssueEvidence(sources.automationActivity, now, sources.channelProfiles),
     ...buildChannelContextEvidence(sources.channelProfiles, now),
-    ...buildConversationDecisionEvidence(sources.conversationDecisions, now),
+    ...buildConversationDecisionEvidence(sources.conversationDecisions, now, sources.channelProfiles),
   ];
+}
+
+function evidenceSupersedingKey(record: CommunityEvidenceRecord) {
+  if (record.type === "channel_activity_window") {
+    return [record.type, record.channelId ?? record.subjectId, record.facts.windowKey, record.facts.activityClassification].join(":");
+  }
+
+  if (record.type === "automation_issue") {
+    const automationKey = typeof record.facts.automationKey === "string"
+      ? record.facts.automationKey
+      : [record.facts.automationSource, record.channelId ?? "community", record.facts.contentType ?? "any"].join(":");
+    return `${record.type}:${automationKey}`;
+  }
+
+  if (record.type === "channel_context") {
+    return `${record.type}:${record.channelId ?? record.subjectId}`;
+  }
+
+  return null;
 }
 
 function mergeEvidenceRecords(existingRecords: readonly CommunityEvidenceRecord[], generatedRecords: readonly CommunityEvidenceRecord[], retentionLimit: number) {
@@ -676,6 +757,15 @@ function mergeEvidenceRecords(existingRecords: readonly CommunityEvidenceRecord[
   }
 
   for (const record of generatedRecords) {
+    const supersedingKey = evidenceSupersedingKey(record);
+    if (supersedingKey) {
+      for (const [id, existingRecord] of recordsById) {
+        if (id !== record.id && existingRecord.status === "active" && evidenceSupersedingKey(existingRecord) === supersedingKey) {
+          recordsById.set(id, { ...existingRecord, status: "superseded" });
+        }
+      }
+    }
+
     const existing = recordsById.get(record.id);
     recordsById.set(record.id, {
       ...record,

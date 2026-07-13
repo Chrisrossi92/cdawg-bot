@@ -1,6 +1,6 @@
 # Cdawg Community Daily Brief
 
-Date: 2026-07-12
+Date: 2026-07-13
 
 ## Purpose
 
@@ -94,6 +94,8 @@ Sources:
 Limits:
 
 - maximum 3 items
+- one newest/most-complete item per server context, channel, normalized window, and activity classification
+- normal output should usually contain 0-2 items; 3 is reserved for distinct useful signals
 
 Claims avoided:
 
@@ -124,6 +126,7 @@ Potentially useful but non-urgent items.
 
 Sources:
 
+- medium automation availability issues
 - `review_post_window_outcome`
 - `review_channel_activity`
 - `review_channel_context`
@@ -154,9 +157,9 @@ Selection prefers:
 
 1. critical unresolved recommendation
 2. high-priority automation issue
-3. timely conversation review
-4. post-window review
-5. channel context issue
+3. actionable medium automation availability review
+4. timely conversation review
+5. post-window review
 6. no action
 
 Limits:
@@ -168,9 +171,9 @@ Limits:
 Recommendation ranking is deterministic:
 
 1. priority
-2. lifecycle status, with `new` above equivalent `seen`
-3. confidence
-4. server context rank
+2. trusted server context, with Fantasy and Primal ahead of generic signals
+3. lifecycle status, with `new` above equivalent `seen`
+4. confidence
 5. update time
 6. stable ID
 
@@ -211,6 +214,23 @@ The brief preserves server context from evidence and recommendations:
 - Unknown
 
 It does not infer context from weak keyword matching.
+
+Phase 1E resolves context in this order:
+
+1. explicit `community-context:<value>` channel-profile metadata
+2. configured production channel IDs
+3. configured role relationships
+4. documented exact stable channel names
+5. explicitly general channels
+6. `unknown`
+
+Unmapped channels are no longer silently treated as General. The production mappings live in `src/config/community-intelligence.ts`; operational, alert, bot-output, automation, and announcement-only channels are explicitly classified so they cannot inherit Fantasy or Primal from loose text.
+
+## Phase 1E Selection And Consolidation
+
+Rolling activity evidence is consolidated before pulse selection by server context, channel, normalized window, and activity classification. Newer or more complete evidence wins. Recommendation-backed items are still checked for active evidence and lifecycle eligibility.
+
+The brief does not force section population. A calm or sparse brief with no recommended next step is valid. Recommended Next Step excludes low-priority generic activity, expected skips, and intentional blocks.
 
 ## Provenance
 
@@ -301,6 +321,4 @@ It can only summarize and prioritize evidence-backed recommendations.
 
 ## Recommended Next Phase
 
-Phase 1D should add minimal owner disposition controls and usefulness validation using real production data.
-
-That slice should make it possible to mark brief items seen, acknowledged, dismissed, postponed, or acted from an owner-facing surface while measuring whether the new brief is more useful than the legacy daily briefing.
+After Phase 1E production validation, the next phase should be chosen from message-linked post outcomes, further refinement, or continued validation based on real brief quality. No next-phase capability is implemented here.

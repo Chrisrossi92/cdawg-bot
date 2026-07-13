@@ -4,6 +4,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   listCommunityEvidence,
+  type AutomationIssueClass,
   type CommunityEvidenceRecord,
   type CommunityEvidenceServerContext,
   type CommunityEvidenceSubjectType,
@@ -347,6 +348,11 @@ function evidenceString(evidence: CommunityEvidenceRecord, key: string, fallback
   return typeof value === "string" ? value : fallback;
 }
 
+function evidenceBoolean(evidence: CommunityEvidenceRecord, key: string, fallback = false) {
+  const value = evidence.facts[key];
+  return typeof value === "boolean" ? value : fallback;
+}
+
 function createRecommendationFromDraft(draft: RecommendationDraft, now: number): CommunityRecommendationRecord {
   const createdAt = toIso(now);
 
@@ -386,17 +392,40 @@ function buildAutomationIssueRecommendation(evidence: CommunityEvidenceRecord, n
   const status = evidenceString(evidence, "status");
   const occurrenceCount = evidenceNumber(evidence, "occurrenceCount", 1);
   const reason = evidenceString(evidence, "reason", "unspecified");
+  const issueClass = (evidenceString(evidence, "issueClass") || (
+    reason === "CONTENT_UNAVAILABLE"
+      ? "temporary_unavailable"
+      : status === "failure"
+        ? "failure"
+        : status === "blocked"
+          ? "unexpected_block"
+          : "unknown"
+  )) as AutomationIssueClass;
 
-  if (status === "blocked" && occurrenceCount < 2) {
+  if (issueClass === "intentional_block" || issueClass === "expected_skip" || issueClass === "recovered") {
     return null;
   }
 
-  const priority: CommunityRecommendationPriority =
-    status === "failure" && occurrenceCount >= 3
+  if ((issueClass === "temporary_unavailable" || issueClass === "unexpected_block" || issueClass === "unknown") && occurrenceCount < 2) {
+    return null;
+  }
+
+  const severeFailure = /auth|permission|crash|fatal/i.test(reason);
+  const priority: CommunityRecommendationPriority = issueClass === "failure"
+    ? severeFailure && occurrenceCount >= 3
       ? "critical"
-      : status === "failure" || occurrenceCount >= 2
+      : occurrenceCount >= 2
         ? "high"
-        : "medium";
+        : "medium"
+    : issueClass === "unexpected_block" && occurrenceCount >= 4
+      ? "high"
+      : "medium";
+  const automationKey = evidenceString(evidence, "automationKey", evidence.subjectId ?? evidence.channelId ?? evidence.id);
+  const explanation = issueClass === "temporary_unavailable"
+    ? `Eligible content was unavailable in ${occurrenceCount} recent run${occurrenceCount === 1 ? "" : "s"}. The automation remained online, but its content source may need review.`
+    : issueClass === "unexpected_block"
+      ? `${occurrenceCount} unexpected blocks affected this automation. Review the workflow configuration if the block is still active.`
+      : `${occurrenceCount} automation failure${occurrenceCount === 1 ? " was" : "s were"} recorded. This indicates an execution problem, not an intentional pause.`;
 
   return {
     type: "investigate_automation_issue",
@@ -404,17 +433,17 @@ function buildAutomationIssueRecommendation(evidence: CommunityEvidenceRecord, n
     ...(evidence.guildId ? { guildId: evidence.guildId } : {}),
     ...(evidence.channelId ? { channelId: evidence.channelId } : {}),
     subjectType: "automation",
-    subjectId: evidence.subjectId ?? evidence.channelId ?? evidence.id,
+    subjectId: automationKey,
     ...(evidence.serverContext ? { serverContext: evidence.serverContext } : {}),
-    title: "Investigate automation issue",
+    title: issueClass === "temporary_unavailable" ? "Review automation content availability" : "Investigate automation failure",
     summary: evidence.summary,
-    reason: `${occurrenceCount} ${status} automation event${occurrenceCount === 1 ? "" : "s"} were observed. Latest reason: ${reason}.`,
-    suggestedAction: "investigate",
+    reason: `${explanation} Technical reason: ${reason}.`,
+    suggestedAction: issueClass === "temporary_unavailable" ? "review" : "investigate",
     priority,
     confidence: Math.min(0.96, evidence.confidence + (occurrenceCount >= 2 ? 0.04 : 0)),
-    expiresAt: toIso(now + 7 * DAY_MS),
+    expiresAt: toIso(now + (issueClass === "temporary_unavailable" ? 3 : 7) * DAY_MS),
     derivedBy: "community-recommendations:automation-issue-adapter",
-    dedupeParts: ["automation_issue", evidence.subjectId, evidence.channelId, status, reason, occurrenceCount],
+    dedupeParts: ["automation_issue", automationKey, issueClass, reason, occurrenceCount, evidence.id],
   };
 }
 
@@ -499,12 +528,17 @@ function buildChannelActivityRecommendation(evidence: CommunityEvidenceRecord, n
   const humanMessageCount = evidenceNumber(evidence, "humanMessageCount");
   const approxActiveUsers = evidenceNumber(evidence, "approxActiveUsers");
   const attachmentOrEmbedCount = evidenceNumber(evidence, "attachmentOrEmbedCount");
+  const humanAttachmentOrEmbedCount = evidenceNumber(evidence, "humanAttachmentOrEmbedCount");
+  const humanAttachmentParticipantCount = evidenceNumber(evidence, "humanAttachmentParticipantCount");
+  const reviewEligible = evidenceBoolean(evidence, "communityReviewEligible");
+  const qualifiesForAttachmentReview = reviewEligible && humanAttachmentOrEmbedCount >= 5 && humanAttachmentParticipantCount >= 3;
+  const qualifiesForActivityReview = humanMessageCount >= 30 || approxActiveUsers >= 6;
 
-  if (windowKey !== "last24h" || (humanMessageCount < 30 && approxActiveUsers < 6 && attachmentOrEmbedCount < 3)) {
+  if (windowKey !== "last24h" || (!qualifiesForActivityReview && !qualifiesForAttachmentReview)) {
     return null;
   }
 
-  const attachmentHeavy = attachmentOrEmbedCount >= 3;
+  const attachmentHeavy = qualifiesForAttachmentReview;
 
   return {
     type: "review_channel_activity",
@@ -517,14 +551,14 @@ function buildChannelActivityRecommendation(evidence: CommunityEvidenceRecord, n
     title: attachmentHeavy ? "Review attachment-heavy channel activity" : "Review notable channel activity",
     summary: evidence.summary,
     reason: attachmentHeavy
-      ? `${attachmentOrEmbedCount} attachment or embed events were recorded in this activity window. Review manually if those items may be worth surfacing.`
+      ? `${humanAttachmentOrEmbedCount} human-authored attachment or embed events from ${humanAttachmentParticipantCount} participants were recorded in this eligible community channel. The evidence cannot determine content quality.`
       : `${humanMessageCount} human messages and approximately ${approxActiveUsers} participants were recorded in this activity window. This is an activity signal only, not a quality or health conclusion.`,
     suggestedAction: "review",
     priority: "low",
     confidence: evidence.confidence,
-    expiresAt: toIso(now + 2 * DAY_MS),
+    expiresAt: toIso(now + DAY_MS),
     derivedBy: "community-recommendations:channel-activity-adapter",
-    dedupeParts: ["channel_activity_window", evidence.subjectId, evidence.channelId, windowKey, humanMessageCount, approxActiveUsers, attachmentOrEmbedCount],
+    dedupeParts: ["channel_activity_window", evidence.subjectId, evidence.channelId, windowKey, humanMessageCount, approxActiveUsers, attachmentOrEmbedCount, humanAttachmentOrEmbedCount, humanAttachmentParticipantCount],
   };
 }
 
@@ -613,14 +647,50 @@ function evidenceFingerprint(evidenceIds: readonly string[]) {
   return [...evidenceIds].sort().join("|");
 }
 
-function mergeRecommendations(existingRecords: readonly CommunityRecommendationRecord[], generatedRecords: readonly CommunityRecommendationRecord[], now: number, retentionLimit: number) {
+function recommendationSupersedingKey(record: CommunityRecommendationRecord) {
+  if (record.type === "review_post_window_outcome" || record.type === "review_conversation_opportunity") {
+    return `${record.type}:${record.subjectId ?? record.id}`;
+  }
+
+  return [record.type, record.subjectId ?? record.channelId ?? "community", record.channelId ?? "none"].join(":");
+}
+
+function mergeRecommendations(
+  existingRecords: readonly CommunityRecommendationRecord[],
+  generatedRecords: readonly CommunityRecommendationRecord[],
+  activeEvidenceIds: ReadonlySet<string>,
+  now: number,
+  retentionLimit: number,
+) {
   const recordsById = new Map<string, CommunityRecommendationRecord>();
+  const nowIso = toIso(now);
 
   for (const record of existingRecords) {
-    recordsById.set(record.id, record);
+    const lostActiveEvidence = (record.status === "new" || record.status === "seen") &&
+      record.evidenceIds.length > 0 &&
+      !record.evidenceIds.some((id) => activeEvidenceIds.has(id));
+    recordsById.set(record.id, lostActiveEvidence
+      ? { ...record, status: "superseded", updatedAt: nowIso, dispositionReason: "Supporting evidence was superseded, expired, or recovered." }
+      : record);
   }
 
   for (const generated of generatedRecords) {
+    const supersedingKey = recommendationSupersedingKey(generated);
+    for (const [id, existingRecord] of recordsById) {
+      if (
+        id !== generated.id &&
+        (existingRecord.status === "new" || existingRecord.status === "seen") &&
+        recommendationSupersedingKey(existingRecord) === supersedingKey
+      ) {
+        recordsById.set(id, {
+          ...existingRecord,
+          status: "superseded",
+          updatedAt: nowIso,
+          dispositionReason: "Replaced by newer equivalent evidence.",
+        });
+      }
+    }
+
     const existing = recordsById.get(generated.id);
 
     if (shouldPreserveExistingRecommendation(existing, generated, now)) {
@@ -665,7 +735,8 @@ export function generateCommunityRecommendations(options: RecommendationGenerati
     .filter((draft) => draft.evidenceIds.length > 0 && draft.evidenceIds.every((id) => evidenceIds.has(id)))
     .map((draft) => createRecommendationFromDraft(draft, now));
   const store = loadRecommendationStore(options.storageFilePath);
-  const records = mergeRecommendations(store.recommendations, generated, now, retentionLimit);
+  const activeEvidenceIds = new Set(evidenceRecords.filter((evidence) => evidenceIsActive(evidence, now)).map((evidence) => evidence.id));
+  const records = mergeRecommendations(store.recommendations, generated, activeEvidenceIds, now, retentionLimit);
 
   if (options.persist !== false) {
     saveRecommendationStore({ recommendations: records }, options.storageFilePath);

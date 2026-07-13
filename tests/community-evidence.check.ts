@@ -171,8 +171,9 @@ assert.equal(outcomeEvidence.summary.includes("caused"), false, "outcome summary
 
 const automationEvidence = listCommunityEvidence({ type: "automation_issue" }, { storageFilePath })[0];
 assert.ok(automationEvidence);
-assert.deepEqual(automationEvidence.sourceRecordIds, ["auto-1", "auto-2"]);
+assert.deepEqual(automationEvidence.sourceRecordIds, ["auto-2", "auto-success"]);
 assert.equal(automationEvidence.facts.occurrenceCount, 2);
+assert.equal(automationEvidence.facts.issueClass, "recovered");
 
 const channelContextEvidence = listCommunityEvidence({ type: "channel_context" }, { storageFilePath })[0];
 assert.ok(channelContextEvidence);

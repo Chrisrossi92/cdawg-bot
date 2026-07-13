@@ -37,6 +37,8 @@ export type ChannelEngagementWindowSummary = {
   approxActiveUsers: number;
   botMessageCount: number;
   attachmentOrEmbedCount: number;
+  humanAttachmentOrEmbedCount?: number;
+  humanAttachmentParticipantCount?: number;
   lastActivityAt: number | null;
 };
 
@@ -216,15 +218,18 @@ export function recordEngagementActivity(input: EngagementActivityInput) {
   return record;
 }
 
-function summarizeWindow(since: number): ChannelEngagementWindowSummary[] {
+export function summarizeEngagementRecords(records: readonly EngagementActivityRecord[], since: number): ChannelEngagementWindowSummary[] {
   const summariesByChannelId = new Map<
     string,
     ChannelEngagementWindowSummary & {
       authorHashes: Set<string>;
+      humanAttachmentAuthorHashes: Set<string>;
+      humanAttachmentOrEmbedCount: number;
+      humanAttachmentParticipantCount: number;
     }
   >();
 
-  for (const record of engagementActivityRecords) {
+  for (const record of records) {
     if (record.timestamp < since) {
       continue;
     }
@@ -236,8 +241,11 @@ function summarizeWindow(since: number): ChannelEngagementWindowSummary[] {
       approxActiveUsers: 0,
       botMessageCount: 0,
       attachmentOrEmbedCount: 0,
+      humanAttachmentOrEmbedCount: 0,
+      humanAttachmentParticipantCount: 0,
       lastActivityAt: null,
       authorHashes: new Set<string>(),
+      humanAttachmentAuthorHashes: new Set<string>(),
     };
 
     summary.channelName = summary.channelName ?? record.channelName;
@@ -245,16 +253,25 @@ function summarizeWindow(since: number): ChannelEngagementWindowSummary[] {
     summary.authorHashes.add(record.authorHash);
     summary.botMessageCount += record.isBot ? 1 : 0;
     summary.attachmentOrEmbedCount += record.hasAttachments || record.hasEmbeds ? 1 : 0;
+    if (!record.isBot && (record.hasAttachments || record.hasEmbeds)) {
+      summary.humanAttachmentOrEmbedCount += 1;
+      summary.humanAttachmentAuthorHashes.add(record.authorHash);
+    }
     summary.lastActivityAt = Math.max(summary.lastActivityAt ?? 0, record.timestamp);
     summariesByChannelId.set(record.channelId, summary);
   }
 
   return [...summariesByChannelId.values()]
-    .map(({ authorHashes, ...summary }) => ({
+    .map(({ authorHashes, humanAttachmentAuthorHashes, ...summary }) => ({
       ...summary,
       approxActiveUsers: authorHashes.size,
+      humanAttachmentParticipantCount: humanAttachmentAuthorHashes.size,
     }))
     .sort((left, right) => right.messageCount - left.messageCount || left.channelId.localeCompare(right.channelId));
+}
+
+function summarizeWindow(since: number) {
+  return summarizeEngagementRecords(engagementActivityRecords, since);
 }
 
 export function summarizeChannelEngagementActivityWindow(
@@ -267,6 +284,8 @@ export function summarizeChannelEngagementActivityWindow(
   let messageCount = 0;
   let botMessageCount = 0;
   let attachmentOrEmbedCount = 0;
+  let humanAttachmentOrEmbedCount = 0;
+  const humanAttachmentAuthorHashes = new Set<string>();
   let lastActivityAt: number | null = null;
 
   for (const record of engagementActivityRecords) {
@@ -278,6 +297,10 @@ export function summarizeChannelEngagementActivityWindow(
     messageCount += 1;
     botMessageCount += record.isBot ? 1 : 0;
     attachmentOrEmbedCount += record.hasAttachments || record.hasEmbeds ? 1 : 0;
+    if (!record.isBot && (record.hasAttachments || record.hasEmbeds)) {
+      humanAttachmentOrEmbedCount += 1;
+      humanAttachmentAuthorHashes.add(record.authorHash);
+    }
     authorHashes.add(record.authorHash);
     lastActivityAt = Math.max(lastActivityAt ?? 0, record.timestamp);
   }
@@ -290,6 +313,8 @@ export function summarizeChannelEngagementActivityWindow(
     botMessageCount,
     humanMessageCount: Math.max(0, messageCount - botMessageCount),
     attachmentOrEmbedCount,
+    humanAttachmentOrEmbedCount,
+    humanAttachmentParticipantCount: humanAttachmentAuthorHashes.size,
     lastActivityAt,
   };
 }
